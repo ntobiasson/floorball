@@ -21,7 +21,7 @@ server.
 
 ## Stack
 
-TypeScript throughout. React + Vite for the SPA, a single Node 22 Lambda
+TypeScript throughout. React + Vite for the SPA, a single Node 24 Lambda
 running Hono for the API, DynamoDB for storage, and one CloudFront
 distribution in front of both so there is no CORS anywhere. All infrastructure
 is AWS CDK.
@@ -37,7 +37,7 @@ is AWS CDK.
 
 ## Local development
 
-Requires Node 22 (`.nvmrc`) and Docker.
+Requires Node 24 (`.nvmrc`) and Docker.
 
 ```sh
 npm ci

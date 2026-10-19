@@ -63,7 +63,7 @@ Things that would make this a failure even if it technically worked:
 
 ## Decisions made by the user
 
-- Stack: React + Vite SPA on S3 + CloudFront, Node 22 Lambda, DynamoDB, AWS CDK.
+- Stack: React + Vite SPA on S3 + CloudFront, Node 24 Lambda, DynamoDB, AWS CDK.
 - Removal model: anyone can remove any name.
 - Scope: announcements carry over; Käyttöaste does not.
 - Visual direction: layout A ("Tänään-kortti") with imagery option 1 (pure SVG graphics).

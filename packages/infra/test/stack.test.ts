@@ -66,9 +66,9 @@ describe('the table', () => {
 });
 
 describe('the API Lambda', () => {
-  test('runs Node 22 on arm64', () => {
+  test('runs Node 24 on arm64', () => {
     synth().hasResourceProperties('AWS::Lambda::Function', {
-      Runtime: 'nodejs22.x',
+      Runtime: 'nodejs24.x',
       Architectures: ['arm64'],
     });
   });
