@@ -1,0 +1,16 @@
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:2.5.3
+    container_name: sahlykanta-dynamodb
+    command: ['-jar', 'DynamoDBLocal.jar', '-inMemory', '-sharedDb']
+    ports:
+      - '8000:8000'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'exec 3<>/dev/tcp/127.0.0.1/8000 && echo -e "GET / HTTP/1.0\n\n" >&3 && head -1 <&3 | grep -q .',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
