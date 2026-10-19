@@ -20,7 +20,8 @@ driving this rebuild — an unmaintained host — cannot recur.
   Saturday** only, and only for the **current day**. Any other day shows a clear
   "not a game day" state.
 - Open to everyone, no accounts. Anyone may register anyone, choosing from previously
-  seen players or typing a new name. Anyone may remove any name.
+  seen players or typing a new name. Anyone may remove any name, confirming once first:
+  the chips sit close together on a phone and a removal has nothing to undo it.
 - All historical registrations preserved, presented as a **Peliaktiivisuus** list of
   players with total game counts, searchable by name and expandable to a per-year
   breakdown.

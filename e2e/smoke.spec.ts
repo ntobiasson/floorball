@@ -29,10 +29,31 @@ test('a name can be added and then removed again', async ({ page }) => {
   await expect(page.getByText('Testi Pelaaja')).toBeVisible();
   await expect(count).toHaveText('1');
 
+  // Removal takes two taps: the first only asks.
   await page.getByRole('button', { name: 'Poista Testi Pelaaja' }).click();
+  await expect(count).toHaveText('1');
+  await page.getByRole('button', { name: /Vahvista.*Testi Pelaaja/ }).click();
 
   await expect(count).toHaveText('0');
   await expect(page.getByText('Testi Pelaaja')).toBeHidden();
+});
+
+test('cancelling the removal prompt keeps the name on the list', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Nimi').fill('Varovainen Pelaaja');
+  await page.getByRole('button', { name: 'Ilmoittaudu' }).click();
+  await expect(page.locator('.today__count-number')).toHaveText('1');
+
+  await page.getByRole('button', { name: 'Poista Varovainen Pelaaja' }).click();
+  await page.getByRole('button', { name: /Peruuta.*Varovainen Pelaaja/ }).click();
+
+  await expect(page.locator('.today__count-number')).toHaveText('1');
+  await expect(page.getByText('Varovainen Pelaaja')).toBeVisible();
+
+  // Clean up for the specs that follow.
+  await page.getByRole('button', { name: 'Poista Varovainen Pelaaja' }).click();
+  await page.getByRole('button', { name: /Vahvista.*Varovainen Pelaaja/ }).click();
+  await expect(page.locator('.today__count-number')).toHaveText('0');
 });
 
 test('the same name cannot be added twice on one day', async ({ page }) => {
@@ -49,6 +70,7 @@ test('the same name cannot be added twice on one day', async ({ page }) => {
   await expect(page.locator('.today__count-number')).toHaveText('1');
 
   await page.getByRole('button', { name: 'Poista Kaksoisilmoittautuja' }).click();
+  await page.getByRole('button', { name: /Vahvista.*Kaksoisilmoittautuja/ }).click();
   await expect(page.locator('.today__count-number')).toHaveText('0');
 });
 

@@ -27,6 +27,7 @@ const MONDAY: TodayResponse = {
   isGameDay: true,
   registrations: [
     { playerId: 'p-mikko', displayName: 'Mikko Laine', createdAt: '2026-10-19T06:00:00Z' },
+    { playerId: 'p-jukka', displayName: 'Jukka Rantanen', createdAt: '2026-10-19T06:05:00Z' },
   ],
   announcements: [{ id: 'a1', body: 'Kenttä varattu 21.10. klo 18–19.' }],
 };
@@ -64,7 +65,8 @@ describe('a game day', () => {
     expect(await screen.findByRole('heading', { name: 'maanantai' })).toBeInTheDocument();
     expect(screen.getByText('19.10.2026')).toBeInTheDocument();
     expect(screen.getByText('Mikko Laine')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('Jukka Rantanen')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   test('offers the registration form', async () => {
@@ -121,15 +123,6 @@ describe('a game day', () => {
     await waitFor(() =>
       expect(api.register).toHaveBeenCalledWith('Riikka Mäkelä', '2026-10-19'),
     );
-  });
-
-  test('removing a chip calls unregister for that player', async () => {
-    const api = fakeApi(MONDAY);
-    render(<App api={api} />);
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Poista Mikko Laine' }));
-
-    await waitFor(() => expect(api.unregister).toHaveBeenCalledWith('p-mikko'));
   });
 
   test('shows the API message when registering is refused', async () => {
@@ -288,5 +281,94 @@ describe('when the API is unreachable', () => {
     render(<App api={api} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('verkko ei vastaa');
+  });
+});
+
+describe('removing a name asks first', () => {
+  const openConfirm = async (name: string) => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await userEvent.click(await screen.findByRole('button', { name: `Poista ${name}` }));
+    return api;
+  };
+
+  test('the first tap removes nothing', async () => {
+    // The whole point: a mis-tap on a phone must not delete a teammate.
+    const api = await openConfirm('Mikko Laine');
+
+    expect(api.unregister).not.toHaveBeenCalled();
+    expect(screen.getByText('Mikko Laine')).toBeInTheDocument();
+  });
+
+  test('the first tap asks for confirmation', async () => {
+    await openConfirm('Mikko Laine');
+
+    expect(
+      screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Peruuta.*Mikko Laine/ })).toBeInTheDocument();
+  });
+
+  test('confirming removes that player', async () => {
+    const api = await openConfirm('Mikko Laine');
+
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }));
+
+    await waitFor(() => expect(api.unregister).toHaveBeenCalledWith('p-mikko'));
+  });
+
+  test('cancelling removes nothing and puts the chip back', async () => {
+    const api = await openConfirm('Mikko Laine');
+
+    await userEvent.click(screen.getByRole('button', { name: /Peruuta.*Mikko Laine/ }));
+
+    expect(api.unregister).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Poista Mikko Laine' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Vahvista/ })).not.toBeInTheDocument();
+  });
+
+  test('the prompt names the player, so it cannot be confirmed for the wrong one', async () => {
+    await openConfirm('Jukka Rantanen');
+
+    expect(screen.getByRole('button', { name: /Vahvista.*Jukka Rantanen/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Vahvista.*Mikko Laine/ })).not.toBeInTheDocument();
+  });
+
+  test('confirming removes the player asked about, not the first on the list', async () => {
+    const api = await openConfirm('Jukka Rantanen');
+
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Jukka Rantanen/ }));
+
+    await waitFor(() => expect(api.unregister).toHaveBeenCalledWith('p-jukka'));
+    expect(api.unregister).not.toHaveBeenCalledWith('p-mikko');
+  });
+
+  test('asking about a second player drops the first prompt', async () => {
+    await openConfirm('Mikko Laine');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Poista Jukka Rantanen' }));
+
+    expect(screen.getByRole('button', { name: /Vahvista.*Jukka Rantanen/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Vahvista.*Mikko Laine/ })).not.toBeInTheDocument();
+  });
+
+  test('a failed removal reports the reason and leaves the name in place', async () => {
+    const api = fakeApi(MONDAY, {
+      unregister: vi.fn().mockRejectedValue(new Error('nimeä ei löytynyt')),
+    });
+    render(<App api={api} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Poista Mikko Laine' }));
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('nimeä ei löytynyt');
+    expect(screen.getByText('Mikko Laine')).toBeInTheDocument();
+  });
+
+  test('the confirm and cancel controls are real buttons', async () => {
+    await openConfirm('Mikko Laine');
+
+    expect(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }).tagName).toBe('BUTTON');
+    expect(screen.getByRole('button', { name: /Peruuta.*Mikko Laine/ }).tagName).toBe('BUTTON');
   });
 });

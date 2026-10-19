@@ -23,6 +23,12 @@ export function Today({
 }): React.ReactElement {
   const [error, setError] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState<string | undefined>(undefined);
+  /**
+   * Which name is being asked about. Removal is two taps: anyone can remove
+   * anyone here, the chips sit close together on a phone, and a mis-tap would
+   * quietly drop a teammate off the list with nothing to undo it.
+   */
+  const [confirming, setConfirming] = useState<string | undefined>(undefined);
 
   if (!today.isGameDay) {
     return (
@@ -79,6 +85,7 @@ export function Today({
     setRemoving(playerId);
     try {
       await onUnregister(playerId);
+      setConfirming(undefined);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : `${displayName} poistaminen ei onnistunut.`,
@@ -108,20 +115,45 @@ export function Today({
           <p className="field__hint">Kukaan ei ole vielä ilmoittautunut.</p>
         ) : (
           <ul className="chips" aria-label="Ilmoittautuneet">
-            {today.registrations.map((registration) => (
-              <li className="chip" key={registration.playerId}>
-                {registration.displayName}
-                <button
-                  className="chip__remove"
-                  type="button"
-                  aria-label={`Poista ${registration.displayName}`}
-                  disabled={removing === registration.playerId}
-                  onClick={() => void remove(registration.playerId, registration.displayName)}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
+            {today.registrations.map((registration) =>
+              confirming === registration.playerId ? (
+                <li className="chip chip--confirming" key={registration.playerId}>
+                  {registration.displayName}
+                  <button
+                    className="chip__confirm"
+                    type="button"
+                    aria-label={`Vahvista: poista ${registration.displayName}`}
+                    disabled={removing === registration.playerId}
+                    onClick={() => void remove(registration.playerId, registration.displayName)}
+                  >
+                    {removing === registration.playerId ? 'Poistetaan…' : 'Poista'}
+                  </button>
+                  <button
+                    className="chip__cancel"
+                    type="button"
+                    aria-label={`Peruuta: ${registration.displayName} jää listalle`}
+                    onClick={() => setConfirming(undefined)}
+                  >
+                    Peru
+                  </button>
+                </li>
+              ) : (
+                <li className="chip" key={registration.playerId}>
+                  {registration.displayName}
+                  <button
+                    className="chip__remove"
+                    type="button"
+                    aria-label={`Poista ${registration.displayName}`}
+                    onClick={() => {
+                      setError(undefined);
+                      setConfirming(registration.playerId);
+                    }}
+                  >
+                    ×
+                  </button>
+                </li>
+              ),
+            )}
           </ul>
         )}
       </section>
