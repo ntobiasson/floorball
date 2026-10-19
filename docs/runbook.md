@@ -17,8 +17,43 @@ gh secret set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::...:role/...'
 gh variable set SAHLYKANTA_BUDGET_EMAIL --body 'you@example.fi'
 ```
 
-Create the deploy role (OIDC trust to this repository) before the first run.
-There is no hosted zone and no certificate to create: see below.
+### The deploy role
+
+Run these once, locally, with credentials that can create IAM roles:
+
+```sh
+npx cdk bootstrap aws://<account>/eu-north-1   # once per account and region
+./scripts/create-deploy-role.sh                 # prints the ARN to set
+```
+
+The order matters: the role works by assuming the roles `cdk bootstrap`
+creates, so bootstrapping has to come first.
+
+**The role holds almost no permissions of its own**, which is the point. The
+CDK does its work through five roles that bootstrap already created
+(`cdk-hnb659fds-{deploy,file-publishing,image-publishing,lookup,cfn-exec}-role-<account>-<region>`),
+and the deploy role's main grant is `sts:AssumeRole` on those. It never holds
+CloudFormation or IAM powers itself. Beyond that it can write to the site
+bucket and invalidate the distribution, because the workflow does those two
+things directly rather than through the CDK, and read the bootstrap version
+parameter.
+
+**Nothing long-lived is created.** GitHub mints a short OIDC token per run and
+AWS trades it for temporary credentials, so there is no access key to leak or
+rotate. Trust is scoped to `repo:<owner>/<repo>:environment:production` — one
+repository *and* one environment. A workflow on a branch, a pull request from
+a fork, or any other repository in your account cannot assume it.
+
+That scoping needs the environment to exist:
+
+```sh
+gh api -X PUT repos/ntobiasson/floorball/environments/production
+```
+
+If you would rather scope to a branch instead, change the `sub` condition to
+`repo:<owner>/<repo>:ref:refs/heads/main` and drop `environment: production`
+from the deploy job. The environment form is tighter, because an environment
+can also carry required reviewers.
 
 Optionally set `SAHLYKANTA_REGION` to move the stack off its `eu-north-1`
 default. Do that before the first deploy, not after — the table is in the

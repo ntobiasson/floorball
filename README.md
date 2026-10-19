@@ -133,4 +133,12 @@ pay a registrar. The stack defaults to `eu-north-1` (override with
 At this traffic every service stays inside the free tier, and a budget alarm
 covers the rest.
 
-Before the first deploy, create the OIDC deploy role — see the runbook.
+Before the first deploy, bootstrap the account and create the OIDC deploy role:
+
+```sh
+npx cdk bootstrap aws://<account>/eu-north-1
+./scripts/create-deploy-role.sh
+```
+
+No AWS access key is ever created; GitHub's OIDC token is traded for temporary
+credentials per run. See the runbook for what the role may and may not do.
