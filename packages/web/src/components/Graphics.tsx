@@ -1,21 +1,27 @@
 /**
- * Every image in this application lives in this file, as inline SVG: a
- * stick-and-ball mark, a rink outline and a closed-door glyph. Imagery
- * option 1 from the layout review — no photographs, no illustration files,
- * nothing licensed, nothing to download, and it stays sharp at any size.
+ * Every image in this application lives in this file, as inline SVG: the
+ * ball mark, a rink outline and a closed-door glyph. Imagery option 1 from
+ * the layout review — no photographs, no illustration files, nothing
+ * licensed, nothing to download, and it stays sharp at any size.
  */
 
-export function StickMark(): React.ReactElement {
+/**
+ * The masthead mark: a floorball ball, drawn by its holes.
+ *
+ * It is 16px on a 28px badge, and at that size a mark has to survive being
+ * tiny. An earlier attempt drew the curve of a stick blade and simply read as
+ * the letter U next to the wordmark. A stick is worse the smaller it gets —
+ * it becomes a slash — and a plain ringed circle reads as a symbol rather
+ * than a sport. The holes are what make this one unmistakable: nothing else
+ * in an interface looks like a ball with holes in it.
+ */
+export function BallMark(): React.ReactElement {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        d="M3 2.5v6.2a5 5 0 0 0 10 0V2.5"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <circle cx="8" cy="13" r="1.6" fill="#ffffff" />
+      <circle cx="8" cy="8" r="6.1" fill="none" stroke="#ffffff" strokeWidth="1.5" />
+      <circle cx="8" cy="5.2" r="1.05" fill="#ffffff" />
+      <circle cx="5.3" cy="9.3" r="1.05" fill="#ffffff" />
+      <circle cx="10.7" cy="9.3" r="1.05" fill="#ffffff" />
     </svg>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PlayerSummary, TodayResponse } from '@sahlykanta/shared';
 import { api as defaultApi, type Api } from './lib/api.js';
-import { StickMark } from './components/Graphics.js';
+import { BallMark } from './components/Graphics.js';
 import { Tabs, type Route } from './components/Tabs.js';
 import { Today } from './pages/Today.js';
 import { Activity } from './pages/Activity.js';
@@ -45,7 +45,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
     <div className="app">
       <header className="masthead">
         <span className="masthead__mark">
-          <StickMark />
+          <BallMark />
         </span>
         <span className="masthead__name">SÄHLYKANTA</span>
       </header>
