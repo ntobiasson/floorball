@@ -13,3 +13,7 @@ playwright-report/
 cdk.out/
 .cdk.staging/
 e2e/.playwright
+
+# Local overrides (never committed)
+packages/web/.env.local
+.env.local

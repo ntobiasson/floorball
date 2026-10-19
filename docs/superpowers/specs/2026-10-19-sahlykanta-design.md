@@ -82,7 +82,8 @@ Things that would make this a failure even if it technically worked:
 ## Decisions taken after the design was written
 
 - Announcements are managed from an unlisted page rather than behind a shared
-  PIN. The address is the only access control, which protects the page but not
-  the API; the user chose this knowingly.
+  PIN. The address is unguessable and set by `VITE_NOTICES_PATH`, so it can be
+  rotated without a code change. It protects the page from guessing, not from
+  inspection, and not the API at all; the user chose this knowingly.
 - Removing a name from the day's list takes a confirmation.
 - The application is named Peleille.

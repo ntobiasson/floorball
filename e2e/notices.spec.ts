@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { E2E_NOTICES_PATH } from './playwright.config.js';
 
 /**
  * The unlisted announcements page, against the real API.
@@ -9,7 +10,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
-const NOTICES = '/tiedotteet';
+const NOTICES = E2E_NOTICES_PATH;
 
 test('nothing on the app links to the page', async ({ page }) => {
   await page.goto('/');
@@ -33,6 +34,25 @@ test('the page opens for anyone who knows the address, with no secret asked', as
   await expect(page.getByRole('heading', { name: 'Tiedotteet', exact: true })).toBeVisible();
   // No password, PIN or sign-in anywhere on it.
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
+});
+
+test('a guessable address does not open it', async ({ page }) => {
+  for (const guess of ['/tiedotteet', '/admin', '/hallinta', '/tiedotteet-hallinta']) {
+    await page.goto(guess);
+    // The SPA serves index.html for any path, so the wrong address lands on
+    // the registration page rather than 404ing — which is the intent.
+    await expect(page.getByRole('button', { name: 'Lisää tiedote' })).toHaveCount(0);
+  }
+});
+
+test('the page asks not to be indexed', async ({ page }) => {
+  await page.goto(NOTICES);
+  await expect(page.getByRole('heading', { name: 'Tiedotteet', exact: true })).toBeVisible();
+
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    'content',
+    /noindex/,
+  );
 });
 
 test('an announcement added here shows up on the landing page', async ({ page }) => {

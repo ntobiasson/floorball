@@ -6,12 +6,7 @@ import { Tabs, type Route } from './components/Tabs.js';
 import { Today } from './pages/Today.js';
 import { Activity } from './pages/Activity.js';
 import { Notices } from './pages/Notices.js';
-
-/**
- * The unlisted announcements page. Nothing links to it; knowing this address
- * is the only thing that gets you there.
- */
-export const NOTICES_PATH = '/tiedotteet';
+import { NOTICES_PATH } from './lib/routes.js';
 
 type View = Route | 'notices';
 

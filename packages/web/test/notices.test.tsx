@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { Announcement } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
 import type { Api } from '../src/lib/api.js';
+import { NOTICES_PATH } from '../src/lib/routes.js';
 
 const ANNOUNCEMENTS: Announcement[] = [
   { id: 'a1', body: 'Kenttä varattu 21.10. klo 18-19.' },
@@ -31,7 +32,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
 }
 
 const openPage = (api: Api) => {
-  window.history.pushState({}, '', '/tiedotteet');
+  window.history.pushState({}, '', NOTICES_PATH);
   render(<App api={api} />);
 };
 
@@ -156,5 +157,40 @@ describe('the unlisted announcements page', () => {
     openPage(fakeApi({ allAnnouncements: vi.fn().mockResolvedValue({ announcements: [] }) }));
 
     expect(await screen.findByText(/Ei tiedotteita/i)).toBeInTheDocument();
+  });
+});
+
+describe('the address itself', () => {
+  test('is not a word anyone would guess', () => {
+    // The whole protection is that nobody arrives here by typing something
+    // obvious, so the path must not be a plain Finnish word.
+    expect(NOTICES_PATH).not.toMatch(/tiedot|hallinta|admin|notice|news/i);
+    expect(NOTICES_PATH.replace('/', '').length).toBeGreaterThanOrEqual(12);
+  });
+
+  test('is a single rooted segment', () => {
+    expect(NOTICES_PATH.startsWith('/')).toBe(true);
+    expect(NOTICES_PATH.endsWith('/')).toBe(false);
+  });
+
+  test('the old guessable address no longer opens the page', async () => {
+    window.history.pushState({}, '', '/tiedotteet');
+    const api = fakeApi();
+    render(<App api={api} />);
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    // The landing page has its own "Tiedotteet" heading for the announcements
+    // block, so the management form is what distinguishes the two.
+    expect(screen.queryByRole('button', { name: 'Lisää tiedote' })).not.toBeInTheDocument();
+    expect(api.allAnnouncements).not.toHaveBeenCalled();
+  });
+
+  test('keeps the page out of search indexes while it is open', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toMatch(
+      /noindex/,
+    );
   });
 });

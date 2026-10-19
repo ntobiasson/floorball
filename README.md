@@ -10,9 +10,11 @@ server.
   typing a new name, and anyone can remove a name.
 - **Peliaktiivisuus** lists every player with their total game count,
   searchable by name and expandable to a per-year breakdown.
-- **Announcements** are written and deleted at `/tiedotteet`, an unlisted page
-  nothing links to. Knowing the address is the only access control, by
-  design — see the runbook before relying on that.
+- **Announcements** are written and deleted on an unlisted page nothing links
+  to, at an address set by `VITE_NOTICES_PATH` (see
+  `packages/web/.env.example`). Knowing the address is the only access
+  control, and it stops guessing rather than inspection — read the runbook
+  before relying on it.
 
 ## Stack
 

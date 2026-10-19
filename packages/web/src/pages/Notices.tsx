@@ -34,6 +34,22 @@ export function Notices({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
+  useEffect(() => {
+    // An indexed address is a guessable one. The rest of the app is a single
+    // index.html, so this has to be set while the page is open and taken off
+    // again when it is not.
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow';
+    document.head.appendChild(meta);
+    const previousTitle = document.title;
+    document.title = 'Tiedotteet';
+    return () => {
+      meta.remove();
+      document.title = previousTitle;
+    };
+  }, []);
+
   const refresh = async (): Promise<void> => {
     setAnnouncements((await load()).announcements);
   };
