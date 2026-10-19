@@ -339,39 +339,6 @@ describe('incremental output', () => {
   });
 });
 
-describe('Domino pseudo-categories', () => {
-  test('reports the Not Categorized bucket without dropping its games', async () => {
-    // A categorized Domino view renders "Not Categorized" for documents whose
-    // category field is empty. The live view has exactly one such row. It is
-    // not a player, but it is a real registration, so dropping it would make
-    // the archive disagree with Domino. Keep it, and say so.
-    const withBucket: FakePlayer[] = [
-      ...DATA,
-      { name: 'Not Categorized', years: [dates('2019', [['05-06', 'Maanantai']])] },
-    ];
-    const warnings: string[] = [];
-
-    const result = await walkActivityView({
-      client: createFakeDomino(withBucket),
-      onWarning: (message) => warnings.push(message),
-    });
-
-    expect(result.players.map((p) => p.name)).toContain('Not Categorized');
-    expect(result.registrations.filter((r) => r.name === 'Not Categorized')).toHaveLength(1);
-    expect(warnings.join(' ')).toMatch(/Not Categorized/);
-  });
-
-  test('says nothing when the view has no such bucket', async () => {
-    const warnings: string[] = [];
-
-    await walkActivityView({
-      client: createFakeDomino(DATA),
-      onWarning: (message) => warnings.push(message),
-    });
-
-    expect(warnings).toEqual([]);
-  });
-});
 
 describe('the source data changing under the walk', () => {
   test('the expected-player guard matches on name, not on position', async () => {
@@ -401,5 +368,59 @@ describe('the source data changing under the walk', () => {
     await expect(
       walkActivityView({ client: createFakeDomino(DATA), expected }),
     ).rejects.toThrow(/Kadonnut Pelaaja/);
+  });
+});
+
+describe('the Not Categorized bucket', () => {
+  // Domino's bucket for documents with an empty category field. On the live
+  // view it holds one document with no name AND no date, so its "date" cell
+  // is empty and there is nothing to import. Walking it must not take the
+  // whole archive down at player 464 of 464.
+  const withJunk: FakePlayer[] = [
+    ...DATA,
+    { name: 'Not Categorized', years: [{ year: '', dates: [{ date: '', weekday: '' }] }] },
+  ];
+
+  test('skips it instead of throwing on its unparseable date', async () => {
+    const result = await walkActivityView({ client: createFakeDomino(withJunk) });
+
+    expect(result.players.map((p) => p.name)).not.toContain('Not Categorized');
+    expect(result.registrations.every((r) => r.date.length > 0)).toBe(true);
+  });
+
+  test('still harvests every real player around it', async () => {
+    const result = await walkActivityView({ client: createFakeDomino(withJunk) });
+
+    expect(result.players).toHaveLength(3);
+    expect(result.registrations).toHaveLength(5);
+  });
+
+  test('says it skipped it rather than passing over it silently', async () => {
+    const warnings: string[] = [];
+
+    await walkActivityView({ client: createFakeDomino(withJunk), onWarning: (m) => warnings.push(m) });
+
+    expect(warnings.join(' ')).toMatch(/Not Categorized/);
+  });
+
+  test('does not count it as a player the walk failed to reach', async () => {
+    const expected = await collectPlayerIndex({ client: createFakeDomino(withJunk) });
+    expect(expected.map((e) => e.name)).toContain('Not Categorized');
+
+    // The completeness guard must not demand a bucket we deliberately skip.
+    await expect(
+      walkActivityView({ client: createFakeDomino(withJunk), expected }),
+    ).resolves.toMatchObject({ players: expect.any(Array) });
+  });
+
+  test('a genuinely unparseable date on a real player still fails loudly', async () => {
+    // Tolerance is scoped to the bucket, not to bad data in general.
+    const corrupt: FakePlayer[] = [
+      { name: 'Matti Virtanen', years: [{ year: '2026', dates: [{ date: 'rubbish', weekday: '' }] }] },
+    ];
+
+    await expect(walkActivityView({ client: createFakeDomino(corrupt) })).rejects.toThrow(
+      /date cell/i,
+    );
   });
 });

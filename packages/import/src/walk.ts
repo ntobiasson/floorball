@@ -110,10 +110,16 @@ const EXPAND_RETRIES = 3;
 
 /**
  * What a categorized Domino view calls the bucket for documents whose
- * category field is empty. It is not a player, but its rows are real
- * registrations: the live view has exactly one. Keeping it means the archive
- * still reconciles with Domino; the warning means nobody mistakes it for a
- * person.
+ * category field is empty.
+ *
+ * On the live view it holds a single document with no name and no date — its
+ * Pvm cell is empty — so there is nothing importable in it: no player to
+ * attribute and no day to attribute it to. It is skipped whole, and the skip
+ * is announced rather than silent.
+ *
+ * The tolerance is deliberately narrow. An unparseable date anywhere else
+ * still stops the import, because there it means the view changed shape and
+ * guessing would corrupt the archive.
  */
 const UNCATEGORIZED = 'Not Categorized';
 
@@ -180,6 +186,8 @@ export async function walkActivityView({
   let page = 1;
   let pagesRead = 0;
 
+  /** True while walking the uncategorised bucket, whose rows are discarded. */
+  let skipping = false;
   /** The player whose subtree the current rows belong to. */
   let current: HarvestedPlayer | undefined;
   let currentRegistrations: HarvestedRegistration[] = [];
@@ -271,11 +279,13 @@ export async function walkActivityView({
         const name = row.cells[0] as string;
         if (name === UNCATEGORIZED) {
           onWarning?.(
-            `"${UNCATEGORIZED}" is Domino's bucket for registrations with no name in ` +
-              'the category field; its rows are kept so the counts reconcile, but it is ' +
-              'not a player',
+            `skipped "${UNCATEGORIZED}", Domino's bucket for documents with an empty ` +
+              'category field: it holds no name and no date, so there is nothing to import',
           );
+          skipping = true;
+          continue;
         }
+        skipping = false;
 
         current = {
           name,
@@ -287,6 +297,8 @@ export async function walkActivityView({
         currentDates = 0;
         continue;
       }
+
+      if (skipping) continue;
 
       if (row.kind === 'year') {
         closeYear();
@@ -327,7 +339,9 @@ export async function walkActivityView({
   // response, not across a 2.5-hour walk; names are.
   if (expected !== undefined && limit === undefined && startAfterPosition === 0) {
     const harvested = new Set(players.map((player) => player.name));
-    const missing = expected.filter((entry) => !harvested.has(entry.name));
+    const missing = expected.filter(
+      (entry) => entry.name !== UNCATEGORIZED && !harvested.has(entry.name),
+    );
     if (missing.length > 0) {
       const sample = missing
         .slice(0, 5)
