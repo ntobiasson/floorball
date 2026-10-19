@@ -8,7 +8,7 @@
  *   PLAYER#<id>        / YEAR#<yyyy>      that player's count for a year
  *   NAME#<normalized>  / NAME             the name -> player lookup
  *   ANNOUNCEMENT       / <validFrom>#<id> an announcement
- *   AUDIT#<iso>        / <when>#<ulid>    one mutation, self-expiring
+ *   AUDIT#<iso>        / <when>#<id>      one mutation, self-expiring
  *
  * GSI1 projects player profiles only: GSI1PK is the constant 'PLAYERS' and
  * GSI1SK is NAME#<normalized>, so the whole directory comes back from one

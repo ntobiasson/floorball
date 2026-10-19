@@ -16,3 +16,6 @@ e2e/.playwright
 
 # Local overrides (never committed)
 .env.local
+
+# esbuild output from the bundle test
+packages/api/.bundle-test/

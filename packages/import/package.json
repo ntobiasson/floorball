@@ -12,7 +12,6 @@
     "@aws-sdk/client-dynamodb": "^3.712.0",
     "@aws-sdk/lib-dynamodb": "^3.712.0",
     "@sahlykanta/shared": "*",
-    "ulid": "^2.3.0",
     "@sahlykanta/api": "*"
   },
   "devDependencies": {

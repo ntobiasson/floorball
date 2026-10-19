@@ -7,7 +7,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { ulid } from 'ulid';
+import { newId } from './ids.js';
 import {
   cleanDisplayName,
   normalizeName,
@@ -174,7 +174,7 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
     const at = now();
     return {
       PK: auditPk(gameDate),
-      SK: `${at.toISOString()}#${ulid()}`,
+      SK: `${at.toISOString()}#${newId()}`,
       action,
       gameDate,
       name,
@@ -253,7 +253,7 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
       };
     }
 
-    const playerId = ulid();
+    const playerId = newId();
     const createdAt = now().toISOString();
     try {
       await client.send(
@@ -567,7 +567,7 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
     },
 
     async createAnnouncement(input) {
-      const id = ulid();
+      const id = newId();
       // Helsinki, like every other date in this application. A UTC slice
       // dates an announcement written after 21:00 UTC a day early.
       const validFrom = input.validFrom ?? todayInHelsinki(now());

@@ -1,6 +1,6 @@
 import { BatchWriteCommand, GetCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { ulid } from 'ulid';
 import { normalizeName, yearOf } from '@sahlykanta/shared';
+import { newId } from '@sahlykanta/api/src/ids.js';
 import {
   GSI1_PK,
   NAME_SK,
@@ -129,7 +129,7 @@ async function resolvePlayerIds(
       new GetCommand({ TableName: tableName, Key: { PK: namePk(key), SK: NAME_SK } }),
     );
     const found = existing.Item?.playerId;
-    ids.set(key, typeof found === 'string' ? found : ulid());
+    ids.set(key, typeof found === 'string' ? found : newId());
   }
   return ids;
 }
