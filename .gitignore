@@ -1,0 +1,12 @@
+node_modules/
+dist/
+cdk.out/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.DS_Store
+packages/import/out/
+packages/import/.checkpoint.json
+test-results/
+playwright-report/
