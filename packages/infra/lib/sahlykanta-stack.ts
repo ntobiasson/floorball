@@ -32,11 +32,8 @@ import type { Construct } from 'constructs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const apiEntry = path.join(here, '../../api/src/handler.ts');
 
-export interface SahlykantaStackProps extends StackProps {
-}
-
 export class SahlykantaStack extends Stack {
-  constructor(scope: Construct, id: string, props: SahlykantaStackProps) {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
     // ---- Data -------------------------------------------------------------
