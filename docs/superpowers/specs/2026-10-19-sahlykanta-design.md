@@ -1,6 +1,10 @@
-# Sählykanta — design
+# Peleille — design
 
 Date: 2026-10-19
+
+The application is called **Peleille**. It was referred to as Sählykanta
+during design, after the Domino database it replaces (`sahlykanta.nsf`),
+which is still the name of the package scope and the AWS resources.
 
 ## Intent and why
 

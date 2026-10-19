@@ -1,4 +1,4 @@
-# Sählykanta
+# Peleille
 
 Online registration for the team's floorball sessions, plus 25 years of play
 history. Replaces an application that ran on an unmaintained Lotus Domino
@@ -50,6 +50,14 @@ API_ORIGIN=http://127.0.0.1:3400 npm run dev -w @sahlykanta/web -- --port 5273
 
 Vite proxies `/api` to the API, mirroring the single CloudFront origin used in
 production, so there is no CORS locally either.
+
+The seed is a real `--limit 5` Domino harvest held in `e2e/fixtures/`: five
+players and 363 registrations spanning 2001 to 2026, loaded through the
+production loader. It is deliberately real rather than invented, because the
+things worth seeing — a 25-year history, a player on 279 games beside one on
+2, the `(EHKÄ)` duplicate, the Torstai games that predate the Mon/Wed/Sat
+rule — are exactly what made-up rows smooth away. One of those registrations
+falls on 19.10.2026, so the day's list does not start empty.
 
 Add `FAKE_TODAY=2026-10-20` to the API's environment to see the
 not-a-game-day screen without waiting for a Tuesday. It is read only by

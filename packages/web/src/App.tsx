@@ -47,7 +47,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
         <span className="masthead__mark">
           <BallMark />
         </span>
-        <span className="masthead__name">SÄHLYKANTA</span>
+        <span className="masthead__name">PELEILLE</span>
       </header>
 
       <main className="app__main">

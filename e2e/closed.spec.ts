@@ -17,5 +17,6 @@ test('the history is still readable when registration is closed', async ({ page 
   await page.goto('/peliaktiivisuus');
 
   await expect(page.getByRole('heading', { name: 'Peliaktiivisuus' })).toBeVisible();
-  await expect(page.getByText('Matti Virtanen')).toBeVisible();
+  // Matched on the row, since the plain name also matches "Matti Virtanen (EHKÄ)".
+  await expect(page.getByRole('button', { name: /Matti Virtanen 279/ })).toBeVisible();
 });

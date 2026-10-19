@@ -1,13 +1,25 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DynamoDBClient, CreateTableCommand, DeleteTableCommand } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { loadHarvest } from '@sahlykanta/import/src/load.js';
+import type { LoadablePlayer } from '@sahlykanta/import/src/load.js';
+import type { HarvestedRegistration } from '@sahlykanta/import/src/walk.js';
 import { createRepo } from '@sahlykanta/api/src/repo.js';
 
 /**
- * Creates the end-to-end table and loads a small slice of the real Domino
- * export through the production loader, so the smoke test runs against data
- * shaped exactly like the imported archive.
+ * Creates the local/e2e table and loads a slice of the real Domino export
+ * through the production loader, so both the smoke tests and local
+ * development run against data shaped exactly like the imported archive.
+ *
+ * The fixture is a genuine `--limit 5` harvest: five players, 363
+ * registrations, spanning 2001 to 2026 across sixteen years. Real data rather
+ * than invented rows, because the things worth seeing here — a 25-year
+ * history, a player with 279 games beside one with 2, the `(EHKÄ)` duplicate,
+ * the Torstai games that break the Mon/Wed/Sat rule — are exactly what
+ * made-up data smooths away.
  */
 
 const tableName = process.env.TABLE_NAME ?? 'sahlykanta-e2e';
@@ -59,37 +71,22 @@ async function recreateTable(): Promise<void> {
   );
 }
 
-/** Real figures from the Domino export, trimmed to three players. */
-const PLAYERS = [
-  {
-    name: 'Matti Virtanen',
-    total: 4,
-    years: [
-      { year: '2026', count: 2 },
-      { year: '2025', count: 2 },
-    ],
-  },
-  { name: 'Liisa Korhonen', total: 2, years: [{ year: '2026', count: 2 }] },
-  { name: 'Riikka Mäkelä', total: 1, years: [{ year: '2024', count: 1 }] },
-];
+const here = path.dirname(fileURLToPath(import.meta.url));
 
-const REGISTRATIONS = [
-  { name: 'Matti Virtanen', date: '2026-01-12', weekday: 'Maanantai' },
-  { name: 'Matti Virtanen', date: '2026-04-15', weekday: 'Keskiviikko' },
-  { name: 'Matti Virtanen', date: '2025-10-20', weekday: 'Maanantai' },
-  { name: 'Matti Virtanen', date: '2025-10-22', weekday: 'Keskiviikko' },
-  { name: 'Liisa Korhonen', date: '2026-01-12', weekday: 'Maanantai' },
-  { name: 'Liisa Korhonen', date: '2026-04-15', weekday: 'Keskiviikko' },
-  { name: 'Riikka Mäkelä', date: '2024-02-03', weekday: 'Lauantai' },
-];
+function readJsonl<T>(name: string): T[] {
+  return readFileSync(path.join(here, 'fixtures', name), 'utf8')
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as T);
+}
 
 async function main(): Promise<void> {
   await recreateTable();
   const result = await loadHarvest({
     client,
     tableName,
-    players: PLAYERS,
-    registrations: REGISTRATIONS,
+    players: readJsonl<LoadablePlayer>('history-players.jsonl'),
+    registrations: readJsonl<HarvestedRegistration>('history-registrations.jsonl'),
   });
   const repo = createRepo({ client, tableName });
   await repo.createAnnouncement({ body: 'Kenttä varattu 21.10. klo 18-19.' });
