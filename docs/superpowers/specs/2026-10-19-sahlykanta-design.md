@@ -1,6 +1,10 @@
-# Sählykanta — design
+# Peleille — design
 
 Date: 2026-10-19
+
+The application is called **Peleille**. It was referred to as Sählykanta
+during design, after the Domino database it replaces (`sahlykanta.nsf`),
+which is still the name of the package scope and the AWS resources.
 
 ## Intent and why
 
@@ -20,7 +24,8 @@ driving this rebuild — an unmaintained host — cannot recur.
   Saturday** only, and only for the **current day**. Any other day shows a clear
   "not a game day" state.
 - Open to everyone, no accounts. Anyone may register anyone, choosing from previously
-  seen players or typing a new name. Anyone may remove any name.
+  seen players or typing a new name. Anyone may remove any name, confirming once first:
+  the chips sit close together on a phone and a removal has nothing to undo it.
 - All historical registrations preserved, presented as a **Peliaktiivisuus** list of
   players with total game counts, searchable by name and expandable to a per-year
   breakdown.
@@ -73,4 +78,20 @@ Things that would make this a failure even if it technically worked:
 ## Open questions
 
 - The hostname the app should answer on.
-- Whether a shared PIN is the right gate for writing announcements.
+
+## Decisions taken after the design was written
+
+- Announcements are managed from an unlinked page at `/tiedotteet` rather than
+  behind a shared PIN. The address was briefly randomised; the user chose the
+  fixed, readable one instead, knowing it is guessable. In practice the page
+  is open to anyone who visits, which matches the API — it accepts
+  announcement writes from any caller either way.
+- Removing a name from the day's list takes a confirmation.
+- The application is named Peleille.
+- **The history is no longer shown in the interface.** The Peliaktiivisuus
+  page and its navigation were removed at the user's request. Importing and
+  storing the archive is unchanged — that remains the point of the migration —
+  and it is still readable through `GET /api/players` and
+  `GET /api/players/:id`. The player directory is still fetched by the client,
+  because the registration form suggests previously seen names from it, so
+  names and totals remain publicly readable from the API.

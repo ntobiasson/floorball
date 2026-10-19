@@ -1,0 +1,21 @@
+{
+  "name": "@sahlykanta/import",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "scrape": "tsx src/cli-scrape.ts",
+    "load": "tsx src/cli-load.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0",
+    "@sahlykanta/shared": "*",
+    "ulid": "^2.3.0",
+    "@sahlykanta/api": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

@@ -10,3 +10,9 @@ packages/import/out/
 packages/import/.checkpoint.json
 test-results/
 playwright-report/
+cdk.out/
+.cdk.staging/
+e2e/.playwright
+
+# Local overrides (never committed)
+.env.local

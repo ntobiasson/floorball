@@ -1,0 +1,23 @@
+{
+  "name": "@sahlykanta/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/handler.ts",
+  "scripts": {
+    "test": "vitest run",
+    "serve": "tsx src/serve.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0",
+    "@sahlykanta/shared": "*",
+    "hono": "^4.6.14",
+    "ulid": "^2.3.0",
+    "zod": "^3.24.1",
+    "@hono/node-server": "^1.13.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

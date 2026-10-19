@@ -1,0 +1,543 @@
+/*
+ * Layout A ("Tänään-kortti") with imagery option 1: no raster assets at all.
+ * Every graphic in this app is inline SVG drawn from rink lines and a
+ * stick-and-ball mark, so there is nothing to license, nothing to host and
+ * nothing to load.
+ */
+:root {
+  --ground: #f4f6f3;
+  --surface: #ffffff;
+  --ink: #10211a;
+  --ink-soft: #45544d;
+  --ink-muted: #5a6b63;
+  --accent: #0e7a5f;
+  --accent-ink: #0b5e49;
+  --accent-wash: #dff3ea;
+  --line: #e4e9e5;
+  --line-soft: #eef2ef;
+  --chip: #f1f4f1;
+  --chip-button: #e0e5e1;
+  --danger: #9b2c1f;
+  --radius-card: 20px;
+  --radius-control: 12px;
+  --shadow-card: 0 1px 2px rgba(16, 33, 26, 0.06);
+  --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  margin: 0 auto;
+  max-width: 560px;
+}
+
+.app__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px 28px;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 14px;
+}
+
+.masthead__mark {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--accent);
+}
+
+/*
+ * The mark is 28px, well under a comfortable touch target, so the link around
+ * it is padded out to 44px and pulled back by the same amount — a bigger
+ * thing to hit without moving anything on screen.
+ */
+.masthead__home {
+  display: inline-flex;
+  margin: -8px;
+  padding: 8px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.masthead__home:hover {
+  background: var(--line-soft);
+}
+
+.masthead__home:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.masthead__name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.card {
+  padding: 22px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.pill {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.today__weekday {
+  margin: 14px 0 0;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: capitalize;
+}
+
+.today__date {
+  margin: 4px 0 0;
+  color: var(--ink-muted);
+  font-size: 17px;
+}
+
+.today__count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.today__count-number {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.today__count-label {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px 6px 12px;
+  border-radius: 999px;
+  background: var(--chip);
+  font-size: 14px;
+}
+
+.chip__remove {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--chip-button);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.chip__remove:hover {
+  background: #d3dad5;
+}
+
+.chip__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/*
+ * Removal is two taps. The confirming chip changes colour as well as content,
+ * so which name is about to go is unmistakable even on a crowded list.
+ */
+.chip--confirming {
+  gap: 8px;
+  padding-right: 8px;
+  background: #fdeeea;
+  box-shadow: inset 0 0 0 1px #e7b9ae;
+}
+
+.chip__confirm,
+.chip__cancel {
+  min-height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chip__confirm {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.chip__confirm:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* The unlisted announcements page. */
+.notice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.notice-row:last-child {
+  border-bottom: none;
+}
+
+/* Tinted as well as worded, so which row is being asked about is obvious. */
+.notice-row--confirming {
+  flex-wrap: wrap;
+  margin: 0 -10px;
+  padding: 13px 10px;
+  border-radius: 12px;
+  background: #fdeeea;
+  box-shadow: inset 0 0 0 1px #e7b9ae;
+}
+
+/* Full width, so asking the question does not squeeze the announcement into
+   a narrow column. */
+.notice-row--confirming .notice-row__text {
+  flex: 1 1 100%;
+}
+
+.notice-row__actions {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.notice-row__question {
+  margin-right: auto;
+  color: #6b3327;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.notice-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.notice-row__dates {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.notice-row__drop,
+.notice-row__confirm,
+.notice-row__cancel {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.notice-row__drop {
+  background: var(--chip);
+  color: var(--ink-soft);
+}
+
+.notice-row__confirm {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.notice-row__cancel {
+  background: #f1e2de;
+  color: #6b3327;
+}
+
+.field__textarea {
+  width: 100%;
+  min-height: 92px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.field__row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.field__row > label {
+  flex: 1 1 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field__date {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.chip__cancel {
+  background: #f1e2de;
+  color: #6b3327;
+}
+
+.chip__cancel:hover {
+  background: #e7d3ce;
+}
+
+.field__label {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field__input {
+  width: 100%;
+  height: 48px;
+  margin-top: 8px;
+  padding: 0 14px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.field__hint {
+  margin: 8px 0 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.field__error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.button {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 14px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/*
+ * A disabled button is not a busy one. The submit button is disabled whenever
+ * the name box is empty, which is most of the time, and a spinning "busy"
+ * pointer there suggests the app is working when it is simply waiting for
+ * input. The busy cursor belongs only to the moment a request is in flight.
+ */
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.button[aria-busy='true'] {
+  cursor: progress;
+}
+
+.suggestions {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.suggestions__item {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.notices {
+  padding: 14px 18px;
+  border: 1px dashed #cbd6d0;
+  border-radius: 16px;
+}
+
+.notices__title,
+.section__label {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notices__body {
+  margin: 7px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.closed {
+  padding: 24px 22px 26px;
+  text-align: center;
+}
+
+.closed__mark {
+  display: inline-flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--line-soft);
+}
+
+.closed__title {
+  margin: 16px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.closed__today {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.closed__rule {
+  margin: 20px 0 0;
+  border: none;
+  border-top: 1px solid var(--line-soft);
+}
+
+.closed__next {
+  margin: 6px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.weekstrip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.weekstrip__day {
+  padding: 9px 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  color: #8a9a92;
+  font-size: 13px;
+  text-align: center;
+}
+
+.weekstrip__day--game {
+  border-color: transparent;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.state {
+  margin: 28px 8px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  text-align: center;
+}
