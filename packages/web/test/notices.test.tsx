@@ -185,6 +185,31 @@ describe('the unlisted announcements page', () => {
   });
 });
 
+describe('getting back to the registration page', () => {
+  test('the mark at the top is a link to it', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    const home = screen.getByRole('link', { name: /ilmoittautumi/i });
+    expect(home).toHaveAttribute('href', '/');
+  });
+
+  test('that link is the only one on the page', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    // Still nothing linking anywhere else; this page is reached by address.
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  test('the registration page does not link to itself', async () => {
+    render(<App api={fakeApi()} />);
+    await screen.findByRole('heading', { name: 'maanantai' });
+
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+});
+
 describe('the form', () => {
   test('is headed Tiedote, with no repeated label under it', async () => {
     openPage(fakeApi());

@@ -74,6 +74,29 @@ body {
   background: var(--accent);
 }
 
+/*
+ * The mark is 28px, well under a comfortable touch target, so the link around
+ * it is padded out to 44px and pulled back by the same amount — a bigger
+ * thing to hit without moving anything on screen.
+ */
+.masthead__home {
+  display: inline-flex;
+  margin: -8px;
+  padding: 8px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.masthead__home:hover {
+  background: var(--line-soft);
+}
+
+.masthead__home:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .masthead__name {
   font-size: 15px;
   font-weight: 800;

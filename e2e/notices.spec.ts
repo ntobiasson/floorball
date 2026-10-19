@@ -21,8 +21,18 @@ test('nothing on the app links to the page', async ({ page }) => {
   expect(hrefs).not.toContain(NOTICES);
 
   // With the history page gone, the registration page has no navigation at
-  // all, so there is nowhere a link could hide.
+  // all, so there is nowhere a link to the announcements page could hide.
   expect(hrefs).toHaveLength(0);
+});
+
+test('the mark at the top leads back to the registration page', async ({ page }) => {
+  await page.goto(NOTICES);
+  await expect(page.getByRole('heading', { name: 'Tiedote', exact: true })).toBeVisible();
+
+  await page.getByRole('link', { name: /ilmoittautumi/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
+  await expect(page.getByLabel('Nimi')).toBeVisible();
 });
 
 test('the page opens for anyone who knows the address, with no secret asked', async ({ page }) => {

@@ -50,9 +50,20 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
   return (
     <div className="app">
       <header className="masthead">
-        <span className="masthead__mark">
-          <BallMark />
-        </span>
+        {view === 'notices' ? (
+          // The announcements page is reached by typing its address, so it
+          // needs a way back that does not depend on the browser's history.
+          // A plain href, since the two pages share no state worth keeping.
+          <a className="masthead__home" href="/" aria-label="Takaisin ilmoittautumiseen">
+            <span className="masthead__mark">
+              <BallMark />
+            </span>
+          </a>
+        ) : (
+          <span className="masthead__mark">
+            <BallMark />
+          </span>
+        )}
         <span className="masthead__name">PELEILLE</span>
       </header>
 
