@@ -2,7 +2,9 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "vitest.workspace.ts",
@@ -11,5 +13,8 @@
     "packages/*/bin/**/*",
     "packages/*/lib/**/*",
     "e2e/**/*"
+  ],
+  "exclude": [
+    "packages/infra"
   ]
 }
