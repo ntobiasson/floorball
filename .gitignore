@@ -12,3 +12,4 @@ test-results/
 playwright-report/
 cdk.out/
 .cdk.staging/
+e2e/.playwright
