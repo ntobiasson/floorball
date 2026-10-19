@@ -118,10 +118,6 @@ export function Notices({
         <h1 id="notices-title" style={{ margin: 0, fontSize: '21px', fontWeight: 800 }}>
           Tiedotteet
         </h1>
-        <p className="unlisted-note">
-          Tälle sivulle ei ole linkkiä, mutta kuka tahansa voi lisätä ja poistaa tiedotteita.
-        </p>
-
         <form
           onSubmit={(event) => {
             event.preventDefault();
