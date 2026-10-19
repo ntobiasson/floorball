@@ -12,9 +12,9 @@ jobs:
       dynamodb:
         image: amazon/dynamodb-local:2.5.3
         ports:
-          - 8000:8000
+          - 8001:8000
     env:
-      DYNAMODB_ENDPOINT: http://127.0.0.1:8000
+      DYNAMODB_ENDPOINT: http://127.0.0.1:8001
       AWS_REGION: eu-north-1
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local

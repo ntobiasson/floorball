@@ -1,0 +1,267 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { createTestTable, dropTestTable, localClient } from './harness.js';
+import { createRepo, type Repo } from '../src/repo.js';
+import { createApp } from '../src/app.js';
+import type { PlayerDetail, PlayerSummary, TodayResponse } from '@sahlykanta/shared';
+
+async function jsonBody<T>(res: Response): Promise<T> {
+  return (await res.json()) as T;
+}
+
+/** 2026-10-19 is a Monday, 2026-10-20 a Tuesday. */
+const MONDAY_MORNING = new Date('2026-10-19T06:00:00Z');
+const TUESDAY_MORNING = new Date('2026-10-20T06:00:00Z');
+
+const PIN = '4321';
+// sha256('4321')
+const PIN_HASH = 'fe2592b42a727e977f055947385b709cc82b16b9a87f88c6abf3900d65d0cdc3';
+
+let client: DynamoDBDocumentClient;
+let tableName: string;
+let repo: Repo;
+
+const appAt = (now: Date, env: Record<string, string> = {}) =>
+  createApp({ repo, now: () => now, env });
+
+beforeAll(async () => {
+  client = localClient();
+  tableName = await createTestTable(client);
+});
+
+afterAll(async () => {
+  await dropTestTable(client, tableName);
+});
+
+beforeEach(async () => {
+  await dropTestTable(client, tableName);
+  tableName = await createTestTable(client);
+  repo = createRepo({ client, tableName, now: () => MONDAY_MORNING });
+});
+
+describe('GET /api/today', () => {
+  test('a Monday is a game day with an empty list', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/today');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      date: '2026-10-19',
+      weekday: 1,
+      isGameDay: true,
+      registrations: [],
+      announcements: [],
+    });
+  });
+
+  test('a Tuesday is not a game day and names the next one', async () => {
+    const res = await appAt(TUESDAY_MORNING).request('/api/today');
+
+    expect(res.status).toBe(200);
+    const body = await jsonBody<TodayResponse>(res);
+    expect(body.isGameDay).toBe(false);
+    expect(body.date).toBe('2026-10-20');
+    expect(body.nextGameDate).toBe('2026-10-21');
+  });
+
+  test('lists who is already registered', async () => {
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    const body = await jsonBody<TodayResponse>(await appAt(MONDAY_MORNING).request('/api/today'));
+    expect(body.registrations.map((r) => r.displayName)).toEqual(['Matti Virtanen']);
+  });
+
+  test('includes an announcement that is valid today', async () => {
+    await repo.createAnnouncement({ body: 'Kenttä varattu' });
+
+    const body = await jsonBody<TodayResponse>(await appAt(MONDAY_MORNING).request('/api/today'));
+    expect(body.announcements.map((a) => a.body)).toEqual(['Kenttä varattu']);
+  });
+});
+
+describe('POST /api/registrations', () => {
+  const post = (now: Date, body: unknown) =>
+    appAt(now).request('/api/registrations', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  test('registers on a game day', async () => {
+    const res = await post(MONDAY_MORNING, { name: 'Matti Virtanen', gameDate: '2026-10-19' });
+
+    expect(res.status).toBe(201);
+    const body = await jsonBody<{ displayName: string }>(res);
+    expect(body.displayName).toBe('Matti Virtanen');
+    expect(await repo.listRegistrations('2026-10-19')).toHaveLength(1);
+  });
+
+  test('refuses on a Tuesday', async () => {
+    const res = await post(TUESDAY_MORNING, { name: 'Matti Virtanen', gameDate: '2026-10-20' });
+
+    expect(res.status).toBe(409);
+    expect(await repo.listRegistrations('2026-10-20')).toEqual([]);
+  });
+
+  test.each([
+    ['Thursday', new Date('2026-10-22T06:00:00Z'), '2026-10-22'],
+    ['Friday', new Date('2026-10-23T06:00:00Z'), '2026-10-23'],
+    ['Sunday', new Date('2026-10-25T06:00:00Z'), '2026-10-25'],
+  ])('refuses on a %s', async (_label, now, date) => {
+    const res = await post(now, { name: 'Matti Virtanen', gameDate: date });
+
+    expect(res.status).toBe(409);
+    expect(await repo.listRegistrations(date)).toEqual([]);
+  });
+
+  test('refuses a game date that is not today, and writes nothing', async () => {
+    // A tab left open since Saturday, or someone trying to book Wednesday early.
+    const res = await post(MONDAY_MORNING, { name: 'Matti Virtanen', gameDate: '2026-10-21' });
+
+    expect(res.status).toBe(409);
+    expect(await repo.listRegistrations('2026-10-21')).toEqual([]);
+    expect(await repo.listRegistrations('2026-10-19')).toEqual([]);
+  });
+
+  test('refuses an empty name', async () => {
+    const res = await post(MONDAY_MORNING, { name: '   ', gameDate: '2026-10-19' });
+
+    expect(res.status).toBe(400);
+  });
+
+  test('refuses a name over 60 characters', async () => {
+    const res = await post(MONDAY_MORNING, { name: 'a'.repeat(61), gameDate: '2026-10-19' });
+
+    expect(res.status).toBe(400);
+  });
+
+  test('refuses a body that is not an object', async () => {
+    const res = await post(MONDAY_MORNING, 'Matti Virtanen');
+
+    expect(res.status).toBe(400);
+  });
+
+  test('refuses the same player twice on one day', async () => {
+    await post(MONDAY_MORNING, { name: 'Matti Virtanen', gameDate: '2026-10-19' });
+    const res = await post(MONDAY_MORNING, { name: 'Aatu  harju', gameDate: '2026-10-19' });
+
+    expect(res.status).toBe(409);
+    expect(await repo.listRegistrations('2026-10-19')).toHaveLength(1);
+  });
+});
+
+describe('DELETE /api/registrations/:playerId', () => {
+  test('removes a name from today', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    const res = await appAt(MONDAY_MORNING).request(`/api/registrations/${playerId}`, {
+      method: 'DELETE',
+    });
+
+    expect(res.status).toBe(204);
+    expect(await repo.listRegistrations('2026-10-19')).toEqual([]);
+  });
+
+  test('is a 404 when that player is not on today list', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/registrations/nobody', {
+      method: 'DELETE',
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  test('refuses on a day that is not a game day', async () => {
+    const res = await appAt(TUESDAY_MORNING).request('/api/registrations/anyone', {
+      method: 'DELETE',
+    });
+
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('GET /api/players', () => {
+  test('returns the directory', async () => {
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    const res = await appAt(MONDAY_MORNING).request('/api/players');
+
+    expect(res.status).toBe(200);
+    const body = await jsonBody<{ players: PlayerSummary[] }>(res);
+    expect(body.players).toEqual([
+      { playerId: expect.any(String), displayName: 'Matti Virtanen', total: 1 },
+    ]);
+  });
+
+  test('is cacheable, since the directory changes rarely', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/players');
+
+    expect(res.headers.get('cache-control')).toMatch(/max-age=\d+/);
+  });
+});
+
+describe('GET /api/players/:playerId', () => {
+  test('returns the per-year breakdown', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    const res = await appAt(MONDAY_MORNING).request(`/api/players/${playerId}`);
+
+    expect(res.status).toBe(200);
+    expect(await jsonBody<PlayerDetail>(res)).toEqual({
+      playerId,
+      displayName: 'Matti Virtanen',
+      total: 1,
+      years: [{ year: '2026', count: 1 }],
+    });
+  });
+
+  test('is a 404 for an unknown player', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/players/nobody');
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/announcements', () => {
+  const post = (headers: Record<string, string>, env: Record<string, string>) =>
+    appAt(MONDAY_MORNING, env).request('/api/announcements', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ body: 'Kenttä varattu' }),
+    });
+
+  test('refuses without the PIN', async () => {
+    const res = await post({}, { ANNOUNCEMENT_PIN_HASH: PIN_HASH });
+
+    expect(res.status).toBe(401);
+    expect(await repo.listAnnouncements('2026-10-19')).toEqual([]);
+  });
+
+  test('refuses a wrong PIN', async () => {
+    const res = await post({ 'x-admin-pin': '0000' }, { ANNOUNCEMENT_PIN_HASH: PIN_HASH });
+
+    expect(res.status).toBe(401);
+    expect(await repo.listAnnouncements('2026-10-19')).toEqual([]);
+  });
+
+  test('accepts the right PIN', async () => {
+    const res = await post({ 'x-admin-pin': PIN }, { ANNOUNCEMENT_PIN_HASH: PIN_HASH });
+
+    expect(res.status).toBe(201);
+    expect(await repo.listAnnouncements('2026-10-19')).toHaveLength(1);
+  });
+
+  test('refuses everything when no PIN is configured', async () => {
+    // A deployment that forgot the secret must not be an open door.
+    const res = await post({ 'x-admin-pin': PIN }, {});
+
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('unknown routes', () => {
+  test('a missing API path is a 404 JSON error', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/nope');
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+  });
+});
