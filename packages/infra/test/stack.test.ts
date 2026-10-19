@@ -79,18 +79,18 @@ describe('the API Lambda', () => {
     });
   });
 
-  test('reads the announcement PIN hash from an SSM parameter, not from source', () => {
-    const template = synth();
-    const functions = template.findResources('AWS::Lambda::Function');
+  test('carries no secret in its environment', () => {
+    // Announcements are managed from an unlisted page with no secret to
+    // present, so nothing here should look like a credential.
+    const functions = synth().findResources('AWS::Lambda::Function');
     const envs = Object.values(functions).map(
-      (fn) => (fn.Properties as { Environment?: { Variables?: Record<string, unknown> } })
-        .Environment?.Variables ?? {},
+      (fn) =>
+        (fn.Properties as { Environment?: { Variables?: Record<string, unknown> } }).Environment
+          ?.Variables ?? {},
     );
-    expect(envs.some((env) => 'ANNOUNCEMENT_PIN_HASH' in env)).toBe(true);
-    // A literal 64-char hex hash in the template would mean the secret was
-    // committed; it must arrive as a resolved SSM reference instead.
     const rendered = JSON.stringify(envs);
     expect(rendered).not.toMatch(/"[0-9a-f]{64}"/);
+    expect(rendered).not.toMatch(/PIN|SECRET|PASSWORD/i);
   });
 });
 

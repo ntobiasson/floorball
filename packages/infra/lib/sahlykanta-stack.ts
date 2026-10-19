@@ -30,7 +30,6 @@ import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3'
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
 import { ARecord, HostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { CfnBudget } from 'aws-cdk-lib/aws-budgets';
 import type { Construct } from 'constructs';
 
@@ -44,11 +43,6 @@ export interface SahlykantaStackProps extends StackProps {
   hostedZoneId: string;
   /** Where the budget alarm goes. */
   budgetEmail: string;
-  /**
-   * SSM parameter holding the sha256 of the shared announcement PIN. The
-   * secret itself is never in this repository or in the template.
-   */
-  pinParameterName?: string;
   /** Monthly ceiling, in USD, before the alarm fires. */
   monthlyBudgetUsd?: number;
 }
@@ -56,8 +50,6 @@ export interface SahlykantaStackProps extends StackProps {
 export class SahlykantaStack extends Stack {
   constructor(scope: Construct, id: string, props: SahlykantaStackProps) {
     super(scope, id, props);
-
-    const pinParameterName = props.pinParameterName ?? '/sahlykanta/announcement-pin-hash';
 
     // ---- Data -------------------------------------------------------------
     const table = new Table(this, 'Table', {
@@ -78,8 +70,6 @@ export class SahlykantaStack extends Stack {
     });
 
     // ---- API --------------------------------------------------------------
-    const pinHash = StringParameter.fromStringParameterName(this, 'PinHash', pinParameterName);
-
     const apiLogs = new LogGroup(this, 'ApiLogs', {
       retention: RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
@@ -95,7 +85,6 @@ export class SahlykantaStack extends Stack {
       logGroup: apiLogs,
       environment: {
         TABLE_NAME: table.tableName,
-        ANNOUNCEMENT_PIN_HASH: pinHash.stringValue,
         NODE_OPTIONS: '--enable-source-maps',
       },
       bundling: {

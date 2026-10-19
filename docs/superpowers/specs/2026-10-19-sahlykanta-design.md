@@ -78,4 +78,11 @@ Things that would make this a failure even if it technically worked:
 ## Open questions
 
 - The hostname the app should answer on.
-- Whether a shared PIN is the right gate for writing announcements.
+
+## Decisions taken after the design was written
+
+- Announcements are managed from an unlisted page rather than behind a shared
+  PIN. The address is the only access control, which protects the page but not
+  the API; the user chose this knowingly.
+- Removing a name from the day's list takes a confirmation.
+- The application is named Peleille.

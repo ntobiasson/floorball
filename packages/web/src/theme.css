@@ -169,7 +169,7 @@ body {
 }
 
 .chip__remove:disabled {
-  cursor: progress;
+  cursor: not-allowed;
   opacity: 0.5;
 }
 
@@ -204,6 +204,110 @@ body {
 .chip__confirm:disabled {
   cursor: progress;
   opacity: 0.6;
+}
+
+/* The unlisted announcements page. */
+.notice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.notice-row:last-child {
+  border-bottom: none;
+}
+
+.notice-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.notice-row__dates {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.notice-row__drop,
+.notice-row__confirm,
+.notice-row__cancel {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.notice-row__drop {
+  background: var(--chip);
+  color: var(--ink-soft);
+}
+
+.notice-row__confirm {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.notice-row__cancel {
+  background: #f1e2de;
+  color: #6b3327;
+}
+
+.field__textarea {
+  width: 100%;
+  min-height: 92px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.field__row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.field__row > label {
+  flex: 1 1 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field__date {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.unlisted-note {
+  margin: 0 0 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .chip__cancel {
@@ -262,9 +366,19 @@ body {
   font-weight: 700;
 }
 
+/*
+ * A disabled button is not a busy one. The submit button is disabled whenever
+ * the name box is empty, which is most of the time, and a spinning "busy"
+ * pointer there suggests the app is working when it is simply waiting for
+ * input. The busy cursor belongs only to the moment a request is in flight.
+ */
 .button:disabled {
-  cursor: progress;
+  cursor: not-allowed;
   opacity: 0.6;
+}
+
+.button[aria-busy='true'] {
+  cursor: progress;
 }
 
 .suggestions {
@@ -309,12 +423,38 @@ body {
   line-height: 1.45;
 }
 
+/*
+ * A phone-style bottom tab bar, pinned so it is reachable without scrolling.
+ *
+ * On a desktop window the same bar would otherwise sit at the far bottom of a
+ * mostly-empty column, past a large gap, where it reads as a footer artifact
+ * and the history page looks as though it does not exist. From 700px up it
+ * moves under the masthead instead, where navigation is looked for.
+ */
 .tabs {
+  position: sticky;
+  bottom: 0;
   display: flex;
   gap: 6px;
   padding: 10px 16px 18px;
   border-top: 1px solid var(--line);
   background: var(--surface);
+}
+
+@media (min-width: 700px) {
+  .masthead {
+    order: -2;
+  }
+
+  .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    order: -1;
+    padding: 8px 16px 10px;
+    border-top: none;
+    border-bottom: 1px solid var(--line);
+  }
 }
 
 .tabs__link {

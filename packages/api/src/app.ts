@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
 import {
   AnnouncementInputSchema,
@@ -11,6 +11,7 @@ import {
 } from '@sahlykanta/shared';
 import {
   AlreadyRegisteredError,
+  AnnouncementNotFoundError,
   CorruptedPlayerError,
   NotRegisteredError,
   PlayerRaceError,
@@ -21,7 +22,6 @@ import { EmptyNameError } from '@sahlykanta/shared';
 export interface AppConfig {
   repo: Repo;
   now?: () => Date;
-  env?: Record<string, string | undefined>;
 }
 
 /** The directory is ~500 rows that change a few times a week. */
@@ -31,24 +31,7 @@ function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
-/**
- * Constant-time comparison of the submitted PIN's hash against the configured
- * one. An unconfigured secret denies everything rather than letting anyone in.
- */
-function pinAccepted(submitted: string | undefined, expectedHash: string | undefined): boolean {
-  if (submitted === undefined || expectedHash === undefined) return false;
-  const actual = Buffer.from(sha256Hex(submitted), 'hex');
-  let expected: Buffer;
-  try {
-    expected = Buffer.from(expectedHash.trim(), 'hex');
-  } catch {
-    return false;
-  }
-  if (expected.length !== actual.length) return false;
-  return timingSafeEqual(actual, expected);
-}
-
-export function createApp({ repo, now = () => new Date(), env = process.env }: AppConfig): Hono {
+export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
   const app = new Hono();
 
   /**
@@ -150,16 +133,23 @@ export function createApp({ repo, now = () => new Date(), env = process.env }: A
     return c.json(player);
   });
 
+  /**
+   * Announcements are managed from an unlisted page. There is no secret to
+   * present here: the page's address is the only thing not widely known, and
+   * that protects the page, not this endpoint. It is the same trust model as
+   * registrations, where anyone can already add or remove any name.
+   */
   app.get('/api/announcements', async (c) => {
-    const announcements = await repo.listAnnouncements(today());
+    const announcements =
+      c.req.query('all') === undefined
+        ? await repo.listAnnouncements(today())
+        : // The management page edits expired and future ones too; the
+          // landing page must not show them.
+          await repo.listAllAnnouncements();
     return c.json({ announcements });
   });
 
   app.post('/api/announcements', async (c) => {
-    if (!pinAccepted(c.req.header('x-admin-pin'), env.ANNOUNCEMENT_PIN_HASH)) {
-      return c.json({ error: 'väärä tunnusluku' }, 401);
-    }
-
     let raw: unknown;
     try {
       raw = await c.req.json();
@@ -172,6 +162,18 @@ export function createApp({ repo, now = () => new Date(), env = process.env }: A
 
     const created = await repo.createAnnouncement(parsed.data);
     return c.json(created, 201);
+  });
+
+  app.delete('/api/announcements/:id', async (c) => {
+    try {
+      await repo.deleteAnnouncement(c.req.param('id'));
+      return c.body(null, 204);
+    } catch (error) {
+      if (error instanceof AnnouncementNotFoundError) {
+        return c.json({ error: 'tiedotetta ei löytynyt' }, 404);
+      }
+      throw error;
+    }
   });
 
   app.notFound((c) => c.json({ error: 'not found' }, 404));

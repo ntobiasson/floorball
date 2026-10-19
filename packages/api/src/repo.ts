@@ -1,4 +1,5 @@
 import {
+  DeleteCommand,
   GetCommand,
   PutCommand,
   QueryCommand,
@@ -41,6 +42,13 @@ export class AlreadyRegisteredError extends Error {
   constructor(displayName: string) {
     super(`${displayName} is already registered for this day`);
     this.name = 'AlreadyRegisteredError';
+  }
+}
+
+export class AnnouncementNotFoundError extends Error {
+  constructor(id: string) {
+    super(`announcement ${id} not found`);
+    this.name = 'AnnouncementNotFoundError';
   }
 }
 
@@ -102,7 +110,10 @@ export interface Repo {
   listPlayers(): Promise<PlayerSummary[]>;
   getPlayer(playerId: string): Promise<PlayerDetail | null>;
   listAnnouncements(onDate: string): Promise<Announcement[]>;
+  /** Everything, validity window ignored — what the management page edits. */
+  listAllAnnouncements(): Promise<Announcement[]>;
   createAnnouncement(input: AnnouncementInput): Promise<Announcement>;
+  deleteAnnouncement(id: string): Promise<void>;
 }
 
 export interface RepoConfig {
@@ -122,6 +133,15 @@ interface ProfileItem {
 interface YearItem {
   SK: string;
   count: number;
+}
+
+function toAnnouncement(item: Record<string, unknown>): Announcement {
+  return {
+    id: String(item.id),
+    body: String(item.body),
+    ...(item.validFrom === undefined ? {} : { validFrom: String(item.validFrom) }),
+    ...(item.validTo === undefined ? {} : { validTo: String(item.validTo) }),
+  };
 }
 
 function isConditionFailure(error: unknown): boolean {
@@ -494,6 +514,39 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
       };
     },
 
+    async listAllAnnouncements() {
+      const out = await client.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': ANNOUNCEMENT_PK },
+        }),
+      );
+      return (out.Items ?? []).map(toAnnouncement);
+    },
+
+    async deleteAnnouncement(id) {
+      // The sort key is built from validFrom, which the caller does not know,
+      // so the row has to be found before it can be deleted. The partition
+      // holds a handful of items.
+      const out = await client.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': ANNOUNCEMENT_PK },
+        }),
+      );
+      const found = (out.Items ?? []).find((item) => String(item.id) === id);
+      if (found === undefined) throw new AnnouncementNotFoundError(id);
+
+      await client.send(
+        new DeleteCommand({
+          TableName: tableName,
+          Key: { PK: ANNOUNCEMENT_PK, SK: String(found.SK) },
+        }),
+      );
+    },
+
     async listAnnouncements(onDate) {
       const out = await client.send(
         new QueryCommand({
@@ -510,12 +563,7 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
           if (to !== undefined && onDate > to) return false;
           return true;
         })
-        .map((item) => ({
-          id: String(item.id),
-          body: String(item.body),
-          ...(item.validFrom === undefined ? {} : { validFrom: String(item.validFrom) }),
-          ...(item.validTo === undefined ? {} : { validTo: String(item.validTo) }),
-        }));
+        .map(toAnnouncement);
     },
 
     async createAnnouncement(input) {

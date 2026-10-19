@@ -1,4 +1,6 @@
 import type {
+  Announcement,
+  AnnouncementInput,
   PlayerDetail,
   PlayerSummary,
   TodayResponse,
@@ -78,6 +80,19 @@ export const api = {
 
   unregister: (playerId: string) =>
     request<void>(`/api/registrations/${encodeURIComponent(playerId)}`, { method: 'DELETE' }),
+
+  /** Everything, including announcements outside their validity window. */
+  allAnnouncements: () => request<{ announcements: Announcement[] }>('/api/announcements?all=1'),
+
+  addAnnouncement: (input: AnnouncementInput) =>
+    request<Announcement>('/api/announcements', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+
+  removeAnnouncement: (id: string) =>
+    request<void>(`/api/announcements/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
 export type Api = typeof api;

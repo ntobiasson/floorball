@@ -89,7 +89,12 @@ export function RegisterForm({
         </p>
       )}
 
-      <button className="button" type="submit" disabled={busy || name.trim().length === 0}>
+      <button
+        className="button"
+        type="submit"
+        aria-busy={busy}
+        disabled={busy || name.trim().length === 0}
+      >
         {busy ? 'Ilmoittaudutaan…' : 'Ilmoittaudu'}
       </button>
     </form>

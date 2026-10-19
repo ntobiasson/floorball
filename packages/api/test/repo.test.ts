@@ -422,3 +422,51 @@ describe('announcement validity dates', () => {
     expect(await lateEvening.listAnnouncements('2026-06-13')).toEqual([]);
   });
 });
+
+describe('managing announcements', () => {
+  test('lists every announcement, including ones outside their validity window', async () => {
+    // The management page must show what the landing page hides, or an
+    // expired announcement can never be deleted.
+    await repo.createAnnouncement({ body: 'Vanha', validTo: '2026-10-18' });
+    await repo.createAnnouncement({ body: 'Voimassa' });
+    await repo.createAnnouncement({ body: 'Tuleva', validFrom: '2026-12-01' });
+
+    expect((await repo.listAnnouncements(MONDAY)).map((a) => a.body)).toEqual(['Voimassa']);
+    expect((await repo.listAllAnnouncements()).map((a) => a.body).sort()).toEqual([
+      'Tuleva',
+      'Vanha',
+      'Voimassa',
+    ]);
+  });
+
+  test('deletes an announcement by id', async () => {
+    const created = await repo.createAnnouncement({ body: 'Poistettava' });
+
+    await repo.deleteAnnouncement(created.id);
+
+    expect(await repo.listAllAnnouncements()).toEqual([]);
+  });
+
+  test('deletes the one asked for and leaves the others', async () => {
+    const keep = await repo.createAnnouncement({ body: 'Jää' });
+    const drop = await repo.createAnnouncement({ body: 'Poistuu' });
+
+    await repo.deleteAnnouncement(drop.id);
+
+    expect((await repo.listAllAnnouncements()).map((a) => a.id)).toEqual([keep.id]);
+  });
+
+  test('deletes one whose validity has passed', async () => {
+    // Its sort key is built from validFrom, so deleting by id alone has to
+    // find it rather than assume today's date.
+    const old = await repo.createAnnouncement({ body: 'Vanha', validFrom: '2024-01-01' });
+
+    await repo.deleteAnnouncement(old.id);
+
+    expect(await repo.listAllAnnouncements()).toEqual([]);
+  });
+
+  test('refuses to delete an id that is not there', async () => {
+    await expect(repo.deleteAnnouncement('ei-ole')).rejects.toThrow(/not found|ei löytynyt/i);
+  });
+});

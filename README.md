@@ -10,6 +10,9 @@ server.
   typing a new name, and anyone can remove a name.
 - **Peliaktiivisuus** lists every player with their total game count,
   searchable by name and expandable to a per-year breakdown.
+- **Announcements** are written and deleted at `/tiedotteet`, an unlisted page
+  nothing links to. Knowing the address is the only access control, by
+  design — see the runbook before relying on that.
 
 ## Stack
 
@@ -123,5 +126,5 @@ certificates from there, and keeping the certificate with everything else
 avoids a second cross-region stack. At this traffic every service stays inside
 the free tier; a budget alarm covers the rest.
 
-Before the first deploy, create the announcement PIN parameter — see the
-runbook.
+Before the first deploy, create the Route 53 hosted zone and the deploy role —
+see the runbook.

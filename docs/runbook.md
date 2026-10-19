@@ -2,21 +2,8 @@
 
 ## Before the first deploy
 
-The announcement PIN is a shared secret held in SSM, never in this repository.
-Pick a PIN, store its SHA-256:
-
-```sh
-PIN=<choose one>
-aws ssm put-parameter \
-  --name /sahlykanta/announcement-pin-hash \
-  --type String \
-  --value "$(printf %s "$PIN" | shasum -a 256 | cut -d' ' -f1)" \
-  --region us-east-1
-```
-
-The API compares a submitted PIN's hash against this value in constant time.
-**A deployment with no parameter rejects every announcement** rather than
-leaving the endpoint open, so if announcements stop working, check this first.
+Create the Route 53 hosted zone and the deploy role (OIDC trust to this
+repository); `cdk deploy` assumes both exist.
 
 Optionally set `IP_HASH_SALT` on the Lambda. The audit trail stores a salted
 16-character fingerprint of the caller's address, never the address itself —
@@ -24,8 +11,17 @@ enough to see that twenty deletions came from one place, not enough to identify
 a teammate. Rotating the salt makes older fingerprints incomparable with newer
 ones.
 
-Also create the Route 53 hosted zone and the deploy role (OIDC trust to this
-repository) before the first run; `cdk deploy` assumes both exist.
+## Announcements
+
+Announcements are managed from `/tiedotteet`. Nothing in the application links
+there, and knowing the address is the only thing between a visitor and the
+page — anyone who has it can add and remove announcements, and so can anyone
+who calls the API directly. That is the same trust model as the day's list,
+where anyone can already add or remove any name.
+
+If that stops being acceptable, the two realistic options are putting the page
+behind a shared secret again, or putting CloudFront in front of it with a
+signed cookie. Neither is in place today.
 
 ## Importing the history out of Domino
 

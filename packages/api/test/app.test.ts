@@ -8,7 +8,12 @@ import {
   type Repo,
 } from '../src/repo.js';
 import { createApp } from '../src/app.js';
-import type { PlayerDetail, PlayerSummary, TodayResponse } from '@sahlykanta/shared';
+import type {
+  Announcement,
+  PlayerDetail,
+  PlayerSummary,
+  TodayResponse,
+} from '@sahlykanta/shared';
 
 async function jsonBody<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
@@ -18,16 +23,11 @@ async function jsonBody<T>(res: Response): Promise<T> {
 const MONDAY_MORNING = new Date('2026-10-19T06:00:00Z');
 const TUESDAY_MORNING = new Date('2026-10-20T06:00:00Z');
 
-const PIN = '4321';
-// sha256('4321')
-const PIN_HASH = 'fe2592b42a727e977f055947385b709cc82b16b9a87f88c6abf3900d65d0cdc3';
-
 let client: DynamoDBDocumentClient;
 let tableName: string;
 let repo: Repo;
 
-const appAt = (now: Date, env: Record<string, string> = {}) =>
-  createApp({ repo, now: () => now, env });
+const appAt = (now: Date) => createApp({ repo, now: () => now });
 
 beforeAll(async () => {
   client = localClient();
@@ -225,43 +225,6 @@ describe('GET /api/players/:playerId', () => {
   });
 });
 
-describe('POST /api/announcements', () => {
-  const post = (headers: Record<string, string>, env: Record<string, string>) =>
-    appAt(MONDAY_MORNING, env).request('/api/announcements', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...headers },
-      body: JSON.stringify({ body: 'Kenttä varattu' }),
-    });
-
-  test('refuses without the PIN', async () => {
-    const res = await post({}, { ANNOUNCEMENT_PIN_HASH: PIN_HASH });
-
-    expect(res.status).toBe(401);
-    expect(await repo.listAnnouncements('2026-10-19')).toEqual([]);
-  });
-
-  test('refuses a wrong PIN', async () => {
-    const res = await post({ 'x-admin-pin': '0000' }, { ANNOUNCEMENT_PIN_HASH: PIN_HASH });
-
-    expect(res.status).toBe(401);
-    expect(await repo.listAnnouncements('2026-10-19')).toEqual([]);
-  });
-
-  test('accepts the right PIN', async () => {
-    const res = await post({ 'x-admin-pin': PIN }, { ANNOUNCEMENT_PIN_HASH: PIN_HASH });
-
-    expect(res.status).toBe(201);
-    expect(await repo.listAnnouncements('2026-10-19')).toHaveLength(1);
-  });
-
-  test('refuses everything when no PIN is configured', async () => {
-    // A deployment that forgot the secret must not be an open door.
-    const res = await post({ 'x-admin-pin': PIN }, {});
-
-    expect(res.status).toBe(401);
-  });
-});
-
 describe('unknown routes', () => {
   test('a missing API path is a 404 JSON error', async () => {
     const res = await appAt(MONDAY_MORNING).request('/api/nope');
@@ -279,7 +242,7 @@ describe('server-side faults are reported as JSON, not as a blank 500', () => {
     }) as Repo;
 
   const post = (brokenRepo: Repo) =>
-    createApp({ repo: brokenRepo, now: () => MONDAY_MORNING, env: {} }).request(
+    createApp({ repo: brokenRepo, now: () => MONDAY_MORNING }).request(
       '/api/registrations',
       {
         method: 'POST',
@@ -302,5 +265,89 @@ describe('server-side faults are reported as JSON, not as a blank 500', () => {
     expect(res.status).toBe(500);
     expect(res.headers.get('content-type')).toMatch(/application\/json/);
     expect(await res.json()).toHaveProperty('error');
+  });
+});
+
+describe('managing announcements', () => {
+  const app = () => createApp({ repo, now: () => MONDAY_MORNING });
+
+  const post = (body: unknown) =>
+    app().request('/api/announcements', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  test('anyone can add one, with no secret to know', async () => {
+    const res = await post({ body: 'Kenttä varattu' });
+
+    expect(res.status).toBe(201);
+    expect(await repo.listAnnouncements('2026-10-19')).toHaveLength(1);
+  });
+
+  test('an added announcement appears on the landing page straight away', async () => {
+    await post({ body: 'Kenttä varattu' });
+
+    const today = await jsonBody<TodayResponse>(await app().request('/api/today'));
+    expect(today.announcements.map((a) => a.body)).toEqual(['Kenttä varattu']);
+  });
+
+  test('refuses an empty body', async () => {
+    expect((await post({ body: '   ' })).status).toBe(400);
+  });
+
+  test('refuses a body over the length limit', async () => {
+    expect((await post({ body: 'a'.repeat(501) })).status).toBe(400);
+  });
+
+  test('accepts a validity window', async () => {
+    const res = await post({ body: 'Joulutauko', validFrom: '2026-12-20', validTo: '2026-12-28' });
+
+    expect(res.status).toBe(201);
+    // Outside the window today, so the landing page does not show it...
+    expect(await repo.listAnnouncements('2026-10-19')).toEqual([]);
+    // ...but the management list must.
+    const all = await jsonBody<{ announcements: Announcement[] }>(
+      await app().request('/api/announcements?all=1'),
+    );
+    expect(all.announcements.map((a) => a.body)).toEqual(['Joulutauko']);
+  });
+
+  test('the plain list shows only what is valid today', async () => {
+    await repo.createAnnouncement({ body: 'Vanha', validTo: '2026-10-18' });
+    await repo.createAnnouncement({ body: 'Voimassa' });
+
+    const list = await jsonBody<{ announcements: Announcement[] }>(
+      await app().request('/api/announcements'),
+    );
+    expect(list.announcements.map((a) => a.body)).toEqual(['Voimassa']);
+  });
+
+  test('anyone can remove one', async () => {
+    const created = await repo.createAnnouncement({ body: 'Poistettava' });
+
+    const res = await app().request(`/api/announcements/${created.id}`, { method: 'DELETE' });
+
+    expect(res.status).toBe(204);
+    expect(await repo.listAllAnnouncements()).toEqual([]);
+  });
+
+  test('removing one that is not there is a 404', async () => {
+    const res = await app().request('/api/announcements/ei-ole', { method: 'DELETE' });
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+  });
+
+  test('removal works on a day that is not a game day', async () => {
+    // Announcements are not tied to the game-day rule.
+    const created = await repo.createAnnouncement({ body: 'Poistettava' });
+
+    const res = await createApp({ repo, now: () => TUESDAY_MORNING }).request(
+      `/api/announcements/${created.id}`,
+      { method: 'DELETE' },
+    );
+
+    expect(res.status).toBe(204);
   });
 });

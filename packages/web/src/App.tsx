@@ -5,14 +5,24 @@ import { BallMark } from './components/Graphics.js';
 import { Tabs, type Route } from './components/Tabs.js';
 import { Today } from './pages/Today.js';
 import { Activity } from './pages/Activity.js';
+import { Notices } from './pages/Notices.js';
 
-function routeFromPath(pathname: string): Route {
+/**
+ * The unlisted announcements page. Nothing links to it; knowing this address
+ * is the only thing that gets you there.
+ */
+export const NOTICES_PATH = '/tiedotteet';
+
+type View = Route | 'notices';
+
+function viewFromPath(pathname: string): View {
+  if (pathname.startsWith(NOTICES_PATH)) return 'notices';
   return pathname.startsWith('/peliaktiivisuus') ? 'activity' : 'today';
 }
 
 export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
-  const [route, setRoute] = useState<Route>(() =>
-    routeFromPath(typeof window === 'undefined' ? '/' : window.location.pathname),
+  const [view, setView] = useState<View>(() =>
+    viewFromPath(typeof window === 'undefined' ? '/' : window.location.pathname),
   );
   const [today, setToday] = useState<TodayResponse | undefined>(undefined);
   const [directory, setDirectory] = useState<PlayerSummary[]>([]);
@@ -23,6 +33,9 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
   }, [api]);
 
   useEffect(() => {
+    // The announcements page needs none of this, and loading it there would
+    // only make the page slower to appear.
+    if (view === 'notices') return;
     void (async () => {
       try {
         const [todayResult, directoryResult] = await Promise.all([api.today(), api.players()]);
@@ -32,10 +45,10 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
         setFatal(cause instanceof Error ? cause.message : 'Palvelua ei saatu yhteyttä.');
       }
     })();
-  }, [api]);
+  }, [api, view]);
 
   const navigate = (next: Route): void => {
-    setRoute(next);
+    setView(next);
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', next === 'activity' ? '/peliaktiivisuus' : '/');
     }
@@ -51,13 +64,19 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
       </header>
 
       <main className="app__main">
-        {fatal !== undefined ? (
+        {view === 'notices' ? (
+          <Notices
+            load={api.allAnnouncements}
+            add={api.addAnnouncement}
+            remove={api.removeAnnouncement}
+          />
+        ) : fatal !== undefined ? (
           <p className="state" role="alert">
             {fatal}
           </p>
         ) : today === undefined ? (
           <p className="state">Haetaan…</p>
-        ) : route === 'today' ? (
+        ) : view === 'today' ? (
           <Today
             today={today}
             directory={directory}
@@ -78,7 +97,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
         )}
       </main>
 
-      <Tabs active={route} onNavigate={navigate} />
+      {view !== 'notices' && <Tabs active={view} onNavigate={navigate} />}
     </div>
   );
 }

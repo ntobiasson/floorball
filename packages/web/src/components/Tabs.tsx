@@ -1,3 +1,7 @@
+/**
+ * `notices` is deliberately absent from the tab bar: that page is unlisted
+ * and reached only by typing its address.
+ */
 export type Route = 'today' | 'activity';
 
 export function Tabs({
