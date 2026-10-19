@@ -2,8 +2,27 @@
 
 ## Before the first deploy
 
+Nothing deploys until these four exist. The Deploy workflow checks for them
+first and **skips** the deploy job when any is missing, so an unconfigured
+repository gets a clean skip rather than a failed run; the skip names what is
+absent in the run summary.
+
+| Name | Kind | Example |
+| --- | --- | --- |
+| `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
+| `SAHLYKANTA_DOMAIN` | variable | `peleille.example.fi` |
+| `SAHLYKANTA_HOSTED_ZONE_ID` | variable | `Z0123456789ABCDEFGHIJ` |
+| `SAHLYKANTA_BUDGET_EMAIL` | variable | `ops@example.fi` |
+
+```sh
+gh secret set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::...:role/...'
+gh variable set SAHLYKANTA_DOMAIN --body 'peleille.example.fi'
+gh variable set SAHLYKANTA_HOSTED_ZONE_ID --body 'Z...'
+gh variable set SAHLYKANTA_BUDGET_EMAIL --body 'you@example.fi'
+```
+
 Create the Route 53 hosted zone and the deploy role (OIDC trust to this
-repository); `cdk deploy` assumes both exist.
+repository) before the first run; `cdk deploy` assumes both exist.
 
 Optionally set `IP_HASH_SALT` on the Lambda. The audit trail stores a salted
 16-character fingerprint of the caller's address, never the address itself —

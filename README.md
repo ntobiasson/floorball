@@ -117,7 +117,8 @@ to overwrite totals that live registrations have already moved.
 ## Deploying
 
 Pushing to `main` deploys via GitHub Actions using OIDC — there are no AWS keys
-in this repository. The workflow needs these repository variables and secret:
+in this repository. Until these are set the deploy job **skips** rather than
+failing, and says in the run summary which are missing:
 
 | Name | Kind | Example |
 | --- | --- | --- |

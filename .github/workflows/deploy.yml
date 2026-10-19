@@ -15,6 +15,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Whether this repository is configured to deploy at all.
+  #
+  # A job-level `if` cannot read the `secrets` context — GitHub does not
+  # expose it there — so the secret is read into an output here and the
+  # deploy job keys off that. Without this, a repository with no AWS
+  # credentials fails its deploy on every push instead of skipping it.
+  config:
+    runs-on: ubuntu-latest
+    outputs:
+      deployable: ${{ steps.check.outputs.deployable }}
+      missing: ${{ steps.check.outputs.missing }}
+    steps:
+      - id: check
+        env:
+          ROLE: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          DOMAIN: ${{ vars.SAHLYKANTA_DOMAIN }}
+          ZONE: ${{ vars.SAHLYKANTA_HOSTED_ZONE_ID }}
+          BUDGET_EMAIL: ${{ vars.SAHLYKANTA_BUDGET_EMAIL }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "$ROLE" ]         || missing="$missing AWS_DEPLOY_ROLE_ARN(secret)"
+          [ -n "$DOMAIN" ]       || missing="$missing SAHLYKANTA_DOMAIN(var)"
+          [ -n "$ZONE" ]         || missing="$missing SAHLYKANTA_HOSTED_ZONE_ID(var)"
+          [ -n "$BUDGET_EMAIL" ] || missing="$missing SAHLYKANTA_BUDGET_EMAIL(var)"
+
+          missing="${missing# }"
+          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$missing" ]; then
+            echo "deployable=true" >> "$GITHUB_OUTPUT"
+            echo "Deploying to $DOMAIN." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "deployable=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Deploy skipped"
+              echo
+              echo "This repository is not configured to deploy yet. Missing:"
+              echo
+              for name in $missing; do echo "- \`$name\`"; done
+              echo
+              echo "See \`docs/runbook.md\`. The tests above still ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   # A push to main must not reach production without the suite passing.
   check:
     runs-on: ubuntu-latest
@@ -40,7 +85,9 @@ jobs:
       - run: npm test
 
   deploy:
-    needs: check
+    needs: [config, check]
+    # Skips cleanly — grey, not red — until the credentials exist.
+    if: needs.config.outputs.deployable == 'true'
     runs-on: ubuntu-latest
     environment: production
     env:
