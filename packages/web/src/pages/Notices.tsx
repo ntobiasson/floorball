@@ -22,7 +22,6 @@ export function Notices({
   add: (input: AnnouncementInput) => Promise<Announcement>;
   remove: (id: string) => Promise<void>;
 }): React.ReactElement {
-  const bodyId = useId();
   const fromId = useId();
   const toId = useId();
 
@@ -116,7 +115,7 @@ export function Notices({
     <>
       <section className="card" aria-labelledby="notices-title">
         <h1 id="notices-title" style={{ margin: 0, fontSize: '21px', fontWeight: 800 }}>
-          Tiedotteet
+          Tiedote
         </h1>
         <form
           onSubmit={(event) => {
@@ -124,12 +123,11 @@ export function Notices({
             void submit();
           }}
         >
-          <label className="field__label" htmlFor={bodyId}>
-            Tiedote
-          </label>
+          {/* The heading above names this field; a second "Tiedote" label
+              under it would just say the same thing twice. */}
           <textarea
             className="field__textarea"
-            id={bodyId}
+            aria-labelledby="notices-title"
             value={body}
             maxLength={500}
             placeholder="Esim. Kenttä varattu 21.10. klo 18–19."
@@ -189,14 +187,26 @@ export function Notices({
           announcements.map((announcement) => {
             const shown = window_(announcement);
             return (
-              <div className="notice-row" key={announcement.id}>
+              <div
+                className={
+                  confirming === announcement.id
+                    ? 'notice-row notice-row--confirming'
+                    : 'notice-row'
+                }
+                key={announcement.id}
+              >
                 <span className="notice-row__text">
                   {announcement.body}
                   {shown !== undefined && <span className="notice-row__dates">{shown}</span>}
                 </span>
 
                 {confirming === announcement.id ? (
-                  <>
+                  // Its own line, so the announcement stays readable while
+                  // the question is being asked.
+                  <div className="notice-row__actions">
+                    {/* The button that opened this also said "Poista", so
+                        confirming looked like nothing had happened. */}
+                    <span className="notice-row__question">Poistetaanko?</span>
                     <button
                       className="notice-row__confirm"
                       type="button"
@@ -204,7 +214,7 @@ export function Notices({
                       disabled={busy}
                       onClick={() => void drop(announcement.id)}
                     >
-                      Poista
+                      Kyllä
                     </button>
                     <button
                       className="notice-row__cancel"
@@ -214,7 +224,7 @@ export function Notices({
                     >
                       Peru
                     </button>
-                  </>
+                  </div>
                 ) : (
                   <button
                     className="notice-row__drop"

@@ -70,7 +70,7 @@ describe('the unlisted announcements page', () => {
     openPage(api);
     await screen.findByText('Joulutauko');
 
-    await userEvent.type(await screen.findByLabelText('Tiedote'), 'Uusi tiedote');
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Tiedote' }), 'Uusi tiedote');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää tiedote' }));
 
     await waitFor(() =>
@@ -83,7 +83,7 @@ describe('the unlisted announcements page', () => {
     openPage(api);
     await screen.findByText('Joulutauko');
 
-    await userEvent.type(await screen.findByLabelText('Tiedote'), 'Talvitauko');
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Tiedote' }), 'Talvitauko');
     await userEvent.type(screen.getByLabelText('Näytetään alkaen'), '2026-12-01');
     await userEvent.type(screen.getByLabelText('Näytetään asti'), '2026-12-31');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää tiedote' }));
@@ -115,6 +115,31 @@ describe('the unlisted announcements page', () => {
 
     expect(api.removeAnnouncement).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ })).toBeInTheDocument();
+  });
+
+  test('asks a question in words, not just by changing a colour', async () => {
+    // The confirm button used to read "Poista", the same as the button that
+    // opened it, so tapping it looked like nothing had happened.
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Joulutauko');
+
+    await userEvent.click(screen.getByRole('button', { name: /Poista.*Joulutauko/ }));
+
+    expect(screen.getByText('Poistetaanko?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ })).toHaveTextContent(
+      'Kyllä',
+    );
+  });
+
+  test('only the row being removed is asked about', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Joulutauko');
+
+    await userEvent.click(screen.getByRole('button', { name: /Poista.*Joulutauko/ }));
+
+    expect(screen.getAllByText('Poistetaanko?')).toHaveLength(1);
   });
 
   test('removes the announcement once confirmed', async () => {
@@ -157,6 +182,25 @@ describe('the unlisted announcements page', () => {
     openPage(fakeApi({ allAnnouncements: vi.fn().mockResolvedValue({ announcements: [] }) }));
 
     expect(await screen.findByText(/Ei tiedotteita/i)).toBeInTheDocument();
+  });
+});
+
+describe('the form', () => {
+  test('is headed Tiedote, with no repeated label under it', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    expect(screen.getByRole('heading', { name: 'Tiedote' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tiedotteet' })).not.toBeInTheDocument();
+    // One "Tiedote" on screen, not a heading and a label saying the same.
+    expect(screen.getAllByText('Tiedote', { exact: true })).toHaveLength(1);
+  });
+
+  test('the text box is still named for screen readers', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    expect(screen.getByRole('textbox', { name: 'Tiedote' })).toBeInTheDocument();
   });
 });
 

@@ -219,6 +219,37 @@ body {
   border-bottom: none;
 }
 
+/* Tinted as well as worded, so which row is being asked about is obvious. */
+.notice-row--confirming {
+  flex-wrap: wrap;
+  margin: 0 -10px;
+  padding: 13px 10px;
+  border-radius: 12px;
+  background: #fdeeea;
+  box-shadow: inset 0 0 0 1px #e7b9ae;
+}
+
+/* Full width, so asking the question does not squeeze the announcement into
+   a narrow column. */
+.notice-row--confirming .notice-row__text {
+  flex: 1 1 100%;
+}
+
+.notice-row__actions {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.notice-row__question {
+  margin-right: auto;
+  color: #6b3327;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .notice-row__text {
   flex: 1 1 auto;
   min-width: 0;

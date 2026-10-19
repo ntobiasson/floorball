@@ -28,7 +28,7 @@ test('nothing on the app links to the page', async ({ page }) => {
 test('the page opens for anyone who knows the address, with no secret asked', async ({ page }) => {
   await page.goto(NOTICES);
 
-  await expect(page.getByRole('heading', { name: 'Tiedotteet', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tiedote', exact: true })).toBeVisible();
   // No password, PIN or sign-in anywhere on it.
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
 });
@@ -44,7 +44,7 @@ test('an unrelated address does not open it', async ({ page }) => {
 
 test('the page asks not to be indexed', async ({ page }) => {
   await page.goto(NOTICES);
-  await expect(page.getByRole('heading', { name: 'Tiedotteet', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tiedote', exact: true })).toBeVisible();
 
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
     'content',
@@ -66,6 +66,8 @@ test('removing one asks first, then takes it off the landing page', async ({ pag
   await page.goto(NOTICES);
 
   await page.getByRole('button', { name: /Poista tiedote E2E-tiedote/ }).click();
+  // The question is asked in words, not only by a colour change.
+  await expect(page.getByText('Poistetaanko?')).toBeVisible();
   await expect(page.getByText('E2E-tiedote')).toBeVisible();
   await page.getByRole('button', { name: /Vahvista.*E2E-tiedote/ }).click();
   await expect(page.getByText('E2E-tiedote')).toBeHidden();
