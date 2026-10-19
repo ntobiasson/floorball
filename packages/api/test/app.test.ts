@@ -147,7 +147,7 @@ describe('POST /api/registrations', () => {
 
   test('refuses the same player twice on one day', async () => {
     await post(MONDAY_MORNING, { name: 'Matti Virtanen', gameDate: '2026-10-19' });
-    const res = await post(MONDAY_MORNING, { name: 'Aatu  harju', gameDate: '2026-10-19' });
+    const res = await post(MONDAY_MORNING, { name: 'Matti  virtanen', gameDate: '2026-10-19' });
 
     expect(res.status).toBe(409);
     expect(await repo.listRegistrations('2026-10-19')).toHaveLength(1);

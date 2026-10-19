@@ -47,14 +47,15 @@ cd packages/import
 npx tsx src/cli-scrape.ts --limit 5 --out ./out-dryrun
 ```
 
-Expect five players and ~362 registrations in about three minutes.
+Expect five players and a few hundred registrations in about three minutes.
+Check the names and totals it prints against the live Peliaktiivisuus page.
 
 The run begins by reading the collapsed player index — about 16 pages — and
 caches it as `player-index.json`. As of 2026-10-19 that index holds **464
 entries**, and it is the number to check the finished import against.
 
-The last entry is `Not Categorized` with 1 game. That is Domino's bucket for
-documents whose category field is empty, not a person. Its row is kept so the
+The last entry is `Not Categorized`. That is Domino's bucket for documents
+whose category field is empty, not a person. Its row is kept so the
 archive reconciles with Domino, and the scraper warns about it; decide
 afterwards whether to delete that one player or leave it as a curiosity. The known
 figures are `Olli Salo` 2, `Olli Väänänen` 63, `Matti Virtanen` 278,
@@ -142,11 +143,11 @@ Three things must line up:
    to one match key — the load prints every such group — and it hides players
    with no games.
 2. The sum of all player totals against the number of `DAY#` rows.
-3. The spot-checks, which are a floor rather than an exact figure because
-   people keep playing until Domino is switched off: `Matti Virtanen` at 278+
-   (279 on 2026-10-19, having been 278 that morning), `Liisa Korhonen` at 233+,
-   `Olli Väänänen` at 63 — his last game was in 2009, so that one is fixed.
-   Compare each against what the live Peliaktiivisuus page shows on the day.
+3. Spot-checks against the live Peliaktiivisuus page on the day. Pick two or
+   three players — one with a large total, one whose last game was years ago —
+   and confirm the figures match. No expected totals are recorded here on
+   purpose: this repository holds no real player data, and the numbers keep
+   moving until Domino is switched off.
 
 ## Merging two players
 

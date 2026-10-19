@@ -46,7 +46,7 @@ describe('register', () => {
 
   test('preserves the name as typed while matching case-insensitively', async () => {
     const first = await repo.register({ gameDate: MONDAY, rawName: 'antti aalto' });
-    const second = await repo.register({ gameDate: WEDNESDAY, rawName: 'Antti  ALAPIHA' });
+    const second = await repo.register({ gameDate: WEDNESDAY, rawName: 'Antti  AALTO' });
 
     expect(second.playerId).toBe(first.playerId);
     expect(second.created).toBe(false);
@@ -136,8 +136,9 @@ describe('listPlayers', () => {
     await repo.register({ gameDate: WEDNESDAY, rawName: 'Matti Virtanen' });
 
     const players = await repo.listPlayers();
-    expect(players.map((p) => p.displayName)).toEqual(['Matti Virtanen', 'Liisa Korhonen']);
-    expect(players.map((p) => p.total)).toEqual([2, 1]);
+    // Ordered by normalized name, not by total.
+    expect(players.map((p) => p.displayName)).toEqual(['Liisa Korhonen', 'Matti Virtanen']);
+    expect(players.map((p) => p.total)).toEqual([1, 2]);
   });
 
   test('is empty before anyone registers', async () => {

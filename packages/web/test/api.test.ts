@@ -15,7 +15,7 @@ describe('a well-formed error response', () => {
   test('becomes an ApiError carrying the server message', async () => {
     respondWith(JSON.stringify({ error: 'nimi on jo listalla' }), { status: 409 });
 
-    await expect(api.register('Aatu', '2026-10-19')).rejects.toThrow('nimi on jo listalla');
+    await expect(api.register('Matti', '2026-10-19')).rejects.toThrow('nimi on jo listalla');
   });
 
   test('carries the status', async () => {

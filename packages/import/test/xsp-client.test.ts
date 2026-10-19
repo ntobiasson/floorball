@@ -1,12 +1,18 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { ACTIVITY_PAGE, createXspClient } from '../src/xsp-client.js';
+import { player, renderView } from './domino-markup.js';
 
-const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
-const level1 = readFileSync(path.join(fixtures, 'level1-page1.html'), 'utf8');
-const playerExpanded = readFileSync(path.join(fixtures, 'player-expanded.html'), 'utf8');
+const level1 = renderView({
+  pageCount: 16,
+  rows: [player('Olli Salo', 2, '1'), player('Matti Virtanen', 278, '3')],
+});
+
+/** A second response, carrying a different view-state token. */
+const playerExpanded = renderView({
+  pageCount: 16,
+  viewId: '!hncopjoczl!',
+  rows: [player('Matti Virtanen', 278, '3', true)],
+});
 
 const BASE = 'http://example.test/sofor/fun/sahlykanta.nsf';
 
@@ -150,8 +156,8 @@ describe('submit', () => {
 
     await client.submit('anything');
 
-    // The fixtures were captured in different sessions, so their tokens
-    // differ; what matters is that the client adopts the newest one.
+    // The two responses carry different tokens; what matters is that the
+    // client adopts the newest one.
     expect(client.viewId()).not.toBe(before);
     expect(client.viewId()).toMatch(/^!.+!$/);
   });

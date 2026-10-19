@@ -44,13 +44,13 @@ describe('RegistrationInputSchema', () => {
   });
 
   test('rejects a malformed game date', () => {
-    expect(RegistrationInputSchema.safeParse({ name: 'Aatu', gameDate: '19.10.2026' }).success).toBe(
+    expect(RegistrationInputSchema.safeParse({ name: 'Matti', gameDate: '19.10.2026' }).success).toBe(
       false,
     );
   });
 
   test('rejects a missing game date', () => {
-    expect(RegistrationInputSchema.safeParse({ name: 'Aatu' }).success).toBe(false);
+    expect(RegistrationInputSchema.safeParse({ name: 'Matti' }).success).toBe(false);
   });
 });
 

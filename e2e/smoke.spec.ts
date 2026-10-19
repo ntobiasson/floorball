@@ -100,7 +100,7 @@ test('the same name cannot be added twice on one day', async ({ page }) => {
 test('a player already on the list is not suggested again', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByLabel('Nimi').fill('aatu');
+  await page.getByLabel('Nimi').fill('matti');
 
   // Matti Virtanen is already registered for this day; the (EHKÄ) duplicate is not.
   const suggestions = page.getByRole('list', { name: 'Ehdotukset' });
@@ -115,11 +115,11 @@ test('the archive is kept but never shown', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
 
-  // No navigation to it, no search over it, and no historical totals on screen
-  // — Matti Virtanen has 279 games in the table.
+  // No navigation to it, no search over it, and no historical total on
+  // screen: the only number shown is today's count, which is single digit.
   await expect(page.getByRole('link', { name: /peliaktiivisuus/i })).toHaveCount(0);
   await expect(page.getByLabel('Hae pelaajan nimellä')).toHaveCount(0);
-  await expect(page.getByText('279')).toHaveCount(0);
+  await expect(page.getByText(/^\d{2,}$/)).toHaveCount(0);
 
   // The old address falls through to the registration page.
   await page.goto('/peliaktiivisuus');
@@ -130,7 +130,7 @@ test('the archive is kept but never shown', async ({ page }) => {
 test('the stored history still reaches the form as name suggestions', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByLabel('Nimi').fill('vakev');
+  await page.getByLabel('Nimi').fill('vaana');
 
   // Olli Väänänen last played in 2009 and is in the directory only because
   // the archive was imported.

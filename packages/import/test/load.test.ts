@@ -92,10 +92,11 @@ describe('loadHarvest', () => {
     const repo = createRepo({ client, tableName });
 
     const players = await repo.listPlayers();
+    // The directory is ordered by normalized name.
     expect(players.map((p) => p.displayName)).toEqual([
+      'Liisa Korhonen',
       'Matti Virtanen',
       'Matti Virtanen (EHKÄ)',
-      'Liisa Korhonen',
     ]);
 
     const aatu = players.find((p) => p.displayName === 'Matti Virtanen');

@@ -43,7 +43,7 @@ describe('gsi1Sk', () => {
   });
 
   test('sorts lexicographically by name', () => {
-    expect(gsi1Sk('matti virtanen') < gsi1Sk('aleksi sivula')).toBe(true);
+    expect(gsi1Sk('liisa korhonen') < gsi1Sk('matti virtanen')).toBe(true);
   });
 
   test('is stable across registrations, so a write never rewrites an index key', () => {

@@ -103,7 +103,7 @@ describe('a game day', () => {
     const api = fakeApi(MONDAY);
     render(<App api={api} />);
 
-    await userEvent.type(await screen.findByLabelText('Nimi'), 'kankaan');
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'makel');
     const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
     await userEvent.click(
       within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' }),
@@ -330,7 +330,7 @@ describe('history is kept but not shown', () => {
   test('suggestions still work from that directory', async () => {
     render(<App api={fakeApi(MONDAY)} />);
 
-    await userEvent.type(await screen.findByLabelText('Nimi'), 'kankaan');
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'makel');
 
     const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
     expect(within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' })).toBeVisible();

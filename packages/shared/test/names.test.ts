@@ -7,11 +7,11 @@ describe('normalizeName', () => {
   });
 
   test('trims and collapses internal whitespace', () => {
-    expect(normalizeName('  Aatu   HARJU ')).toBe('matti virtanen');
+    expect(normalizeName('  Matti   VIRTANEN ')).toBe('matti virtanen');
   });
 
   test('collapses tabs and newlines too', () => {
-    expect(normalizeName('Aatu\tHarju\n')).toBe('matti virtanen');
+    expect(normalizeName('Matti\tVirtanen\n')).toBe('matti virtanen');
   });
 
   test('folds Finnish diacritics so one person typed two ways is one player', () => {
@@ -21,7 +21,7 @@ describe('normalizeName', () => {
   });
 
   test('folds a precomposed and a decomposed spelling to the same key', () => {
-    expect(normalizeName('Mäkelä')).toBe(normalizeName('Mäkelä'));
+    expect(normalizeName('M\u00e4kel\u00e4')).toBe(normalizeName('Ma\u0308kela\u0308'));
   });
 
   test('keeps genuinely different names apart', () => {
@@ -43,7 +43,7 @@ describe('normalizeName', () => {
   });
 
   test('is idempotent', () => {
-    const once = normalizeName('  Katja   Mäkelä ');
+    const once = normalizeName('  Riikka   Mäkelä ');
     expect(normalizeName(once)).toBe(once);
   });
 
@@ -55,7 +55,7 @@ describe('normalizeName', () => {
 
 describe('cleanDisplayName', () => {
   test('trims and collapses whitespace but preserves case and diacritics', () => {
-    expect(cleanDisplayName('  Katja   Mäkelä ')).toBe('Riikka Mäkelä');
+    expect(cleanDisplayName('  Riikka   Mäkelä ')).toBe('Riikka Mäkelä');
   });
 
   test('leaves a lowercase name as the person typed it', () => {
@@ -70,7 +70,7 @@ describe('cleanDisplayName', () => {
 
 describe('foldForSearch', () => {
   test('folds the same way normalizeName does', () => {
-    expect(foldForSearch('  Katja  Mäkelä ')).toBe(normalizeName('Riikka Mäkelä'));
+    expect(foldForSearch('  Riikka  Mäkelä ')).toBe(normalizeName('Riikka Mäkelä'));
   });
 
   test('returns an empty string instead of throwing, because a search box is often empty', () => {

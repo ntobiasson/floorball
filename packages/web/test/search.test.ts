@@ -33,7 +33,7 @@ describe('filterPlayers', () => {
   });
 
   test('ignores case', () => {
-    expect(filterPlayers(DIRECTORY, 'AATU').map((p) => p.displayName)).toEqual([
+    expect(filterPlayers(DIRECTORY, 'MATTI').map((p) => p.displayName)).toEqual([
       'Matti Virtanen',
       'Matti Virtanen (EHKÄ)',
     ]);
@@ -62,11 +62,11 @@ describe('filterPlayers', () => {
   });
 
   test('matches on the surname alone', () => {
-    expect(filterPlayers(DIRECTORY, 'sivula').map((p) => p.displayName)).toEqual(['Liisa Korhonen']);
+    expect(filterPlayers(DIRECTORY, 'korhonen').map((p) => p.displayName)).toEqual(['Liisa Korhonen']);
   });
 
   test('matches a partial word from its start', () => {
-    expect(filterPlayers(DIRECTORY, 'lehtor').map((p) => p.displayName)).toEqual([
+    expect(filterPlayers(DIRECTORY, 'lahtin').map((p) => p.displayName)).toEqual([
       'liisa lahtinen',
     ]);
   });
@@ -76,7 +76,7 @@ describe('filterPlayers', () => {
     expect(filterPlayers(DIRECTORY, 'pekka n').map((p) => p.displayName)).not.toContain(
       'Pekka Hämäläinen (mv)',
     );
-    expect(filterPlayers(DIRECTORY, 'ehtorinne')).toEqual([]);
+    expect(filterPlayers(DIRECTORY, 'ahtinen')).toEqual([]);
   });
 
   test('finds a lowercase entry from a capitalised query', () => {
@@ -84,7 +84,7 @@ describe('filterPlayers', () => {
   });
 
   test('matches across the words in any order', () => {
-    expect(filterPlayers(DIRECTORY, 'harju aatu').map((p) => p.displayName)).toEqual([
+    expect(filterPlayers(DIRECTORY, 'virtanen matti').map((p) => p.displayName)).toEqual([
       'Matti Virtanen',
       'Matti Virtanen (EHKÄ)',
     ]);
@@ -101,7 +101,7 @@ describe('filterPlayers', () => {
   });
 
   test('preserves the order it was given', () => {
-    expect(filterPlayers(DIRECTORY, 'aleksi').map((p) => p.displayName)).toEqual([
+    expect(filterPlayers(DIRECTORY, 'liisa').map((p) => p.displayName)).toEqual([
       'Liisa Korhonen',
       'Liisa Heinonen',
       'liisa lahtinen',
