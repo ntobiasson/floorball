@@ -33,23 +33,33 @@ Requires Node 22 (`.nvmrc`) and Docker.
 
 ```sh
 npm ci
-docker compose up -d          # DynamoDB Local on port 8001
+docker compose up -d                       # DynamoDB Local on port 8001
 
-# One terminal: the API, with today pinned to a Monday
-TABLE_NAME=sahlykanta-e2e DYNAMODB_ENDPOINT=http://127.0.0.1:8001 \
-  AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_REGION=eu-north-1 \
-  FAKE_TODAY=2026-10-19 npm run serve -w @sahlykanta/api
+# Create the table and fill it with a few real players.
+TABLE_NAME=sahlykanta-local DYNAMODB_ENDPOINT=http://127.0.0.1:8001 \
+  npx tsx e2e/seed.ts
 
-# Another: the SPA
-API_ORIGIN=http://127.0.0.1:3000 npm run dev -w @sahlykanta/web
+# One terminal: the API.
+TABLE_NAME=sahlykanta-local DYNAMODB_ENDPOINT=http://127.0.0.1:8001 \
+  AWS_REGION=eu-north-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local \
+  PORT=3400 npm run serve -w @sahlykanta/api
+
+# Another: the SPA. Open http://127.0.0.1:5273
+API_ORIGIN=http://127.0.0.1:3400 npm run dev -w @sahlykanta/web -- --port 5273
 ```
 
-`npx tsx e2e/seed.ts` creates the local table and fills it with a few real
-players, which is the quickest way to get something on screen.
+Vite proxies `/api` to the API, mirroring the single CloudFront origin used in
+production, so there is no CORS locally either.
 
-DynamoDB Local is published on **8001**, not the usual 8000, because 8000 is
-so often already taken that a clash silently points the tests at another
-server.
+Add `FAKE_TODAY=2026-10-20` to the API's environment to see the
+not-a-game-day screen without waiting for a Tuesday. It is read only by
+`serve.ts`, which is never deployed.
+
+**On ports.** DynamoDB Local is published on **8001** and these examples use
+**3400** and **5273** rather than 8000/3000/5173, which are routinely occupied
+on a development machine — and a clash there is quiet and confusing, because
+the client happily talks to whatever is listening. Change them freely if they
+are taken on yours.
 
 ## Checks
 
