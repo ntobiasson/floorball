@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
 import { createRepo, type Repo } from '../src/repo.js';
 import { auditPk } from '../src/table.js';
@@ -208,5 +209,216 @@ describe('announcements', () => {
     });
 
     expect(await repo.listAnnouncements(MONDAY)).toHaveLength(1);
+  });
+});
+
+describe('a table left in a corrupted state', () => {
+  // These states are reachable: load.ts writes NAME#, PROFILE and YEAR# items
+  // in BatchWriteItem chunks of 25, so a chunk boundary can fall between a
+  // name lookup and its profile. `ADD` upserts, so without conditions the
+  // write path invents the missing item instead of refusing.
+
+  test('register refuses a name whose lookup points at a missing profile', async () => {
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: { PK: 'NAME#matti virtanen', SK: 'NAME', playerId: 'ORPHAN01', normalizedName: 'matti virtanen' },
+      }),
+    );
+
+    await expect(repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' })).rejects.toThrow(
+      /ORPHAN01|profile/i,
+    );
+  });
+
+  test('that refusal writes nothing at all', async () => {
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: { PK: 'NAME#matti virtanen', SK: 'NAME', playerId: 'ORPHAN01', normalizedName: 'matti virtanen' },
+      }),
+    );
+
+    await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' }).catch(() => undefined);
+
+    expect(await repo.listRegistrations(MONDAY)).toEqual([]);
+    const planted = await client.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': 'PLAYER#ORPHAN01' },
+      }),
+    );
+    // No fabricated profile, and therefore no player that is invisible to
+    // listPlayers while holding a day row.
+    expect(planted.Items ?? []).toEqual([]);
+  });
+
+  test('unregister refuses rather than driving a total negative', async () => {
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `DAY#${MONDAY}`,
+          SK: 'PLAYER#GHOST01',
+          playerId: 'GHOST01',
+          displayName: 'Ghost',
+          createdAt: '2026-10-19T06:00:00Z',
+        },
+      }),
+    );
+
+    await expect(repo.unregister({ gameDate: MONDAY, playerId: 'GHOST01' })).rejects.toThrow();
+
+    const planted = await client.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': 'PLAYER#GHOST01' },
+      }),
+    );
+    expect(planted.Items ?? []).toEqual([]);
+  });
+
+  test('no total can be negative after a failed removal', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' });
+    await repo.unregister({ gameDate: MONDAY, playerId });
+
+    await expect(repo.unregister({ gameDate: MONDAY, playerId })).rejects.toThrow(/not registered/i);
+
+    expect((await repo.getPlayer(playerId))?.total).toBe(0);
+  });
+
+  test('a lost creation race whose winner cannot be read back fails clearly', async () => {
+    // The loser of a NAME# creation race re-reads the lookup to find the
+    // winner's id. If that read comes back empty the raw
+    // TransactionCanceledException used to escape as an unhandled 500.
+    const cancelling = {
+      send: async (command: unknown) => {
+        if (command instanceof TransactWriteCommand) {
+          throw new TransactionCanceledException({
+            message: 'simulated',
+            $metadata: {},
+            CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }],
+          });
+        }
+        return client.send(command as never);
+      },
+    } as unknown as DynamoDBDocumentClient;
+
+    const brittle = createRepo({ client: cancelling, tableName });
+
+    await expect(brittle.register({ gameDate: MONDAY, rawName: 'Uusi Nimi' })).rejects.toThrow(
+      /could not be resolved|race/i,
+    );
+  });
+});
+
+describe('a merged player', () => {
+  test('registering the merged-away name lands on the surviving player', async () => {
+    const winner = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' });
+    const loser = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen (EHKÄ)' });
+
+    // What the runbook's merge procedure leaves behind.
+    await client.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { PK: `PLAYER#${loser.playerId}`, SK: 'PROFILE' },
+        UpdateExpression: 'SET mergedInto = :winner',
+        ExpressionAttributeValues: { ':winner': winner.playerId },
+      }),
+    );
+
+    const again = await repo.register({ gameDate: WEDNESDAY, rawName: 'Matti Virtanen (EHKÄ)' });
+
+    expect(again.playerId).toBe(winner.playerId);
+    expect(again.displayName).toBe('Matti Virtanen');
+  });
+
+  test('a merged player is not listed in the directory', async () => {
+    const winner = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' });
+    const loser = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen (EHKÄ)' });
+    await client.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { PK: `PLAYER#${loser.playerId}`, SK: 'PROFILE' },
+        UpdateExpression: 'SET mergedInto = :winner',
+        ExpressionAttributeValues: { ':winner': winner.playerId },
+      }),
+    );
+
+    expect((await repo.listPlayers()).map((p) => p.displayName)).toEqual(['Matti Virtanen']);
+  });
+
+  test('a merge chain is followed only one hop, and never loops', async () => {
+    const a = await repo.register({ gameDate: MONDAY, rawName: 'A Pelaaja' });
+    const b = await repo.register({ gameDate: MONDAY, rawName: 'B Pelaaja' });
+    // A deliberately pathological pair of mutual merges.
+    for (const [from, to] of [
+      [a.playerId, b.playerId],
+      [b.playerId, a.playerId],
+    ]) {
+      await client.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { PK: `PLAYER#${from}`, SK: 'PROFILE' },
+          UpdateExpression: 'SET mergedInto = :to',
+          ExpressionAttributeValues: { ':to': to },
+        }),
+      );
+    }
+
+    await expect(repo.register({ gameDate: WEDNESDAY, rawName: 'A Pelaaja' })).resolves.toBeDefined();
+  });
+});
+
+describe('the directory', () => {
+  test('omits a player with no games, so junk names cannot pollute it', async () => {
+    // resolvePlayer creates a profile for any new name and unregister never
+    // removes it, so without this an open form lets anyone permanently add
+    // hundreds of names to the SPA's directory and combobox.
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Yhden Kerran' });
+    await repo.unregister({ gameDate: MONDAY, playerId });
+
+    expect(await repo.listPlayers()).toEqual([]);
+    // The player still exists and is still reachable directly.
+    expect((await repo.getPlayer(playerId))?.total).toBe(0);
+  });
+
+  test('a player returns to the directory when they register again', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Yhden Kerran' });
+    await repo.unregister({ gameDate: MONDAY, playerId });
+    await repo.register({ gameDate: WEDNESDAY, rawName: 'Yhden Kerran' });
+
+    expect((await repo.listPlayers()).map((p) => p.displayName)).toEqual(['Yhden Kerran']);
+  });
+});
+
+describe('announcement validity dates', () => {
+  test('defaults validFrom to the Helsinki date, not the UTC date', async () => {
+    // 21:30Z in June is already the 14th in Helsinki. A UTC slice dates the
+    // announcement a day early and skews its sort key.
+    const lateEvening = createRepo({
+      client,
+      tableName,
+      now: () => new Date('2026-06-13T21:30:00Z'),
+    });
+
+    const created = await lateEvening.createAnnouncement({ body: 'Myöhäinen tiedote' });
+
+    expect(created.validFrom).toBe('2026-06-14');
+    expect(await lateEvening.listAnnouncements('2026-06-14')).toHaveLength(1);
+  });
+
+  test('an announcement written late in the evening is not visible yesterday', async () => {
+    const lateEvening = createRepo({
+      client,
+      tableName,
+      now: () => new Date('2026-06-13T21:30:00Z'),
+    });
+
+    await lateEvening.createAnnouncement({ body: 'Myöhäinen tiedote' });
+
+    expect(await lateEvening.listAnnouncements('2026-06-13')).toEqual([]);
   });
 });

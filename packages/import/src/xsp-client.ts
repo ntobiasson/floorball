@@ -35,6 +35,16 @@ export interface XspClient {
   requestCount(): number;
 }
 
+export class RedirectRefusedError extends Error {
+  constructor(status: number, location: string) {
+    super(
+      `refusing to follow an HTTP ${status} redirect to ${location}: ` +
+        'the request is not re-sent anywhere this tool has not vetted',
+    );
+    this.name = 'RedirectRefusedError';
+  }
+}
+
 export class ForbiddenPageError extends Error {
   constructor(pageUrl: string) {
     super(
@@ -62,16 +72,35 @@ export function createXspClient({
   // Query strings carry Domino session ids we neither need nor want to echo.
   const endpoint = `${parsed.origin}${parsed.pathname}`;
 
-  let cookie = '';
+  /** Cookie name -> value. A whole jar, not just whichever arrived first. */
+  const cookies = new Map<string, string>();
   let viewId = '';
   let requests = 0;
   let lastRequestAt = 0;
 
-  function rememberCookie(response: Response): void {
-    const header = response.headers.get('set-cookie');
-    if (header === null) return;
-    const first = header.split(';')[0];
-    if (first !== undefined && first.length > 0) cookie = first;
+  /**
+   * Domino sets more than one cookie, and `headers.get('set-cookie')`
+   * comma-joins them. Keeping only the first value silently discards the
+   * SessionID the moment anything else is set, and a dropped session shows
+   * up hours into an unattended walk as retry exhaustion.
+   */
+  function rememberCookies(response: Response): void {
+    const raw: string[] =
+      typeof response.headers.getSetCookie === 'function'
+        ? response.headers.getSetCookie()
+        : (response.headers.get('set-cookie')?.split(/,(?=[^;,]+=)/) ?? []);
+
+    for (const entry of raw) {
+      const pair = entry.split(';')[0]?.trim();
+      if (pair === undefined || pair.length === 0) continue;
+      const equals = pair.indexOf('=');
+      if (equals <= 0) continue;
+      cookies.set(pair.slice(0, equals), pair.slice(equals + 1));
+    }
+  }
+
+  function cookieHeader(): string {
+    return [...cookies].map(([name, value]) => `${name}=${value}`).join('; ');
   }
 
   async function request(init: RequestInit): Promise<string> {
@@ -87,16 +116,34 @@ export function createXspClient({
           'accept-language': 'fi-FI,fi;q=0.9',
           ...((init.headers ?? {}) as Record<string, string>),
         };
-        if (cookie.length > 0) headers.cookie = cookie;
+        const jar = cookieHeader();
+        if (jar.length > 0) headers.cookie = jar;
 
-        const response = await fetchImpl(endpoint, { ...init, headers });
+        const response = await fetchImpl(endpoint, {
+          ...init,
+          headers,
+          // Never follow a redirect. A 307/308 preserves the method and body,
+          // so a followed redirect would re-POST this multipart form to
+          // wherever Domino points — and Domino does redirect on session
+          // expiry. Not following it is how the page guard stays meaningful.
+          redirect: 'manual',
+        });
         requests += 1;
         lastRequestAt = Date.now();
+
+        if (response.status >= 300 && response.status < 400) {
+          // Not retryable: the session is gone or the app moved. Fail with
+          // the destination so it is diagnosable.
+          throw new RedirectRefusedError(
+            response.status,
+            response.headers.get('location') ?? '(no location header)',
+          );
+        }
 
         if (!response.ok) {
           lastError = new Error(`${endpoint} answered HTTP ${response.status}`);
         } else {
-          rememberCookie(response);
+          rememberCookies(response);
           const html = await response.text();
           // Each response carries a fresh view state token; the next POST
           // must echo the newest one or Domino rejects it.
@@ -109,6 +156,8 @@ export function createXspClient({
           return html;
         }
       } catch (error) {
+        // A refused redirect will not resolve itself by trying again.
+        if (error instanceof RedirectRefusedError) throw error;
         lastError = error instanceof Error ? error : new Error(String(error));
       }
 

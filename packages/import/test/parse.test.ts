@@ -3,9 +3,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import {
+  harvestRows,
   parseDateCell,
   parseDates,
   parseNodes,
+  parseNextPageLink,
   parsePageCount,
   parsePagerLinks,
   parsePlayers,
@@ -208,5 +210,60 @@ describe('parsePagerLinks', () => {
 
   test('is empty when there is only one page', () => {
     expect(parsePagerLinks('<html><body></body></html>')).toEqual([]);
+  });
+});
+
+describe('parseNextPageLink', () => {
+  test('finds the Next control, which exists even when the numbered group does not reach the next page', () => {
+    expect(parseNextPageLink(level1)).toBe(
+      'view:_id1:_id2:callback2:viewPanel1:pager1__Next__lnk',
+    );
+  });
+
+  test('is undefined when there is no pager at all', () => {
+    expect(parseNextPageLink('<html><body></body></html>')).toBeUndefined();
+  });
+
+  test('is undefined when Next is rendered without a link, i.e. on the last page', () => {
+    const lastPage =
+      '<span class="xspPagerNav xspNext" id="view:_id1:_id2:callback2:viewPanel1:pager1__Next">Next</span>';
+    expect(parseNextPageLink(lastPage)).toBeUndefined();
+  });
+});
+
+describe('decodeEntities, via the row harvester', () => {
+  const row = (nimi: string) =>
+    `<table><tr><td>${nimi}</td><td></td><td></td><td>1</td></tr></table>`;
+
+  test('decodes the Finnish entities Domino emits', () => {
+    expect(harvestRows(row('Katja Mäkel&auml;'))[0]?.cells[0]).toBe('Riikka Mäkelä');
+    expect(harvestRows(row('V&ouml;yri'))[0]?.cells[0]).toBe('Vöyri');
+  });
+
+  test('decodes an accented name the fixtures do not happen to contain', () => {
+    // A name harvested as the literal "Ren&eacute;" would be stored, matched
+    // and displayed that way forever, and every checksum would still pass.
+    expect(harvestRows(row('Ren&eacute; Virtanen'))[0]?.cells[0]).toBe('René Virtanen');
+    expect(harvestRows(row('M&uuml;ller'))[0]?.cells[0]).toBe('Müller');
+  });
+
+  test('does not double-decode: a literal &auml; stays literal', () => {
+    // &amp;auml; is the text "&auml;", not the letter ä. Decoding &amp; first
+    // turns one into the other.
+    expect(harvestRows(row('&amp;auml;'))[0]?.cells[0]).toBe('&auml;');
+  });
+
+  test('decodes a plain ampersand', () => {
+    expect(harvestRows(row('Salo &amp; Poika'))[0]?.cells[0]).toBe('Salo & Poika');
+  });
+
+  test('classifies each row by which cell carries the value', () => {
+    const html =
+      '<table>' +
+      '<tr><td>Matti Virtanen</td><td></td><td></td><td>278</td></tr>' +
+      '<tr><td></td><td>2026</td><td></td><td>25</td></tr>' +
+      '<tr><td></td><td></td><td>12.01.2026 Maanantai</td><td>1</td></tr>' +
+      '</table>';
+    expect(harvestRows(html).map((r) => r.kind)).toEqual(['player', 'year', 'date']);
   });
 });

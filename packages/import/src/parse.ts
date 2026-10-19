@@ -72,17 +72,25 @@ function stripTags(fragment: string): string {
 }
 
 function decodeEntities(text: string): string {
-  return text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_m, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&([a-zA-Z]+);/g, (match, name: string) => NAMED_ENTITIES[name] ?? match);
+  return (
+    text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#(\d+);/g, (_m, code: string) => String.fromCodePoint(Number(code)))
+      .replace(/&([a-zA-Z]+);/g, (match, name: string) => NAMED_ENTITIES[name] ?? match)
+      // Last, always: decoding &amp; first would turn the literal text
+      // "&auml;" (written "&amp;auml;") into the letter ä.
+      .replace(/&amp;/g, '&')
+  );
 }
 
-/** Only the entities Domino actually emits for Finnish text. */
+/**
+ * The named entities a Finnish name can plausibly contain. A name that
+ * decodes to something not in this table is left as its literal source text,
+ * which is visible in the output rather than silently mangled.
+ */
 const NAMED_ENTITIES: Record<string, string> = {
   auml: 'ä',
   Auml: 'Ä',
@@ -91,13 +99,40 @@ const NAMED_ENTITIES: Record<string, string> = {
   aring: 'å',
   Aring: 'Å',
   eacute: 'é',
+  Eacute: 'É',
+  egrave: 'è',
   uuml: 'ü',
   Uuml: 'Ü',
+  oslash: 'ø',
+  Oslash: 'Ø',
+  szlig: 'ß',
+  ccedil: 'ç',
+  Ccedil: 'Ç',
+  ntilde: 'ñ',
+  Ntilde: 'Ñ',
 };
 
-interface ParsedRow {
+/**
+ * Which level a row belongs to is implied by the cell carrying the value:
+ * a name in the first cell is a player, a year in the second is one of their
+ * years, a date in the third is a single game.
+ */
+export type RowKind = 'player' | 'year' | 'date';
+
+export interface ParsedRow {
+  kind: RowKind;
   cells: string[];
   node: ViewNode | undefined;
+}
+
+/**
+ * Every row of the rendered view, in document order, classified by level.
+ * This is the single HTML-decoding path in the importer: walk.ts consumes it
+ * rather than keeping its own copy, so there is one place where an entity can
+ * be mis-decoded.
+ */
+export function harvestRows(html: string): ParsedRow[] {
+  return parseRows(html);
 }
 
 function parseRows(html: string): ParsedRow[] {
@@ -122,7 +157,10 @@ function parseRows(html: string): ParsedRow[] {
             position: nodeMatch[5] as string,
           };
 
-    rows.push({ cells, node });
+    const kind: RowKind =
+      (cells[0] ?? '').length > 0 ? 'player' : (cells[1] ?? '').length > 0 ? 'year' : 'date';
+
+    rows.push({ kind, cells, node });
   }
 
   return rows;
@@ -158,6 +196,22 @@ export function parsePagerLinks(html: string): PagerLink[] {
     page: Number(match[2]),
     submitId: match[1] as string,
   }));
+}
+
+const PAGER_NEXT = /id="([^"]*pager1__Next__lnk)"/;
+
+/**
+ * The submit id of the Next control, or undefined when there is no next page.
+ *
+ * This matters more than it looks: a deep, fully expanded view renders only
+ * Prev/Next, with no numbered group links at all. Following only the numbered
+ * links there walks off the end of the data and returns cleanly, and the
+ * per-player checksum cannot catch it — a player never reached is never
+ * checked. Domino renders `pager1__Next` without its inner anchor on the last
+ * page, which is how "no next page" is distinguished from "no pager".
+ */
+export function parseNextPageLink(html: string): string | undefined {
+  return PAGER_NEXT.exec(html)?.[1];
 }
 
 export function parsePlayers(html: string): PlayerRow[] {

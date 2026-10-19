@@ -1,60 +1,50 @@
 #!/usr/bin/env node
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { ACTIVITY_PAGE, createXspClient } from './xsp-client.js';
-import { walkActivityView, type HarvestedPlayer } from './walk.js';
+import { createXspClient } from './xsp-client.js';
+import { parseArgs, resumePosition, type Checkpoint } from './cli-args.js';
+import {
+  collectPlayerIndex,
+  walkActivityView,
+  type HarvestedPlayer,
+  type HarvestedRegistration,
+  type PlayerIndexEntry,
+} from './walk.js';
 
 /**
  * Walks the live Domino view and writes the harvest to JSONL.
  *
- *   npm run scrape -w @sahlykanta/import -- --limit 5
- *   npm run scrape -w @sahlykanta/import -- --resume
+ *   npx tsx src/cli-scrape.ts --limit 5          always dry-run first
+ *   npx tsx src/cli-scrape.ts                    the full walk, ~2.5 hours
+ *   npx tsx src/cli-scrape.ts --resume           after an interruption
  *
- * Output and progress are written as each player completes, so an interrupted
- * run keeps everything it had already proved. `--resume` picks up after the
- * last completed player instead of re-expanding thousands of nodes.
+ * Both output files are appended as each player completes, so an interruption
+ * keeps everything already proved and `--resume` has something to build on.
+ *
+ * Before the sweep, the collapsed view is read once to get the authoritative
+ * player list. That list is the yardstick the sweep is held to: the
+ * per-player checksums cannot notice a player the walk never reached, and
+ * that is the one way this tool could lose a quarter of the archive and still
+ * exit 0.
  */
 
-const DEFAULT_URL =
-  'http://sofordmz1.sofor.fi/sofor/fun/sahlykanta.nsf/' + ACTIVITY_PAGE;
-
-interface Args {
-  url: string;
-  outDir: string;
-  limit: number | undefined;
-  delayMs: number;
-  resume: boolean;
-}
-
-function parseArgs(argv: string[]): Args {
-  const get = (flag: string): string | undefined => {
-    const index = argv.indexOf(flag);
-    return index === -1 ? undefined : argv[index + 1];
-  };
-  const limit = get('--limit');
-  return {
-    url: get('--url') ?? process.env.DOMINO_URL ?? DEFAULT_URL,
-    outDir: get('--out') ?? path.join(process.cwd(), 'out'),
-    limit: limit === undefined ? undefined : Number(limit),
-    delayMs: Number(get('--delay') ?? '400'),
-    resume: argv.includes('--resume'),
-  };
-}
-
-function main(): Promise<void> {
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   mkdirSync(args.outDir, { recursive: true });
 
   const playersPath = path.join(args.outDir, 'players.jsonl');
   const registrationsPath = path.join(args.outDir, 'registrations.jsonl');
   const checkpointPath = path.join(args.outDir, 'checkpoint.json');
+  const indexPath = path.join(args.outDir, 'player-index.json');
 
   let startAfterPosition = 0;
-  if (args.resume && existsSync(checkpointPath)) {
-    const checkpoint = JSON.parse(readFileSync(checkpointPath, 'utf8')) as {
-      lastPosition?: string;
-    };
-    startAfterPosition = Number(checkpoint.lastPosition ?? '0');
+  if (args.resume) {
+    if (!existsSync(checkpointPath)) {
+      throw new Error(`--resume needs ${checkpointPath}; none found`);
+    }
+    startAfterPosition = resumePosition(
+      JSON.parse(readFileSync(checkpointPath, 'utf8')) as Checkpoint,
+    );
     console.log(`resuming after player position ${startAfterPosition}`);
   } else {
     writeFileSync(playersPath, '');
@@ -62,40 +52,64 @@ function main(): Promise<void> {
   }
 
   const client = createXspClient({ pageUrl: args.url, delayMs: args.delayMs });
-
   const started = Date.now();
+  const elapsed = () => Math.round((Date.now() - started) / 1000);
+
+  // The authoritative player list. Cached, so a resumed run is held to the
+  // same yardstick without paying for the pre-pass again.
+  let expected: PlayerIndexEntry[];
+  if (args.resume && existsSync(indexPath)) {
+    expected = JSON.parse(readFileSync(indexPath, 'utf8')) as PlayerIndexEntry[];
+    console.log(`reusing the cached player index: ${expected.length} players`);
+  } else {
+    console.log('reading the collapsed player index…');
+    expected = await collectPlayerIndex({ client });
+    writeFileSync(indexPath, JSON.stringify(expected, null, 2));
+    console.log(`[${elapsed()}s] ${expected.length} players listed`);
+  }
+
   let registrationCount = 0;
 
-  const onPlayer = (player: HarvestedPlayer): void => {
+  const onPlayer = (player: HarvestedPlayer, registrations: HarvestedRegistration[]): void => {
+    // Both files, then the checkpoint: if the process dies between the two
+    // appends, the checkpoint still points at the previous player, so the
+    // resume redoes this one rather than skipping it.
     appendFileSync(playersPath, `${JSON.stringify(player)}\n`);
+    for (const registration of registrations) {
+      appendFileSync(registrationsPath, `${JSON.stringify(registration)}\n`);
+      registrationCount += 1;
+    }
     writeFileSync(
       checkpointPath,
       JSON.stringify({ lastPosition: player.position, at: new Date().toISOString() }),
     );
-    const elapsed = Math.round((Date.now() - started) / 1000);
     console.log(
-      `[${elapsed}s] ${player.position.padStart(4)} ${player.name} — ${player.total} games`,
+      `[${elapsed()}s] ${player.position.padStart(4)} ${player.name} — ${player.total} games`,
     );
   };
 
-  return walkActivityView({
+  const warned = new Set<string>();
+  const onWarning = (message: string): void => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    console.warn(`warning: ${message}`);
+  };
+
+  const result = await walkActivityView({
     client,
     onPlayer,
+    onWarning,
+    expected,
     ...(args.limit === undefined ? {} : { limit: args.limit }),
     startAfterPosition,
-  }).then((result) => {
-    for (const registration of result.registrations) {
-      appendFileSync(registrationsPath, `${JSON.stringify(registration)}\n`);
-      registrationCount += 1;
-    }
-    console.log(
-      `\ndone: ${result.players.length} players, ${registrationCount} registrations, ` +
-        `${result.pagesRead} pages, ${client.requestCount()} requests in ` +
-        `${Math.round((Date.now() - started) / 1000)}s`,
-    );
-    console.log(`wrote ${playersPath}`);
-    console.log(`wrote ${registrationsPath}`);
   });
+
+  console.log(
+    `\ndone: ${result.players.length} players, ${registrationCount} registrations, ` +
+      `${result.pagesRead} pages, ${client.requestCount()} requests in ${elapsed()}s`,
+  );
+  console.log(`wrote ${playersPath}`);
+  console.log(`wrote ${registrationsPath}`);
 }
 
 main().catch((error: unknown) => {

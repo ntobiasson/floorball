@@ -33,7 +33,22 @@ export interface FakeDomino extends XspClient {
   expansions(): number;
 }
 
-export function createFakeDomino(players: FakePlayer[], rowsPerPage = 4): FakeDomino {
+export interface FakeOptions {
+  rowsPerPage?: number;
+  /**
+   * When false the pager renders only Prev/Next, with no numbered page links.
+   * That is what a deep, fully expanded Domino view does, and a walker that
+   * only follows numbered links stops early there.
+   */
+  groupLinks?: boolean;
+}
+
+export function createFakeDomino(
+  players: FakePlayer[],
+  options: number | FakeOptions = {},
+): FakeDomino {
+  const { rowsPerPage = 4, groupLinks = true } =
+    typeof options === 'number' ? { rowsPerPage: options } : options;
   const expanded = new Set<string>();
   let offset = 0;
   let turns = 0;
@@ -90,11 +105,19 @@ export function createFakeDomino(players: FakePlayer[], rowsPerPage = 4): FakeDo
 
     let linkIndex = 0;
     const pagerLinks: string[] = [];
-    for (let page = 1; page <= pageCount; page += 1) {
-      if (page === current) continue;
-      linkIndex += 1;
+    if (groupLinks) {
+      for (let page = 1; page <= pageCount; page += 1) {
+        if (page === current) continue;
+        linkIndex += 1;
+        pagerLinks.push(
+          `<a id="view:_id1:_id2:callback2:viewPanel1:pager1__Group__lnk__${linkIndex}" href="#" title="Go to page ${page}">${page}</a>`,
+        );
+      }
+    }
+    if (current < pageCount) {
       pagerLinks.push(
-        `<a id="view:_id1:_id2:callback2:viewPanel1:pager1__Group__lnk__${linkIndex}" href="#" title="Go to page ${page}">${page}</a>`,
+        '<span class="xspPagerNav xspNext" id="view:_id1:_id2:callback2:viewPanel1:pager1__Next">' +
+          '<a id="view:_id1:_id2:callback2:viewPanel1:pager1__Next__lnk" href="#" title="Go to next page:">Next</a></span>',
       );
     }
 
@@ -123,6 +146,16 @@ export function createFakeDomino(players: FakePlayer[], rowsPerPage = 4): FakeDo
 
     async submit(submitId: string) {
       if (!opened) throw new Error('call open() before submit()');
+
+      if (/pager1__Next__lnk$/.test(submitId)) {
+        const all = flatten();
+        const pageCount = Math.max(1, Math.ceil(all.length / rowsPerPage));
+        const current = Math.floor(offset / rowsPerPage) + 1;
+        if (current >= pageCount) throw new Error('Next on the last page');
+        offset = pageOf(current + 1);
+        turns += 1;
+        return render();
+      }
 
       const pager = /pager1__Group__lnk__(\d+)$/.exec(submitId);
       if (pager !== null) {

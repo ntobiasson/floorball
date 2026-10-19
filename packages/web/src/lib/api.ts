@@ -28,7 +28,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (response.status === 204) return undefined as T;
 
   const text = await response.text();
-  const body: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+
+  /**
+   * Never let a parse failure escape as a SyntaxError: the UI has no handler
+   * for one, so it would surface as a blank screen. A body that is not JSON
+   * means something between here and the API answered instead of the API — a
+   * proxy error page, a CDN misconfiguration, a captive portal — and that is
+   * an ApiError like any other.
+   */
+  let body: unknown;
+  if (text.length > 0) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw new ApiError(
+        response.status,
+        response.ok
+          ? 'Palvelin vastasi odottamattomalla tavalla. Yritä uudelleen.'
+          : 'Jotain meni vikaan. Yritä uudelleen.',
+      );
+    }
+  }
 
   if (!response.ok) {
     const message =

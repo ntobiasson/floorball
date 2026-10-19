@@ -10,6 +10,7 @@ import { ulid } from 'ulid';
 import {
   cleanDisplayName,
   normalizeName,
+  todayInHelsinki,
   yearOf,
   type Announcement,
   type AnnouncementInput,
@@ -47,6 +48,31 @@ export class NotRegisteredError extends Error {
   constructor() {
     super('that player is not registered for this day');
     this.name = 'NotRegisteredError';
+  }
+}
+
+/**
+ * The table is in a state the application cannot have produced: a name
+ * lookup without its profile, or a day row for a player with no profile.
+ * `ADD` would happily invent the missing item, producing a player who holds
+ * registrations but is absent from the directory, or a negative total. Far
+ * better to refuse and say so.
+ */
+export class CorruptedPlayerError extends Error {
+  constructor(playerId: string, detail: string) {
+    super(`player ${playerId} is in an inconsistent state: ${detail}`);
+    this.name = 'CorruptedPlayerError';
+  }
+}
+
+/** The loser of a name-creation race could not read back the winner's id. */
+export class PlayerRaceError extends Error {
+  constructor(normalizedName: string) {
+    super(
+      `the player for ${JSON.stringify(normalizedName)} could not be resolved after a ` +
+        'concurrent creation; retry the request',
+    );
+    this.name = 'PlayerRaceError';
   }
 }
 
@@ -105,6 +131,19 @@ function isConditionFailure(error: unknown): boolean {
   );
 }
 
+/**
+ * Which item in the transaction failed its condition. The positions are the
+ * order the TransactItems are declared in, and the distinction matters: a
+ * failure on the registration row means "already registered", while a failure
+ * on the profile row means the table is corrupted.
+ */
+function failedIndexes(error: unknown): number[] {
+  if (!(error instanceof TransactionCanceledException)) return [];
+  return (error.CancellationReasons ?? []).flatMap((reason, index) =>
+    reason.Code === 'ConditionalCheckFailed' ? [index] : [],
+  );
+}
+
 export function createRepo({ client, tableName, now = () => new Date() }: RepoConfig): Repo {
   const auditItem = (
     action: 'register' | 'unregister',
@@ -125,11 +164,17 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
     };
   };
 
-  async function readNameLookup(normalizedName: string): Promise<string | null> {
+  async function readNameLookup(
+    normalizedName: string,
+    consistent = false,
+  ): Promise<string | null> {
     const out = await client.send(
       new GetCommand({
         TableName: tableName,
         Key: { PK: namePk(normalizedName), SK: NAME_SK },
+        // Only on the race read-back, where an eventually-consistent miss
+        // would surface as an unhandled error to a blameless caller.
+        ConsistentRead: consistent,
       }),
     );
     const playerId = out.Item?.playerId;
@@ -160,9 +205,30 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
     const existing = await readNameLookup(normalizedName);
     if (existing !== null) {
       const profile = await readProfile(existing);
+      if (profile === null) {
+        // A name lookup without its profile: the load was interrupted between
+        // two batches. Registering here would fabricate a headless profile
+        // with no GSI key, invisible to the directory forever.
+        throw new CorruptedPlayerError(existing, 'the name lookup has no profile row');
+      }
+
+      // A merged duplicate still owns its name lookup, so someone typing the
+      // merged-away spelling must land on the surviving player. One hop only:
+      // a chain is a mistake, and a cycle must not hang the request.
+      if (profile.mergedInto !== undefined) {
+        const survivor = await readProfile(profile.mergedInto);
+        if (survivor !== null && survivor.mergedInto === undefined) {
+          return {
+            playerId: survivor.playerId,
+            displayName: survivor.displayName,
+            created: false,
+          };
+        }
+      }
+
       return {
         playerId: existing,
-        displayName: profile?.displayName ?? displayName,
+        displayName: profile.displayName,
         created: false,
       };
     }
@@ -203,13 +269,16 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
       return { playerId, displayName, created: true };
     } catch (error) {
       if (!isConditionFailure(error)) throw error;
-      // Someone else created this name between the read and the write.
-      const winner = await readNameLookup(normalizedName);
-      if (winner === null) throw error;
+      // Someone else created this name between the read and the write. Read
+      // back consistently: an eventually-consistent miss here used to escape
+      // as a raw TransactionCanceledException and a 500.
+      const winner = await readNameLookup(normalizedName, true);
+      if (winner === null) throw new PlayerRaceError(normalizedName);
       const profile = await readProfile(winner);
+      if (profile === null) throw new CorruptedPlayerError(winner, 'created without a profile');
       return {
         playerId: winner,
-        displayName: profile?.displayName ?? displayName,
+        displayName: profile.displayName,
         created: false,
       };
     }
@@ -246,6 +315,9 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
                   TableName: tableName,
                   Key: { PK: playerPk(player.playerId), SK: PROFILE_SK },
                   UpdateExpression: 'ADD #total :one SET #lastSeen = :date',
+                  // Without this, ADD would create a profile with no GSI key:
+                  // a player holding a day row but absent from the directory.
+                  ConditionExpression: 'attribute_exists(PK)',
                   ExpressionAttributeNames: { '#total': 'total', '#lastSeen': 'lastSeen' },
                   ExpressionAttributeValues: { ':one': 1, ':date': gameDate },
                 },
@@ -269,7 +341,14 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
           }),
         );
       } catch (error) {
-        if (isConditionFailure(error)) throw new AlreadyRegisteredError(player.displayName);
+        const failed = failedIndexes(error);
+        // Index 0 is the registration row; its condition is what makes a
+        // second registration for the same day fail.
+        if (failed.includes(0)) throw new AlreadyRegisteredError(player.displayName);
+        // Index 1 is the profile: it existed a moment ago and does not now.
+        if (failed.includes(1)) {
+          throw new CorruptedPlayerError(player.playerId, 'the profile row disappeared mid-write');
+        }
         throw error;
       }
 
@@ -296,6 +375,9 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
                   TableName: tableName,
                   Key: { PK: playerPk(playerId), SK: PROFILE_SK },
                   UpdateExpression: 'ADD #total :minusOne',
+                  // ADD on a missing item would create a profile with
+                  // total: -1, which every schema in the app forbids.
+                  ConditionExpression: 'attribute_exists(PK)',
                   ExpressionAttributeNames: { '#total': 'total' },
                   ExpressionAttributeValues: { ':minusOne': -1 },
                 },
@@ -305,6 +387,7 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
                   TableName: tableName,
                   Key: { PK: playerPk(playerId), SK: yearSk(yearOf(gameDate)) },
                   UpdateExpression: 'ADD #count :minusOne',
+                  ConditionExpression: 'attribute_exists(PK)',
                   ExpressionAttributeNames: { '#count': 'count' },
                   ExpressionAttributeValues: { ':minusOne': -1 },
                 },
@@ -319,7 +402,17 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
           }),
         );
       } catch (error) {
-        if (isConditionFailure(error)) throw new NotRegisteredError();
+        const failed = failedIndexes(error);
+        // Index 0 is the day row: not there means not registered.
+        if (failed.includes(0)) throw new NotRegisteredError();
+        // Index 1 or 2 means the day row exists but the player's own rows do
+        // not. Decrementing into existence is how negative totals happen.
+        if (failed.length > 0) {
+          throw new CorruptedPlayerError(
+            playerId,
+            'a day row exists but the profile or year row does not',
+          );
+        }
         throw error;
       }
     },
@@ -356,6 +449,12 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
         for (const item of out.Items ?? []) {
           // A merged duplicate is no longer its own entry in the directory.
           if (item.mergedInto !== undefined) continue;
+          // Nor is a profile with no games. resolvePlayer creates one for any
+          // name submitted, and nothing deletes them, so without this the
+          // open form lets anyone permanently fill the directory — and the
+          // SPA's name suggestions — with junk. The player is still reachable
+          // directly and returns here as soon as they actually play.
+          if (Number(item.total ?? 0) <= 0) continue;
           players.push({
             playerId: String(item.playerId),
             displayName: String(item.displayName),
@@ -421,7 +520,9 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
 
     async createAnnouncement(input) {
       const id = ulid();
-      const validFrom = input.validFrom ?? now().toISOString().slice(0, 10);
+      // Helsinki, like every other date in this application. A UTC slice
+      // dates an announcement written after 21:00 UTC a day early.
+      const validFrom = input.validFrom ?? todayInHelsinki(now());
       await client.send(
         new PutCommand({
           TableName: tableName,

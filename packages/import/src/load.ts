@@ -26,6 +26,14 @@ import type { HarvestedPlayer, HarvestedRegistration } from './walk.js';
  * Idempotent: player ids are read back from the NAME# lookup when one already
  * exists, so re-running after a failure neither duplicates players nor
  * orphans the history already attached to them.
+ *
+ * It is NOT, however, safe over a table that is already in use. The profile
+ * write is a blind overwrite, so a re-run would set `total` back to the
+ * import figure while the newer DAY# rows stay in the table — every game
+ * played since the import would vanish from Peliaktiivisuus while its row sat
+ * there. So a pre-flight check refuses when any existing total is already
+ * higher than the import's, which is the signature of live use. A smaller or
+ * absent total is just a partial load, and those stay recoverable.
  */
 
 const BATCH_SIZE = 25;
@@ -43,6 +51,8 @@ export interface LoadInput {
   tableName: string;
   players: LoadablePlayer[];
   registrations: HarvestedRegistration[];
+  /** Overwrite anyway. For an operator who has read the warning. */
+  force?: boolean;
 }
 
 export interface LoadResult {
@@ -62,6 +72,17 @@ export class HarvestMismatchError extends Error {
   constructor(message: string) {
     super(`harvest mismatch: ${message}`);
     this.name = 'HarvestMismatchError';
+  }
+}
+
+export class LiveDataError extends Error {
+  constructor(detail: string) {
+    super(
+      'the table holds registrations made since the import, and loading would ' +
+        `discard them from the counts: ${detail}. Re-run with force only if you ` +
+        'intend to overwrite them.',
+    );
+    this.name = 'LiveDataError';
   }
 }
 
@@ -151,6 +172,7 @@ export async function loadHarvest({
   tableName,
   players,
   registrations,
+  force = false,
 }: LoadInput): Promise<LoadResult> {
   validate(players, registrations);
 
@@ -168,6 +190,31 @@ export async function loadHarvest({
   }
 
   const playerIds = await resolvePlayerIds(client, tableName, [...groups.keys()]);
+
+  if (!force) {
+    const liveUse: string[] = [];
+    for (const [key, group] of groups) {
+      const playerId = playerIds.get(key) as string;
+      const existing = await client.send(
+        new GetCommand({
+          TableName: tableName,
+          Key: { PK: playerPk(playerId), SK: PROFILE_SK },
+        }),
+      );
+      if (existing.Item === undefined) continue;
+
+      const importTotal = players
+        .filter((player) => normalizeName(player.name) === key)
+        .reduce((acc, player) => acc + player.total, 0);
+      const current = Number(existing.Item.total ?? 0);
+      if (current > importTotal) {
+        liveUse.push(`${group.displayName} has ${current} in the table but ${importTotal} in the harvest`);
+      }
+    }
+    if (liveUse.length > 0) {
+      throw new LiveDataError(liveUse.slice(0, 5).join('; '));
+    }
+  }
   const idByName = new Map<string, string>();
   for (const player of players) {
     const key = normalizeName(player.name);

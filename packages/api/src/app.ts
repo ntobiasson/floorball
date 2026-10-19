@@ -9,7 +9,13 @@ import {
   weekdayOf,
   type TodayResponse,
 } from '@sahlykanta/shared';
-import { AlreadyRegisteredError, NotRegisteredError, type Repo } from './repo.js';
+import {
+  AlreadyRegisteredError,
+  CorruptedPlayerError,
+  NotRegisteredError,
+  PlayerRaceError,
+  type Repo,
+} from './repo.js';
 import { EmptyNameError } from '@sahlykanta/shared';
 
 export interface AppConfig {
@@ -169,6 +175,25 @@ export function createApp({ repo, now = () => new Date(), env = process.env }: A
   });
 
   app.notFound((c) => c.json({ error: 'not found' }, 404));
+
+  /**
+   * Every error leaves as JSON, because the SPA parses every response body as
+   * JSON. Hono's default handler returns text/plain, which the client cannot
+   * read and so reports as a parse failure rather than as the real problem.
+   */
+  app.onError((error, c) => {
+    if (error instanceof PlayerRaceError) {
+      // Transient: two people submitted the same new name at the same instant.
+      c.header('retry-after', '1');
+      return c.json({ error: 'yritä uudelleen' }, 503);
+    }
+    if (error instanceof CorruptedPlayerError) {
+      console.error(error.message);
+      return c.json({ error: 'pelaajan tiedot ovat epäkunnossa — ota yhteyttä ylläpitoon' }, 500);
+    }
+    console.error(error);
+    return c.json({ error: 'palvelussa tapahtui virhe' }, 500);
+  });
 
   return app;
 }

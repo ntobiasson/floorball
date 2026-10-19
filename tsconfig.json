@@ -12,7 +12,8 @@
     "packages/*/test/**/*",
     "packages/*/bin/**/*",
     "packages/*/lib/**/*",
-    "e2e/**/*"
+    "e2e/**/*",
+    "packages/*/vitest.config.ts"
   ],
   "exclude": [
     "packages/infra",

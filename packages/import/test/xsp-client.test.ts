@@ -207,3 +207,138 @@ describe('politeness', () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(100);
   });
 });
+
+describe('redirects', () => {
+  const redirectTo = (location: string, status = 307) =>
+    async (): Promise<Response> =>
+      new Response(null, { status, headers: { location } });
+
+  test('refuses to follow a redirect rather than re-posting the body elsewhere', async () => {
+    // A 307/308 preserves the method and body, so a followed redirect would
+    // re-POST the multipart form to wherever Domino points. The spec's
+    // anti-goal is touching the live application in a way that creates data.
+    const client = createXspClient({
+      pageUrl: `${BASE}/${ACTIVITY_PAGE}`,
+      fetchImpl: redirectTo(`${BASE}/pelit.xsp`),
+      delayMs: 0,
+      retryDelayMs: 0,
+      maxAttempts: 1,
+    });
+
+    await expect(client.open()).rejects.toThrow(/redirect/i);
+  });
+
+  test('names where it was being sent, so a session expiry is diagnosable', async () => {
+    const client = createXspClient({
+      pageUrl: `${BASE}/${ACTIVITY_PAGE}`,
+      fetchImpl: redirectTo(`${BASE}/${ACTIVITY_PAGE}?SessionID=NEW`, 302),
+      delayMs: 0,
+      retryDelayMs: 0,
+      maxAttempts: 1,
+    });
+
+    await expect(client.open()).rejects.toThrow(/SessionID=NEW/);
+  });
+
+  test('passes redirect: manual to fetch, so nothing is followed silently', async () => {
+    let seen: RequestInit['redirect'];
+    const impl = async (_url: string, init?: RequestInit): Promise<Response> => {
+      seen = init?.redirect;
+      return new Response(level1, { status: 200, headers: { 'content-type': 'text/html' } });
+    };
+    const client = createXspClient({
+      pageUrl: `${BASE}/${ACTIVITY_PAGE}`,
+      fetchImpl: impl,
+      delayMs: 0,
+    });
+
+    await client.open();
+
+    expect(seen).toBe('manual');
+  });
+});
+
+describe('cookies', () => {
+  test('keeps every cookie the server sets, not just the first', async () => {
+    // Replacing the whole jar with the first cookie drops SessionID the
+    // moment Domino sets anything else, and a stale session shows up as
+    // retry exhaustion hours into an unattended walk.
+    const headers = new Headers();
+    headers.append('set-cookie', 'SessionID=ABC123; path=/');
+    headers.append('set-cookie', 'DomAuthSessId=XYZ; path=/');
+    headers.set('content-type', 'text/html');
+
+    const calls: Array<Record<string, string>> = [];
+    let first = true;
+    const impl = async (_url: string, init?: RequestInit): Promise<Response> => {
+      calls.push((init?.headers ?? {}) as Record<string, string>);
+      if (first) {
+        first = false;
+        return new Response(level1, { status: 200, headers });
+      }
+      return new Response(playerExpanded, { status: 200, headers: { 'content-type': 'text/html' } });
+    };
+
+    const client = createXspClient({
+      pageUrl: `${BASE}/${ACTIVITY_PAGE}`,
+      fetchImpl: impl,
+      delayMs: 0,
+    });
+    await client.open();
+    await client.submit('anything');
+
+    const cookie = calls[1]?.cookie ?? '';
+    expect(cookie).toContain('SessionID=ABC123');
+    expect(cookie).toContain('DomAuthSessId=XYZ');
+  });
+
+  test('a later value for the same cookie replaces the earlier one', async () => {
+    const calls: Array<Record<string, string>> = [];
+    let call = 0;
+    const impl = async (_url: string, init?: RequestInit): Promise<Response> => {
+      calls.push((init?.headers ?? {}) as Record<string, string>);
+      call += 1;
+      return new Response(level1, {
+        status: 200,
+        headers: { 'content-type': 'text/html', 'set-cookie': `SessionID=ROUND${call}; path=/` },
+      });
+    };
+
+    const client = createXspClient({
+      pageUrl: `${BASE}/${ACTIVITY_PAGE}`,
+      fetchImpl: impl,
+      delayMs: 0,
+    });
+    await client.open();
+    await client.submit('a');
+    await client.submit('b');
+
+    expect(calls[2]?.cookie).toContain('SessionID=ROUND2');
+    expect(calls[2]?.cookie).not.toContain('ROUND1');
+  });
+
+  test('a response that sets only a secondary cookie does not drop the session', async () => {
+    const calls: Array<Record<string, string>> = [];
+    let call = 0;
+    const impl = async (_url: string, init?: RequestInit): Promise<Response> => {
+      calls.push((init?.headers ?? {}) as Record<string, string>);
+      call += 1;
+      const cookie = call === 1 ? 'SessionID=KEEPME; path=/' : 'Other=1; path=/';
+      return new Response(level1, {
+        status: 200,
+        headers: { 'content-type': 'text/html', 'set-cookie': cookie },
+      });
+    };
+
+    const client = createXspClient({
+      pageUrl: `${BASE}/${ACTIVITY_PAGE}`,
+      fetchImpl: impl,
+      delayMs: 0,
+    });
+    await client.open();
+    await client.submit('a');
+    await client.submit('b');
+
+    expect(calls[2]?.cookie).toContain('SessionID=KEEPME');
+  });
+});

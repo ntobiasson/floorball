@@ -1,7 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
-import { createRepo, type Repo } from '../src/repo.js';
+import {
+  CorruptedPlayerError,
+  PlayerRaceError,
+  createRepo,
+  type Repo,
+} from '../src/repo.js';
 import { createApp } from '../src/app.js';
 import type { PlayerDetail, PlayerSummary, TodayResponse } from '@sahlykanta/shared';
 
@@ -263,5 +268,39 @@ describe('unknown routes', () => {
 
     expect(res.status).toBe(404);
     expect(res.headers.get('content-type')).toMatch(/application\/json/);
+  });
+});
+
+describe('server-side faults are reported as JSON, not as a blank 500', () => {
+  const stubRepo = (error: Error): Repo =>
+    ({
+      ...repo,
+      register: vi.fn().mockRejectedValue(error),
+    }) as Repo;
+
+  const post = (brokenRepo: Repo) =>
+    createApp({ repo: brokenRepo, now: () => MONDAY_MORNING, env: {} }).request(
+      '/api/registrations',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Matti Virtanen', gameDate: '2026-10-19' }),
+      },
+    );
+
+  test('a lost creation race is a retryable conflict, not an internal error', async () => {
+    const res = await post(stubRepo(new PlayerRaceError('matti virtanen')));
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/uudelleen/i) });
+  });
+
+  test('a corrupted player is a 500 the client can display', async () => {
+    const res = await post(stubRepo(new CorruptedPlayerError('ORPHAN01', 'no profile')));
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+    expect(await res.json()).toHaveProperty('error');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createFakeDomino, type FakePlayer } from './fake-domino.js';
-import { walkActivityView } from '../src/walk.js';
+import { collectPlayerIndex, walkActivityView } from '../src/walk.js';
 
 const dates = (year: string, days: Array<[string, string]>) => ({
   year,
@@ -171,5 +171,235 @@ describe('resuming', () => {
 
     expect(result.players).toEqual([]);
     expect(result.registrations).toEqual([]);
+  });
+});
+
+describe('turning pages when the pager has no numbered links', () => {
+  // A deep, fully expanded view renders only Prev/Next. A walker that follows
+  // only numbered links stops early AND exits cleanly, which is the one
+  // failure mode the per-player checksum structurally cannot see: it is
+  // per-player, so a player never reached is never checked.
+  const SIX: FakePlayer[] = Array.from({ length: 6 }, (_, i) => ({
+    name: `Pelaaja ${i + 1}`,
+    years: [dates('2026', [['01-12', 'Maanantai'], ['04-15', 'Keskiviikko']])],
+  }));
+
+  test('harvests every player via the Next control', async () => {
+    const fake = createFakeDomino(SIX, { rowsPerPage: 4, groupLinks: false });
+
+    const result = await walkActivityView({ client: fake });
+
+    expect(result.players).toHaveLength(6);
+    expect(result.registrations).toHaveLength(12);
+  });
+
+  test('harvests the same players whether or not numbered links exist', async () => {
+    const withLinks = await walkActivityView({
+      client: createFakeDomino(SIX, { rowsPerPage: 4, groupLinks: true }),
+    });
+    const withoutLinks = await walkActivityView({
+      client: createFakeDomino(SIX, { rowsPerPage: 4, groupLinks: false }),
+    });
+
+    expect(withoutLinks.players).toEqual(withLinks.players);
+    expect(withoutLinks.registrations).toEqual(withLinks.registrations);
+  });
+});
+
+describe('the expected-player guard', () => {
+  test('fails when the walk reaches fewer players than the collapsed view lists', async () => {
+    const expected = await collectPlayerIndex({ client: createFakeDomino(DATA) });
+    expect(expected).toHaveLength(3);
+
+    // A clean truncation: the pager vanishes from every response, which is
+    // what a session-expiry page looks like, and what a deep view looks like
+    // to a walker that cannot follow Next. Page size 6 makes page one end
+    // exactly on a player boundary, so Matti Virtanen's own checksum passes —
+    // every harvested player is internally consistent and the walk returns
+    // without error. The two players it never reached are invisible to the
+    // per-player checksums, and visible only to this guard.
+    const stripPager = (html: string) => html.replace(/<div class="xspPagerContainer">.*?<\/div>/s, '');
+    const fake = createFakeDomino(DATA, { rowsPerPage: 6 });
+    const original = fake.submit.bind(fake);
+    const openOriginal = fake.open.bind(fake);
+    fake.open = async () => stripPager(await openOriginal());
+    fake.submit = async (submitId: string) => stripPager(await original(submitId));
+
+    await expect(walkActivityView({ client: fake, expected })).rejects.toThrow(
+      /expected 3 players|did not reach/i,
+    );
+  });
+
+  test('that same truncation passes every per-player checksum, which is the point', async () => {
+    const stripPager = (html: string) => html.replace(/<div class="xspPagerContainer">.*?<\/div>/s, '');
+    const fake = createFakeDomino(DATA, { rowsPerPage: 6 });
+    const original = fake.submit.bind(fake);
+    const openOriginal = fake.open.bind(fake);
+    fake.open = async () => stripPager(await openOriginal());
+    fake.submit = async (submitId: string) => stripPager(await original(submitId));
+
+    // Without `expected`, the walk resolves normally having silently lost two
+    // of three players. This is the finding, reproduced.
+    const result = await walkActivityView({ client: fake });
+
+    expect(result.players).toHaveLength(1);
+    expect(result.players[0]?.name).toBe('Matti Virtanen');
+    expect(result.players[0]?.total).toBe(3);
+  });
+
+  test('passes when every expected player was harvested', async () => {
+    const expected = await collectPlayerIndex({ client: createFakeDomino(DATA) });
+
+    const result = await walkActivityView({ client: createFakeDomino(DATA), expected });
+
+    expect(result.players).toHaveLength(3);
+  });
+});
+
+describe('collectPlayerIndex', () => {
+  test('lists every player with their position and total, without expanding anything', async () => {
+    const fake = createFakeDomino(DATA);
+
+    const index = await collectPlayerIndex({ client: fake });
+
+    expect(index).toEqual([
+      { position: '1', name: 'Matti Virtanen', total: 3 },
+      { position: '2', name: 'Liisa Korhonen', total: 1 },
+      { position: '3', name: 'Pekka Hämäläinen (mv)', total: 1 },
+    ]);
+    expect(fake.expansions()).toBe(0);
+  });
+
+  test('works without numbered pager links', async () => {
+    const index = await collectPlayerIndex({
+      client: createFakeDomino(DATA, { rowsPerPage: 2, groupLinks: false }),
+    });
+
+    expect(index.map((entry) => entry.name)).toEqual([
+      'Matti Virtanen',
+      'Liisa Korhonen',
+      'Pekka Hämäläinen (mv)',
+    ]);
+  });
+});
+
+describe('the expand loop guard', () => {
+  test('gives up instead of resubmitting the same node forever', async () => {
+    // A stale view token, or a POST Domino decides to ignore, leaves the node
+    // closed. Without a guard this floods someone else's production server at
+    // 400ms intervals for as long as the process lives.
+    const fake = createFakeDomino(DATA);
+    const original = fake.submit.bind(fake);
+    fake.submit = async (submitId: string) => {
+      const html = await original(submitId);
+      return html.replace(/__shrink:/g, '__expand:');
+    };
+
+    await expect(walkActivityView({ client: fake })).rejects.toThrow(/no progress|stuck/i);
+  });
+
+  test('the guard does not trip on a normal walk', async () => {
+    const result = await walkActivityView({ client: createFakeDomino(DATA) });
+
+    expect(result.players).toHaveLength(3);
+  });
+});
+
+describe('incremental output', () => {
+  test('hands each player their own registrations as they complete', async () => {
+    // The scrape writes to disk from this callback. If registrations only
+    // arrive in the final result, an interrupted 2.5-hour walk loses all of
+    // them and the resume has nothing to build on.
+    const seen: Array<[string, string[]]> = [];
+
+    await walkActivityView({
+      client: createFakeDomino(DATA),
+      onPlayer: (player, registrations) =>
+        seen.push([player.name, registrations.map((r) => r.date)]),
+    });
+
+    expect(seen).toEqual([
+      ['Matti Virtanen', ['2026-01-12', '2026-04-15', '2025-10-20']],
+      ['Liisa Korhonen', ['2026-01-12']],
+      ['Pekka Hämäläinen (mv)', ['2024-02-03']],
+    ]);
+  });
+
+  test('the per-player registrations add up to the full result', async () => {
+    const collected: string[] = [];
+
+    const result = await walkActivityView({
+      client: createFakeDomino(DATA),
+      onPlayer: (_player, registrations) => {
+        for (const r of registrations) collected.push(`${r.name}#${r.date}`);
+      },
+    });
+
+    expect(collected).toEqual(result.registrations.map((r) => `${r.name}#${r.date}`));
+  });
+});
+
+describe('Domino pseudo-categories', () => {
+  test('reports the Not Categorized bucket without dropping its games', async () => {
+    // A categorized Domino view renders "Not Categorized" for documents whose
+    // category field is empty. The live view has exactly one such row. It is
+    // not a player, but it is a real registration, so dropping it would make
+    // the archive disagree with Domino. Keep it, and say so.
+    const withBucket: FakePlayer[] = [
+      ...DATA,
+      { name: 'Not Categorized', years: [dates('2019', [['05-06', 'Maanantai']])] },
+    ];
+    const warnings: string[] = [];
+
+    const result = await walkActivityView({
+      client: createFakeDomino(withBucket),
+      onWarning: (message) => warnings.push(message),
+    });
+
+    expect(result.players.map((p) => p.name)).toContain('Not Categorized');
+    expect(result.registrations.filter((r) => r.name === 'Not Categorized')).toHaveLength(1);
+    expect(warnings.join(' ')).toMatch(/Not Categorized/);
+  });
+
+  test('says nothing when the view has no such bucket', async () => {
+    const warnings: string[] = [];
+
+    await walkActivityView({
+      client: createFakeDomino(DATA),
+      onWarning: (message) => warnings.push(message),
+    });
+
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe('the source data changing under the walk', () => {
+  test('the expected-player guard matches on name, not on position', async () => {
+    // The old app stays in use while the import runs, and a brand-new name is
+    // inserted in sort order — which shifts the position of every player
+    // after it. Positions are stable within a response, not across hours.
+    const expected = await collectPlayerIndex({ client: createFakeDomino(DATA) });
+    const shifted = expected.map((entry) => ({
+      ...entry,
+      position: String(Number(entry.position) + 1),
+    }));
+
+    const result = await walkActivityView({
+      client: createFakeDomino(DATA),
+      expected: shifted,
+    });
+
+    expect(result.players).toHaveLength(3);
+  });
+
+  test('it still catches a player genuinely missing by name', async () => {
+    const expected = [
+      ...(await collectPlayerIndex({ client: createFakeDomino(DATA) })),
+      { position: '99', name: 'Kadonnut Pelaaja', total: 7 },
+    ];
+
+    await expect(
+      walkActivityView({ client: createFakeDomino(DATA), expected }),
+    ).rejects.toThrow(/Kadonnut Pelaaja/);
   });
 });

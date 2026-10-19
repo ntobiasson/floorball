@@ -137,6 +137,7 @@ describe('the distribution', () => {
         DefaultRootObject?: string;
         Aliases?: string[];
         ViewerCertificate?: unknown;
+        DefaultCacheBehavior: Record<string, unknown>;
       };
     };
   };
@@ -150,15 +151,29 @@ describe('the distribution', () => {
     expect(behaviors.map((b) => b.PathPattern)).toContain('/api/*');
   });
 
-  test('rewrites 403 and 404 to the SPA entry point', () => {
-    const errors = distribution().DistributionConfig.CustomErrorResponses ?? [];
-    const byCode = new Map(errors.map((e) => [e.ErrorCode, e]));
-    for (const code of [403, 404]) {
-      expect(byCode.get(code)).toMatchObject({
-        ResponseCode: 200,
-        ResponsePagePath: '/index.html',
-      });
-    }
+  test('does NOT rewrite errors distribution-wide, which would swallow API 404s', () => {
+    // CustomErrorResponses is distribution-level with no per-behavior
+    // override, so a 404 -> /index.html/200 rule turns every API 404 into an
+    // HTML document with a success status. The client parses every body as
+    // JSON, so a second person tapping x on an already-removed name would get
+    // a parse error instead of "nimeä ei löytynyt".
+    expect(distribution().DistributionConfig.CustomErrorResponses).toBeUndefined();
+  });
+
+  test('serves SPA deep links through a viewer-request rewrite on the default behavior only', () => {
+    const template = synth();
+    template.resourceCountIs('AWS::CloudFront::Function', 1);
+    const config = distribution().DistributionConfig;
+    const functions = (config.DefaultCacheBehavior as {
+      FunctionAssociations?: Array<{ EventType: string }>;
+    }).FunctionAssociations;
+    expect(functions?.map((f) => f.EventType)).toContain('viewer-request');
+  });
+
+  test('the /api/* behavior carries no function association', () => {
+    const behaviors = distribution().DistributionConfig.CacheBehaviors ?? [];
+    const api = behaviors.find((b) => b.PathPattern === '/api/*');
+    expect(api?.FunctionAssociations).toBeUndefined();
   });
 
   test('serves the configured domain over its own certificate', () => {

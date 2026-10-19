@@ -72,12 +72,21 @@ See [docs/runbook.md](docs/runbook.md). In short:
 cd packages/import
 npx tsx src/cli-scrape.ts --limit 5          # always dry-run first
 npx tsx src/cli-scrape.ts                    # the full walk, ~2.5 hours
+npx tsx src/cli-scrape.ts --resume           # after an interruption
 TABLE_NAME=<table> npx tsx src/cli-load.ts --out ./out
 ```
 
 The scraper only ever talks to `peliaktiivisuus.xsp`, which has no write
-controls. It refuses any other URL by construction, because a POST to
-`pelit.xsp` would create a real registration on the live system.
+controls. It refuses any other URL by construction, and it refuses to follow
+redirects, because a POST to `pelit.xsp` would create a real registration on
+the live system.
+
+Both output files are written as each player completes, so an interruption
+keeps what it had already proved. Correctness rests on two checks: per-player
+counts against what Domino prints, and the harvested player set against the
+collapsed index — the second because the first cannot see a player the walk
+never reached. **Load before anyone starts using the app**; the loader refuses
+to overwrite totals that live registrations have already moved.
 
 ## Deploying
 

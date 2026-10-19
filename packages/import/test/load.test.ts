@@ -200,3 +200,66 @@ describe('loadHarvest', () => {
     expect(await repo.listPlayers()).toHaveLength(40);
   });
 });
+
+describe('re-running over a table that is already in use', () => {
+  test('refuses rather than silently discarding games played since the import', async () => {
+    // The runbook points the loader at the deployed table and calls a re-run
+    // safe. A blind profile overwrite sets `total` back to the import figure
+    // while the newer DAY# rows stay in the table: three day rows, totals
+    // saying two, and the game someone played yesterday gone from
+    // Peliaktiivisuus.
+    await load();
+    const repo = createRepo({ client, tableName });
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    await expect(load()).rejects.toThrow(/live|since the import|--force/i);
+  });
+
+  test('that refusal leaves the live registration intact', async () => {
+    await load();
+    const repo = createRepo({ client, tableName });
+    const before = await repo.getPlayer(
+      (await repo.listPlayers()).find((p) => p.displayName === 'Matti Virtanen')?.playerId ?? '',
+    );
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    await load().catch(() => undefined);
+
+    const after = await repo.getPlayer(
+      (await repo.listPlayers()).find((p) => p.displayName === 'Matti Virtanen')?.playerId ?? '',
+    );
+    expect(after?.total).toBe((before?.total ?? 0) + 1);
+  });
+
+  test('an identical re-run after a crash is still allowed', async () => {
+    // Partial loads must stay recoverable: a profile written with a smaller
+    // total, or not written at all, is not evidence of live use.
+    await load();
+
+    await expect(load()).resolves.toMatchObject({ players: 3 });
+  });
+
+  test('--force overrides the refusal, for an operator who means it', async () => {
+    await load();
+    const repo = createRepo({ client, tableName });
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    const result = await loadHarvest({
+      client,
+      tableName,
+      players: PLAYERS,
+      registrations: REGISTRATIONS,
+      force: true,
+    });
+
+    expect(result.players).toBe(3);
+  });
+
+  test('names the players whose totals disagree, not just that something is wrong', async () => {
+    await load();
+    const repo = createRepo({ client, tableName });
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Liisa Korhonen' });
+
+    await expect(load()).rejects.toThrow(/Liisa Korhonen/);
+  });
+});

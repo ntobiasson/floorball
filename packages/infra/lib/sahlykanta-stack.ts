@@ -18,6 +18,9 @@ import {
   AllowedMethods,
   CachePolicy,
   Distribution,
+  Function as CloudFrontFunction,
+  FunctionCode,
+  FunctionEventType,
   OriginRequestPolicy,
   PriceClass,
   ViewerProtocolPolicy,
@@ -146,6 +149,34 @@ export class SahlykantaStack extends Stack {
 
     const apiDomain = `${httpApi.apiId}.execute-api.${this.region}.${this.urlSuffix}`;
 
+    /**
+     * SPA deep links are served by rewriting extensionless paths to
+     * /index.html on the way in, attached to the default behavior only.
+     *
+     * The obvious alternative — a distribution-level `errorResponses` rule
+     * mapping 404 to /index.html with status 200 — cannot be scoped to one
+     * behavior, so it also rewrites every API 404 into an HTML document with
+     * a success status. `GET /api/players/:unknown` and a DELETE for a name
+     * someone else already removed would both come back as index.html/200,
+     * and the client, which parses every body as JSON, would fail on the
+     * `<!DOCTYPE` instead of showing the real message.
+     */
+    const spaRewrite = new CloudFrontFunction(this, 'SpaRewrite', {
+      comment: 'Rewrite SPA deep links to /index.html',
+      code: FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  // Anything with a file extension is a real asset; everything else is a
+  // client-side route. /api/* never reaches this function.
+  if (uri !== '/' && uri.indexOf('.') === -1) {
+    request.uri = '/index.html';
+  }
+  return request;
+}
+      `),
+    });
+
     const distribution = new Distribution(this, 'Distribution', {
       defaultRootObject: 'index.html',
       domainNames: [props.domainName],
@@ -155,6 +186,9 @@ export class SahlykantaStack extends Stack {
         origin: S3BucketOrigin.withOriginAccessControl(site),
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
+        functionAssociations: [
+          { function: spaRewrite, eventType: FunctionEventType.VIEWER_REQUEST },
+        ],
       },
       additionalBehaviors: {
         '/api/*': {
@@ -172,11 +206,7 @@ export class SahlykantaStack extends Stack {
           originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         },
       },
-      errorResponses: [
-        // A deep link such as /peliaktiivisuus is the SPA's route, not a file.
-        { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
-        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
-      ],
+      // Deliberately no errorResponses: see spaRewrite above.
     });
 
     new ARecord(this, 'AliasRecord', {

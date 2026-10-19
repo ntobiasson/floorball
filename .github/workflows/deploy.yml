@@ -15,7 +15,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A push to main must not reach production without the suite passing.
+  check:
+    runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:2.5.3
+        ports:
+          - 8001:8000
+    env:
+      DYNAMODB_ENDPOINT: http://127.0.0.1:8001
+      AWS_REGION: eu-north-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
   deploy:
+    needs: check
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -59,19 +84,29 @@ jobs:
           echo "bucket=$(jq -r '.Sahlykanta.SiteBucketName' cdk-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "distribution=$(jq -r '.Sahlykanta.DistributionId' cdk-outputs.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload the hashed assets with a long cache
+      # Three steps in this order on purpose. Pruning before the new
+      # index.html is published leaves the live page — which is revalidated on
+      # every load, being no-cache — pointing at hashed asset names that have
+      # just been deleted.
+      - name: Publish the new hashed assets
         run: |
           aws s3 sync packages/web/dist "s3://${{ steps.outputs.outputs.bucket }}" \
-            --delete \
             --exclude index.html \
             --cache-control "public, max-age=31536000, immutable"
 
       # index.html is the one file that must never be cached, or a deploy
       # leaves browsers pointing at asset names that no longer exist.
-      - name: Upload index.html with no cache
+      - name: Publish index.html with no cache
         run: |
           aws s3 cp packages/web/dist/index.html "s3://${{ steps.outputs.outputs.bucket }}/index.html" \
             --cache-control "no-cache, must-revalidate"
+
+      - name: Prune assets from older deploys
+        run: |
+          aws s3 sync packages/web/dist "s3://${{ steps.outputs.outputs.bucket }}" \
+            --delete \
+            --exclude index.html \
+            --cache-control "public, max-age=31536000, immutable"
 
       - name: Invalidate the distribution
         run: |
@@ -82,9 +117,25 @@ jobs:
       - name: Smoke the deployment
         run: |
           set -euo pipefail
-          url="https://${SAHLYKANTA_DOMAIN}/api/today"
-          body=$(curl -fsS --retry 5 --retry-delay 5 "$url")
+          body=$(curl -fsS --retry 5 --retry-delay 5 "https://${SAHLYKANTA_DOMAIN}/api/today")
           echo "$body"
-          # A deploy that answers with the wrong date is a failed deploy.
-          echo "$body" | jq -e '.date | test("^\\d{4}-\\d{2}-\\d{2}$")' > /dev/null
           echo "$body" | jq -e 'has("isGameDay")' > /dev/null
+
+          # The spec's named anti-goal is a UTC-based date implementation,
+          # which breaks Saturday registrations after 02:00 in summer. Assert
+          # the actual Helsinki date, not just that the field looks like one.
+          expected=$(TZ=Europe/Helsinki date +%F)
+          actual=$(echo "$body" | jq -r .date)
+          if [ "$actual" != "$expected" ]; then
+            echo "api says $actual, Helsinki says $expected" >&2
+            exit 1
+          fi
+
+          # An API 404 must stay a JSON 404, not become the SPA shell with a
+          # 200 — that is the CloudFront misconfiguration this guards against.
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://${SAHLYKANTA_DOMAIN}/api/players/does-not-exist")
+          if [ "$status" != "404" ]; then
+            echo "expected 404 for an unknown player, got $status" >&2
+            exit 1
+          fi
