@@ -35,9 +35,9 @@ export function Notices({
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // An indexed address is a guessable one. The rest of the app is a single
-    // index.html, so this has to be set while the page is open and taken off
-    // again when it is not.
+    // An administrative page has no business in search results. The rest of
+    // the app is a single index.html, so this has to be set while the page is
+    // open and taken off again when it is not.
     const meta = document.createElement('meta');
     meta.name = 'robots';
     meta.content = 'noindex, nofollow';
@@ -119,8 +119,7 @@ export function Notices({
           Tiedotteet
         </h1>
         <p className="unlisted-note">
-          Tälle sivulle ei ole linkkiä. Kuka tahansa osoitteen tietävä voi lisätä ja poistaa
-          tiedotteita.
+          Tälle sivulle ei ole linkkiä, mutta kuka tahansa voi lisätä ja poistaa tiedotteita.
         </p>
 
         <form

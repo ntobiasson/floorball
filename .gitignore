@@ -15,5 +15,4 @@ cdk.out/
 e2e/.playwright
 
 # Local overrides (never committed)
-packages/web/.env.local
 .env.local

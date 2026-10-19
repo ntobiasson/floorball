@@ -14,11 +14,10 @@ server.
   interface does not surface it. The one place it shows through is the
   registration form, which suggests previously seen names from the imported
   player directory.
-- **Announcements** are written and deleted on an unlisted page nothing links
-  to, at an address set by `VITE_NOTICES_PATH` (see
-  `packages/web/.env.example`). Knowing the address is the only access
-  control, and it stops guessing rather than inspection — read the runbook
-  before relying on it.
+- **Announcements** are written and deleted at `/tiedotteet`. Nothing links
+  there, but the address is an obvious one and there is no password: anyone
+  who visits the site can manage them, as anyone can already add or remove any
+  name.
 
 ## Stack
 

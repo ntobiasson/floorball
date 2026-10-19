@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { E2E_NOTICES_PATH } from './playwright.config.js';
 
 /**
  * The unlisted announcements page, against the real API.
@@ -10,7 +9,7 @@ import { E2E_NOTICES_PATH } from './playwright.config.js';
 
 test.describe.configure({ mode: 'serial' });
 
-const NOTICES = E2E_NOTICES_PATH;
+const NOTICES = '/tiedotteet';
 
 test('nothing on the app links to the page', async ({ page }) => {
   await page.goto('/');
@@ -34,8 +33,8 @@ test('the page opens for anyone who knows the address, with no secret asked', as
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
 });
 
-test('a guessable address does not open it', async ({ page }) => {
-  for (const guess of ['/tiedotteet', '/admin', '/hallinta', '/tiedotteet-hallinta']) {
+test('an unrelated address does not open it', async ({ page }) => {
+  for (const guess of ['/admin', '/hallinta', '/peliaktiivisuus']) {
     await page.goto(guess);
     // The SPA serves index.html for any path, so the wrong address lands on
     // the registration page rather than 404ing — which is the intent.

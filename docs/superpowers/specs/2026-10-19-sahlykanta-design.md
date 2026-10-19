@@ -81,10 +81,11 @@ Things that would make this a failure even if it technically worked:
 
 ## Decisions taken after the design was written
 
-- Announcements are managed from an unlisted page rather than behind a shared
-  PIN. The address is unguessable and set by `VITE_NOTICES_PATH`, so it can be
-  rotated without a code change. It protects the page from guessing, not from
-  inspection, and not the API at all; the user chose this knowingly.
+- Announcements are managed from an unlinked page at `/tiedotteet` rather than
+  behind a shared PIN. The address was briefly randomised; the user chose the
+  fixed, readable one instead, knowing it is guessable. In practice the page
+  is open to anyone who visits, which matches the API — it accepts
+  announcement writes from any caller either way.
 - Removing a name from the day's list takes a confirmation.
 - The application is named Peleille.
 - **The history is no longer shown in the interface.** The Peliaktiivisuus

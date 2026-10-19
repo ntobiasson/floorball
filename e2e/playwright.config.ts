@@ -19,12 +19,6 @@ const API_TUESDAY_PORT = process.env.E2E_API_TUESDAY_PORT ?? '3401';
 const WEB_MONDAY_PORT = process.env.E2E_WEB_MONDAY_PORT ?? '4473';
 const WEB_TUESDAY_PORT = process.env.E2E_WEB_TUESDAY_PORT ?? '4474';
 
-/**
- * Deliberately not the built-in default: the suite proves the address is
- * configurable, not merely that one hardcoded string works.
- */
-export const E2E_NOTICES_PATH = '/e2e-7c3m-tiedotteet';
-
 const apiEnv = {
   TABLE_NAME,
   DYNAMODB_ENDPOINT,
@@ -74,20 +68,14 @@ export default defineConfig({
     {
       command: `npm run dev -w @sahlykanta/web -- --port ${WEB_MONDAY_PORT} --strictPort`,
       port: Number(WEB_MONDAY_PORT),
-      env: {
-        API_ORIGIN: `http://127.0.0.1:${API_MONDAY_PORT}`,
-        VITE_NOTICES_PATH: E2E_NOTICES_PATH,
-      },
+      env: { API_ORIGIN: `http://127.0.0.1:${API_MONDAY_PORT}` },
       reuseExistingServer: false,
       timeout: 60_000,
     },
     {
       command: `npm run dev -w @sahlykanta/web -- --port ${WEB_TUESDAY_PORT} --strictPort`,
       port: Number(WEB_TUESDAY_PORT),
-      env: {
-        API_ORIGIN: `http://127.0.0.1:${API_TUESDAY_PORT}`,
-        VITE_NOTICES_PATH: E2E_NOTICES_PATH,
-      },
+      env: { API_ORIGIN: `http://127.0.0.1:${API_TUESDAY_PORT}` },
       reuseExistingServer: false,
       timeout: 60_000,
     },

@@ -13,33 +13,18 @@ ones.
 
 ## Announcements
 
-Announcements are managed from an unlisted page whose address is set by
-`VITE_NOTICES_PATH` at build time. Nothing in the application links there.
-The default is in `packages/web/src/lib/routes.ts`; set the variable in the
-deploy environment so the address you actually use is not in the repository.
+Announcements are managed at `/tiedotteet`. Nothing in the application links
+there, and the page asks not to be indexed, but the address is an obvious one:
+treat the page as reachable by anyone who visits the site.
 
-Treat the address like a shared password: hand it to whoever needs it, and
-change it when it has spread further than you meant. Rotating it is a
-variable change and a redeploy, no code edit:
+That is deliberate and consistent with the rest of the app — the API accepts
+announcement writes from any caller regardless of the page, and anyone can
+already add or remove any name on the day's list. Nobody is identified
+anywhere in this system.
 
-```sh
-node -e "const c=require('crypto'),a='abcdefghjkmnpqrstuvwxyz23456789',p=n=>Array.from(c.randomBytes(n)).map(b=>a[b%a.length]).join('');console.log('/'+p(4)+'-'+p(4)+'-'+p(4))"
-```
+If that stops being acceptable, the realistic options are a shared secret on
+the write endpoints, or CloudFront with a signed cookie. Neither is in place.
 
-**Be clear about what the address does and does not do.** It keeps the page
-away from idle URL-guessing and from crawlers, and the page asks not to be
-indexed while it is open. It is not a lock:
-
-- This is a client-rendered app, so the path is in the JavaScript bundle.
-  Anyone who opens devtools can read it.
-- The API accepts announcement writes from anyone who calls it, with no
-  address involved at all.
-
-So the address is a doorway nobody stumbles through, not a key. That is the
-same trust model as the day's list, where anyone can already add or remove any
-name. If it stops being acceptable, the realistic options are a shared secret
-on the write endpoints, or CloudFront with a signed cookie. Neither is in
-place today.
 
 ## Importing the history out of Domino
 

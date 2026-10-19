@@ -160,32 +160,19 @@ describe('the unlisted announcements page', () => {
   });
 });
 
-describe('the address itself', () => {
-  test('is not a word anyone would guess', () => {
-    // The whole protection is that nobody arrives here by typing something
-    // obvious, so the path must not be a plain Finnish word.
-    expect(NOTICES_PATH).not.toMatch(/tiedot|hallinta|admin|notice|news/i);
-    expect(NOTICES_PATH.replace('/', '').length).toBeGreaterThanOrEqual(12);
+describe('the address', () => {
+  test('is the fixed, readable one', () => {
+    expect(NOTICES_PATH).toBe('/tiedotteet');
   });
 
-  test('is a single rooted segment', () => {
-    expect(NOTICES_PATH.startsWith('/')).toBe(true);
-    expect(NOTICES_PATH.endsWith('/')).toBe(false);
-  });
-
-  test('the old guessable address no longer opens the page', async () => {
+  test('opens the page', async () => {
     window.history.pushState({}, '', '/tiedotteet');
-    const api = fakeApi();
-    render(<App api={api} />);
+    render(<App api={fakeApi()} />);
 
-    await screen.findByRole('heading', { name: 'maanantai' });
-    // The landing page has its own "Tiedotteet" heading for the announcements
-    // block, so the management form is what distinguishes the two.
-    expect(screen.queryByRole('button', { name: 'Lisää tiedote' })).not.toBeInTheDocument();
-    expect(api.allAnnouncements).not.toHaveBeenCalled();
+    expect(await screen.findByRole('button', { name: 'Lisää tiedote' })).toBeInTheDocument();
   });
 
-  test('keeps the page out of search indexes while it is open', async () => {
+  test('keeps the page out of search results while it is open', async () => {
     openPage(fakeApi());
     await screen.findByText('Joulutauko');
 
