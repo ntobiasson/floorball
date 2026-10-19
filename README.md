@@ -123,21 +123,22 @@ failing, and says in the run summary which are missing:
 | Name | Kind | Example |
 | --- | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
-| `SAHLYKANTA_BUDGET_EMAIL` | variable | `you@example.fi` |
 
 There is **no custom domain**: the app answers on the address CloudFront gives
 the distribution, and the deploy prints it in the run summary. That removes the
 hosted zone, the certificate and the DNS records — nothing to renew, nothing to
 pay a registrar. The stack defaults to `eu-north-1` (override with
 `SAHLYKANTA_REGION`, before the first deploy); CloudFront is global regardless.
-At this traffic every service stays inside the free tier, and a budget alarm
-covers the rest.
+At this traffic every service stays inside the free tier, and a budget alarm —
+created by `scripts/create-budget.sh`, since AWS Budgets only exists in
+`us-east-1` — covers the rest.
 
 Before the first deploy, bootstrap the account and create the OIDC deploy role:
 
 ```sh
 npx cdk bootstrap aws://<account>/eu-north-1
 ./scripts/create-deploy-role.sh
+BUDGET_EMAIL=you@example.fi ./scripts/create-budget.sh
 ```
 
 No AWS access key is ever created; GitHub's OIDC token is traded for temporary

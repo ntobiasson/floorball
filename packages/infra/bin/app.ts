@@ -21,5 +21,4 @@ new SahlykantaStack(app, 'Sahlykanta', {
     // itself is global either way; this only moves the Lambda and the table.
     region: process.env.SAHLYKANTA_REGION ?? 'eu-north-1',
   },
-  budgetEmail: required('SAHLYKANTA_BUDGET_EMAIL'),
 });

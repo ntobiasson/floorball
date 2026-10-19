@@ -7,7 +7,6 @@ function synth(): Template {
   const app = new App();
   const stack = new SahlykantaStack(app, 'TestStack', {
     env: { account: '123456789012', region: 'eu-north-1' },
-    budgetEmail: 'ops@example.test',
   });
   return Template.fromStack(stack);
 }
@@ -218,8 +217,11 @@ describe('no DNS or certificate management', () => {
 });
 
 describe('cost guard', () => {
-  test('has a budget so a surprise bill is noticed', () => {
-    synth().resourceCountIs('AWS::Budgets::Budget', 1);
+  test('carries no budget, which cannot exist outside us-east-1', () => {
+    // AWS Budgets is global and only deployable to us-east-1. A budget here
+    // would fail the changeset with "Unrecognized resource types", or pin the
+    // whole application to Virginia. scripts/create-budget.sh creates it.
+    synth().resourceCountIs('AWS::Budgets::Budget', 0);
   });
 });
 

@@ -27,17 +27,12 @@ import {
 } from 'aws-cdk-lib/aws-cloudfront';
 import { HttpOrigin, S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
-import { CfnBudget } from 'aws-cdk-lib/aws-budgets';
 import type { Construct } from 'constructs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const apiEntry = path.join(here, '../../api/src/handler.ts');
 
 export interface SahlykantaStackProps extends StackProps {
-  /** Where the budget alarm goes. */
-  budgetEmail: string;
-  /** Monthly ceiling, in USD, before the alarm fires. */
-  monthlyBudgetUsd?: number;
 }
 
 export class SahlykantaStack extends Stack {
@@ -183,26 +178,10 @@ function handler(event) {
       // Deliberately no errorResponses: see spaRewrite above.
     });
 
-    // ---- Cost guard -------------------------------------------------------
-    new CfnBudget(this, 'MonthlyBudget', {
-      budget: {
-        budgetName: `${this.stackName}-monthly`,
-        budgetType: 'COST',
-        timeUnit: 'MONTHLY',
-        budgetLimit: { amount: props.monthlyBudgetUsd ?? 10, unit: 'USD' },
-      },
-      notificationsWithSubscribers: [
-        {
-          notification: {
-            comparisonOperator: 'GREATER_THAN',
-            notificationType: 'ACTUAL',
-            threshold: 80,
-            thresholdType: 'PERCENTAGE',
-          },
-          subscribers: [{ subscriptionType: 'EMAIL', address: props.budgetEmail }],
-        },
-      ],
-    });
+    // No budget alarm here: AWS Budgets is a global service that exists only
+    // in us-east-1, and this stack is regional. Keeping it would pin the
+    // whole application to Virginia for the sake of one alarm. It is created
+    // once by scripts/create-budget.sh instead.
 
     new CfnOutput(this, 'SiteBucketName', { value: site.bucketName });
     new CfnOutput(this, 'DistributionId', { value: distribution.distributionId });

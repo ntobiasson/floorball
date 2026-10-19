@@ -10,11 +10,16 @@ absent in the run summary.
 | Name | Kind | Example |
 | --- | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
-| `SAHLYKANTA_BUDGET_EMAIL` | variable | `you@example.fi` |
 
 ```sh
 gh secret set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::...:role/...'
-gh variable set SAHLYKANTA_BUDGET_EMAIL --body 'you@example.fi'
+```
+
+The cost alarm is created separately and once, because AWS Budgets is a global
+service that only exists in `us-east-1` while the stack is regional:
+
+```sh
+BUDGET_EMAIL=you@example.fi ./scripts/create-budget.sh
 ```
 
 ### The deploy role
@@ -295,7 +300,8 @@ or copy its rows across.
 
 ## The budget alarm fired
 
-It is set at 80% of a $10 month, which this app should never approach — expect
+It is created by `scripts/create-budget.sh`, not by the stack, and set at 80%
+of a $10 month, which this app should never approach — expect
 around a euro, almost all of it the Route 53 hosted zone. If it fires, the
 likely causes in order:
 
