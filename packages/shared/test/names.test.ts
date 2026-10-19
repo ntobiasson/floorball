@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { cleanDisplayName, normalizeName } from '../src/names.js';
+import { cleanDisplayName, foldForSearch, normalizeName } from '../src/names.js';
 
 describe('normalizeName', () => {
   test('lowercases', () => {
@@ -65,5 +65,16 @@ describe('cleanDisplayName', () => {
 
   test('rejects an empty name', () => {
     expect(() => cleanDisplayName('  ')).toThrow();
+  });
+});
+
+describe('foldForSearch', () => {
+  test('folds the same way normalizeName does', () => {
+    expect(foldForSearch('  Katja  Mäkelä ')).toBe(normalizeName('Riikka Mäkelä'));
+  });
+
+  test('returns an empty string instead of throwing, because a search box is often empty', () => {
+    expect(foldForSearch('')).toBe('');
+    expect(foldForSearch('   ')).toBe('');
   });
 });

@@ -31,6 +31,19 @@ function collapseWhitespace(raw: string): string {
   return raw.replace(/\s+/gu, ' ').trim();
 }
 
+/**
+ * The folding used for matching: case, whitespace and diacritics removed.
+ * Unlike `normalizeName` this tolerates an empty result, because a search box
+ * is legitimately empty most of the time.
+ */
+export function foldForSearch(raw: string): string {
+  return collapseWhitespace(raw)
+    .normalize('NFD')
+    .replace(COMBINING_MARKS, '')
+    .normalize('NFC')
+    .toLowerCase();
+}
+
 /** What gets stored and shown: the person's own spelling, whitespace tidied. */
 export function cleanDisplayName(raw: string): string {
   const cleaned = collapseWhitespace(raw);
@@ -40,7 +53,7 @@ export function cleanDisplayName(raw: string): string {
 
 /** The match key. Never used for display. */
 export function normalizeName(raw: string): string {
-  const cleaned = collapseWhitespace(raw);
-  if (cleaned.length === 0) throw new EmptyNameError();
-  return cleaned.normalize('NFD').replace(COMBINING_MARKS, '').normalize('NFC').toLowerCase();
+  const folded = foldForSearch(raw);
+  if (folded.length === 0) throw new EmptyNameError();
+  return folded;
 }

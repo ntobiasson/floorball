@@ -7,7 +7,7 @@
     ]
   },
   "include": [
-    "vitest.workspace.ts",
+    "vitest.config.ts",
     "packages/*/src/**/*",
     "packages/*/test/**/*",
     "packages/*/bin/**/*",
@@ -15,6 +15,7 @@
     "e2e/**/*"
   ],
   "exclude": [
-    "packages/infra"
+    "packages/infra",
+    "packages/web"
   ]
 }
