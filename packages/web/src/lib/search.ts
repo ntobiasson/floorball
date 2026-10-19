@@ -2,7 +2,8 @@ import { foldForSearch } from '@sahlykanta/shared';
 import type { PlayerSummary } from '@sahlykanta/shared';
 
 /**
- * Name search runs here, in the browser, over the whole player directory.
+ * Name matching for the registration form's suggestions, run in the browser
+ * over the whole player directory.
  *
  * There are about 500 names and they change a few times a week, so the list
  * is fetched once and filtered locally: instant, free, and far more forgiving
@@ -17,10 +18,6 @@ import type { PlayerSummary } from '@sahlykanta/shared';
  * k sits in the middle of a word. Punctuation is dropped when splitting, so
  * the goalkeeper marker in `Pekka Hämäläinen (mv)` is findable as "mv".
  */
-
-export type SortKey = 'total' | 'name';
-
-const collator = new Intl.Collator('fi', { sensitivity: 'base' });
 
 /** Folded, punctuation dropped, split into the words a query can match. */
 function wordsOf(name: string): string[] {
@@ -39,15 +36,3 @@ export function filterPlayers(players: PlayerSummary[], query: string): PlayerSu
   });
 }
 
-export function sortPlayers(players: PlayerSummary[], key: SortKey): PlayerSummary[] {
-  const sorted = [...players];
-  if (key === 'name') {
-    sorted.sort((a, b) => collator.compare(a.displayName, b.displayName));
-    return sorted;
-  }
-  // Ties broken by name so the list never reshuffles between renders.
-  sorted.sort(
-    (a, b) => b.total - a.total || collator.compare(a.displayName, b.displayName),
-  );
-  return sorted;
-}

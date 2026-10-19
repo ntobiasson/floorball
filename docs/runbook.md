@@ -225,7 +225,9 @@ likely causes in order:
 ## Switching off Domino
 
 Only after the full import has been loaded and verified, and `/api/players`
-returns the expected player count with matching totals. Compare that count
+returns the expected player count with matching totals. Note that the history
+is not visible in the interface, so the API is the only way to check it — do
+not take a working-looking app as evidence that the import succeeded. Compare that count
 against `out/player-index.json`, which is the authoritative list read from the
 collapsed Domino view. Keep the
 `out/players.jsonl` and `out/registrations.jsonl` files somewhere durable —

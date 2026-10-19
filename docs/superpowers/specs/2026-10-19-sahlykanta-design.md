@@ -87,3 +87,10 @@ Things that would make this a failure even if it technically worked:
   inspection, and not the API at all; the user chose this knowingly.
 - Removing a name from the day's list takes a confirmation.
 - The application is named Peleille.
+- **The history is no longer shown in the interface.** The Peliaktiivisuus
+  page and its navigation were removed at the user's request. Importing and
+  storing the archive is unchanged — that remains the point of the migration —
+  and it is still readable through `GET /api/players` and
+  `GET /api/players/:id`. The player directory is still fetched by the client,
+  because the registration form suggests previously seen names from it, so
+  names and totals remain publicly readable from the API.

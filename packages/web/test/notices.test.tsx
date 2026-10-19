@@ -21,7 +21,6 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
       announcements: [ANNOUNCEMENTS[0]],
     }),
     players: vi.fn().mockResolvedValue({ players: [] }),
-    player: vi.fn(),
     register: vi.fn(),
     unregister: vi.fn(),
     allAnnouncements: vi.fn().mockResolvedValue({ announcements: ANNOUNCEMENTS }),
@@ -47,7 +46,8 @@ describe('the unlisted announcements page', () => {
     await screen.findByRole('heading', { name: 'maanantai' });
 
     expect(screen.queryByRole('link', { name: /tiedot/i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link')).toHaveLength(2);
+    // With the history page gone there is no navigation at all.
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
 
   test('lists every announcement, including ones not currently showing', async () => {

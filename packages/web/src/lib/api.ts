@@ -1,7 +1,6 @@
 import type {
   Announcement,
   AnnouncementInput,
-  PlayerDetail,
   PlayerSummary,
   TodayResponse,
 } from '@sahlykanta/shared';
@@ -66,10 +65,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   today: () => request<TodayResponse>('/api/today'),
 
+  /**
+   * The player directory. Still fetched although no history is shown: the
+   * registration form suggests previously seen names from it.
+   */
   players: () => request<{ players: PlayerSummary[] }>('/api/players'),
-
-  player: (playerId: string) =>
-    request<PlayerDetail>(`/api/players/${encodeURIComponent(playerId)}`),
 
   register: (name: string, gameDate: string) =>
     request<{ playerId: string; displayName: string }>('/api/registrations', {

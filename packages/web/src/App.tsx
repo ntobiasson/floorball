@@ -2,21 +2,26 @@ import { useCallback, useEffect, useState } from 'react';
 import type { PlayerSummary, TodayResponse } from '@sahlykanta/shared';
 import { api as defaultApi, type Api } from './lib/api.js';
 import { BallMark } from './components/Graphics.js';
-import { Tabs, type Route } from './components/Tabs.js';
 import { Today } from './pages/Today.js';
-import { Activity } from './pages/Activity.js';
 import { Notices } from './pages/Notices.js';
 import { NOTICES_PATH } from './lib/routes.js';
 
-type View = Route | 'notices';
+/**
+ * Two pages: the day's list, and the unlisted announcements page. Any other
+ * address falls back to the day's list.
+ *
+ * There is no history page. The 25-year archive is still imported and stored
+ * — that is the point of the migration — it is simply not surfaced here.
+ */
+type View = 'today' | 'notices';
 
 function viewFromPath(pathname: string): View {
-  if (pathname.startsWith(NOTICES_PATH)) return 'notices';
-  return pathname.startsWith('/peliaktiivisuus') ? 'activity' : 'today';
+  return pathname.startsWith(NOTICES_PATH) ? 'notices' : 'today';
 }
 
 export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
-  const [view, setView] = useState<View>(() =>
+  // Fixed for the life of the page: neither view links to the other.
+  const [view] = useState<View>(() =>
     viewFromPath(typeof window === 'undefined' ? '/' : window.location.pathname),
   );
   const [today, setToday] = useState<TodayResponse | undefined>(undefined);
@@ -42,13 +47,6 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
     })();
   }, [api, view]);
 
-  const navigate = (next: Route): void => {
-    setView(next);
-    if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', next === 'activity' ? '/peliaktiivisuus' : '/');
-    }
-  };
-
   return (
     <div className="app">
       <header className="masthead">
@@ -71,7 +69,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
           </p>
         ) : today === undefined ? (
           <p className="state">Haetaan…</p>
-        ) : view === 'today' ? (
+        ) : (
           <Today
             today={today}
             directory={directory}
@@ -87,12 +85,9 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
               await refreshToday();
             }}
           />
-        ) : (
-          <Activity directory={directory} loadPlayer={api.player} />
         )}
       </main>
 
-      {view !== 'notices' && <Tabs active={view} onNavigate={navigate} />}
     </div>
   );
 }

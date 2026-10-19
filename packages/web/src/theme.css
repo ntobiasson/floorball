@@ -54,7 +54,7 @@ body {
   flex: 1 1 auto;
   flex-direction: column;
   gap: 14px;
-  padding: 0 16px 24px;
+  padding: 0 16px 28px;
 }
 
 .masthead {
@@ -423,57 +423,6 @@ body {
   line-height: 1.45;
 }
 
-/*
- * A phone-style bottom tab bar, pinned so it is reachable without scrolling.
- *
- * On a desktop window the same bar would otherwise sit at the far bottom of a
- * mostly-empty column, past a large gap, where it reads as a footer artifact
- * and the history page looks as though it does not exist. From 700px up it
- * moves under the masthead instead, where navigation is looked for.
- */
-.tabs {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  gap: 6px;
-  padding: 10px 16px 18px;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-}
-
-@media (min-width: 700px) {
-  .masthead {
-    order: -2;
-  }
-
-  .tabs {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    order: -1;
-    padding: 8px 16px 10px;
-    border-top: none;
-    border-bottom: 1px solid var(--line);
-  }
-}
-
-.tabs__link {
-  flex: 1 1 0;
-  padding: 12px 0;
-  border-radius: var(--radius-control);
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: center;
-  text-decoration: none;
-}
-
-.tabs__link[aria-current='page'] {
-  background: var(--accent-wash);
-  color: var(--accent-ink);
-  font-weight: 700;
-}
-
 .closed {
   padding: 24px 22px 26px;
   text-align: center;
@@ -539,158 +488,9 @@ body {
   font-weight: 700;
 }
 
-.search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 46px;
-  margin-top: 14px;
-  padding: 0 12px;
-  border: 1px solid #d6ded9;
-  border-radius: var(--radius-control);
-  background: #f2f5f2;
-}
-
-.search__input {
-  min-width: 0;
-  flex: 1 1 auto;
-  border: none;
-  background: transparent;
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 16px;
-  outline: none;
-}
-
-.sorts {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 11px;
-}
-
-.sorts__button {
-  padding: 7px 12px;
-  border: none;
-  border-radius: 999px;
-  background: #eaeeeb;
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.sorts__button[aria-pressed='true'] {
-  background: var(--accent-wash);
-  color: var(--accent-ink);
-}
-
-.sorts__count {
-  margin-left: auto;
-  color: var(--ink-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.players {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.player {
-  overflow: hidden;
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: var(--shadow-card);
-}
-
-.player__toggle {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 14px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-}
-
-.player__name {
-  min-width: 0;
-  flex: 1 1 auto;
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.player__total {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--accent-wash);
-  color: var(--accent-ink);
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.player__years {
-  padding: 2px 14px 14px;
-  border-top: 1px solid var(--line-soft);
-}
-
-.year {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid #f3f6f4;
-}
-
-.year__label {
-  width: 42px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.year__bar {
-  overflow: hidden;
-  flex: 1 1 auto;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--line-soft);
-}
-
-.year__bar-fill {
-  display: block;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-.year__count {
-  width: 28px;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
 .state {
   margin: 28px 8px;
   color: var(--ink-muted);
   font-size: 14px;
   text-align: center;
-}
-
-.rink {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-top: 4px;
 }

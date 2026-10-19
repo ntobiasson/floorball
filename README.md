@@ -8,8 +8,12 @@ server.
   the current day. Any other day shows a "not a game day" screen.
 - **No accounts.** Anyone can register anyone, by picking a previous player or
   typing a new name, and anyone can remove a name.
-- **Peliaktiivisuus** lists every player with their total game count,
-  searchable by name and expandable to a per-year breakdown.
+- **The 25-year history is imported and stored, but not displayed.** The
+  archive is the reason this project exists — the Domino server is being
+  switched off — so it is preserved in full and reachable through the API. The
+  interface does not surface it. The one place it shows through is the
+  registration form, which suggests previously seen names from the imported
+  player directory.
 - **Announcements** are written and deleted on an unlisted page nothing links
   to, at an address set by `VITE_NOTICES_PATH` (see
   `packages/web/.env.example`). Knowing the address is the only access
@@ -27,7 +31,7 @@ is AWS CDK.
 | --- | --- |
 | `packages/shared` | Date rules, name normalization, Zod schemas. Consumed as TypeScript source. |
 | `packages/api` | Hono routes and the DynamoDB repository. `handler.ts` is the Lambda entry; `serve.ts` is for local use only. |
-| `packages/web` | The SPA. All imagery is inline SVG — no raster assets. |
+| `packages/web` | The SPA: the day's list and an unlisted announcements page. All imagery is inline SVG — no raster assets. |
 | `packages/infra` | The CDK stack. |
 | `packages/import` | One-off extraction of the history out of Domino. |
 | `e2e` | Playwright smoke flow against a real API and DynamoDB. |

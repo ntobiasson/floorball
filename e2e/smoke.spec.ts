@@ -8,6 +8,9 @@ import { expect, test, type Page } from '@playwright/test';
  * list does not start empty. Assertions are relative to whatever is already
  * there: the tests care that adding a name adds one and removing it removes
  * one, not what the list happened to be seeded with.
+ *
+ * The history itself is imported and stored but never displayed, so there is
+ * nothing here that reads it back through the interface.
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -105,34 +108,32 @@ test('a player already on the list is not suggested again', async ({ page }) => 
   await expect(suggestions.getByRole('button', { name: 'Matti Virtanen', exact: true })).toHaveCount(0);
 });
 
-test('25 years of history are searchable with a per-year breakdown', async ({ page }) => {
+
+
+
+test('the archive is kept but never shown', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Peliaktiivisuus' }).click();
+  await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
 
-  await expect(page.getByRole('heading', { name: 'Peliaktiivisuus' })).toBeVisible();
+  // No navigation to it, no search over it, and no historical totals on screen
+  // — Matti Virtanen has 279 games in the table.
+  await expect(page.getByRole('link', { name: /peliaktiivisuus/i })).toHaveCount(0);
+  await expect(page.getByLabel('Hae pelaajan nimellä')).toHaveCount(0);
+  await expect(page.getByText('279')).toHaveCount(0);
 
-  await page.getByLabel('Hae pelaajan nimellä').fill('aatu');
-  await expect(page.getByText('Sanna Peltola')).toBeHidden();
-
-  await page.getByRole('button', { name: /Matti Virtanen 279/ }).click();
-  await expect(page.getByText('2026')).toBeVisible();
-  await expect(page.getByText('2017')).toBeVisible();
+  // The old address falls through to the registration page.
+  await page.goto('/peliaktiivisuus');
+  await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
+  await expect(page.getByLabel('Hae pelaajan nimellä')).toHaveCount(0);
 });
 
-test('a player whose last game was years ago is still there', async ({ page }) => {
-  await page.goto('/peliaktiivisuus');
+test('the stored history still reaches the form as name suggestions', async ({ page }) => {
+  await page.goto('/');
 
-  // Olli Väänänen stopped playing in 2009; the archive is the point.
-  await page.getByLabel('Hae pelaajan nimellä').fill('vaananen');
-  await page.getByRole('button', { name: /Olli Väänänen 63/ }).click();
+  await page.getByLabel('Nimi').fill('vakev');
 
-  await expect(page.getByText('2001')).toBeVisible();
-});
-
-test('a name typed without its diacritics still finds the player', async ({ page }) => {
-  await page.goto('/peliaktiivisuus');
-
-  await page.getByLabel('Hae pelaajan nimellä').fill('vaananen');
-
-  await expect(page.getByText('Olli Väänänen')).toBeVisible();
+  // Olli Väänänen last played in 2009 and is in the directory only because
+  // the archive was imported.
+  const suggestions = page.getByRole('list', { name: 'Ehdotukset' });
+  await expect(suggestions.getByRole('button', { name: 'Olli Väänänen' })).toBeVisible();
 });

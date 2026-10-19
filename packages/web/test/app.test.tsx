@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { PlayerDetail, PlayerSummary, TodayResponse } from '@sahlykanta/shared';
+import type { PlayerSummary, TodayResponse } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
 import type { Api } from '../src/lib/api.js';
 
@@ -10,16 +10,6 @@ const DIRECTORY: PlayerSummary[] = [
   { playerId: 'p-sivula', displayName: 'Liisa Korhonen', total: 233 },
   { playerId: 'p-katja', displayName: 'Riikka Mäkelä', total: 5 },
 ];
-
-const AATU_DETAIL: PlayerDetail = {
-  playerId: 'p-aatu',
-  displayName: 'Matti Virtanen',
-  total: 278,
-  years: [
-    { year: '2026', count: 25 },
-    { year: '2025', count: 47 },
-  ],
-};
 
 const MONDAY: TodayResponse = {
   date: '2026-10-19',
@@ -51,7 +41,6 @@ function fakeApi(today: TodayResponse, overrides: Partial<Api> = {}): Api {
   return {
     today: vi.fn().mockResolvedValue(today),
     players: vi.fn().mockResolvedValue({ players: DIRECTORY }),
-    player: vi.fn().mockResolvedValue(AATU_DETAIL),
     register: vi.fn().mockResolvedValue({ playerId: 'p-new', displayName: 'Uusi' }),
     unregister: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -168,69 +157,6 @@ describe('a day that is not a game day', () => {
   });
 });
 
-describe('the activity page', () => {
-  const openActivity = async () => {
-    render(<App api={fakeApi(MONDAY)} />);
-    await screen.findByRole('heading', { name: 'maanantai' });
-    await userEvent.click(screen.getByRole('link', { name: 'Peliaktiivisuus' }));
-  };
-
-  test('lists players with their totals, most games first', async () => {
-    await openActivity();
-
-    const names = screen
-      .getAllByRole('button', { expanded: false })
-      .map((button) => button.textContent ?? '');
-    expect(names[0]).toContain('Matti Virtanen');
-    expect(names[0]).toContain('278');
-  });
-
-  test('searches by name', async () => {
-    await openActivity();
-
-    await userEvent.type(screen.getByLabelText('Hae pelaajan nimellä'), 'sivula');
-
-    expect(screen.getByText('Liisa Korhonen')).toBeInTheDocument();
-    expect(screen.queryByText('Matti Virtanen')).not.toBeInTheDocument();
-  });
-
-  test('finds a name typed without its diacritics', async () => {
-    await openActivity();
-
-    await userEvent.type(screen.getByLabelText('Hae pelaajan nimellä'), 'makela');
-
-    expect(screen.getByText('Riikka Mäkelä')).toBeInTheDocument();
-  });
-
-  test('says so when nothing matches', async () => {
-    await openActivity();
-
-    await userEvent.type(screen.getByLabelText('Hae pelaajan nimellä'), 'zorro');
-
-    expect(screen.getByText(/Ei osumia haulla/)).toBeInTheDocument();
-  });
-
-  test('expanding a player shows the per-year breakdown', async () => {
-    await openActivity();
-
-    await userEvent.click(screen.getByRole('button', { name: /Matti Virtanen/ }));
-
-    expect(await screen.findByText('2026')).toBeInTheDocument();
-    expect(screen.getByText('25')).toBeInTheDocument();
-    expect(screen.getByText('2025')).toBeInTheDocument();
-    expect(screen.getByText('47')).toBeInTheDocument();
-  });
-
-  test('sorting by name reorders the list', async () => {
-    await openActivity();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Nimi A–Ö' }));
-
-    const first = screen.getAllByRole('button', { expanded: false })[0];
-    expect(first?.textContent).toContain('Matti Virtanen');
-  });
-});
-
 describe('accessibility floor', () => {
   test('the name input has a real label', async () => {
     render(<App api={fakeApi(MONDAY)} />);
@@ -244,15 +170,6 @@ describe('accessibility floor', () => {
 
     const remove = await screen.findByRole('button', { name: 'Poista Mikko Laine' });
     expect(remove.tagName).toBe('BUTTON');
-  });
-
-  test('navigation uses real links with hrefs', async () => {
-    render(<App api={fakeApi(MONDAY)} />);
-
-    await screen.findByRole('heading', { name: 'maanantai' });
-    for (const name of ['Ilmoittautuminen', 'Peliaktiivisuus']) {
-      expect(screen.getByRole('link', { name })).toHaveAttribute('href');
-    }
   });
 
   test('nothing interactive is a div or span with a click handler', async () => {
@@ -370,5 +287,52 @@ describe('removing a name asks first', () => {
 
     expect(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }).tagName).toBe('BUTTON');
     expect(screen.getByRole('button', { name: /Peruuta.*Mikko Laine/ }).tagName).toBe('BUTTON');
+  });
+});
+
+describe('history is kept but not shown', () => {
+  test('there is no history page to navigate to', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+    await screen.findByRole('heading', { name: 'maanantai' });
+
+    expect(screen.queryByRole('link', { name: /peliaktiivisuus/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /peliaktiivisuus/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hae pelaajan nimellä')).not.toBeInTheDocument();
+  });
+
+  test('the old history address falls back to the registration page', async () => {
+    window.history.pushState({}, '', '/peliaktiivisuus');
+    render(<App api={fakeApi(MONDAY)} />);
+
+    expect(await screen.findByRole('heading', { name: 'maanantai' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hae pelaajan nimellä')).not.toBeInTheDocument();
+  });
+
+  test('no total or per-year figure is rendered anywhere', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await screen.findByRole('heading', { name: 'maanantai' });
+
+    // Matti Virtanen's 278 games are in the directory the suggestions come from;
+    // the count on screen is today's list, nothing historical.
+    expect(screen.queryByText('278')).not.toBeInTheDocument();
+    expect(Object.keys(api)).not.toContain('player');
+  });
+
+  test('the directory is still fetched, because the name suggestions need it', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await screen.findByRole('heading', { name: 'maanantai' });
+
+    await waitFor(() => expect(api.players).toHaveBeenCalled());
+  });
+
+  test('suggestions still work from that directory', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'kankaan');
+
+    const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
+    expect(within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' })).toBeVisible();
   });
 });

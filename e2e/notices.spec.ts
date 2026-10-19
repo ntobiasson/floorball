@@ -21,11 +21,9 @@ test('nothing on the app links to the page', async ({ page }) => {
   );
   expect(hrefs).not.toContain(NOTICES);
 
-  await page.goto('/peliaktiivisuus');
-  const activityHrefs = await page.getByRole('link').evaluateAll((links) =>
-    links.map((l) => l.getAttribute('href')),
-  );
-  expect(activityHrefs).not.toContain(NOTICES);
+  // With the history page gone, the registration page has no navigation at
+  // all, so there is nowhere a link could hide.
+  expect(hrefs).toHaveLength(0);
 });
 
 test('the page opens for anyone who knows the address, with no secret asked', async ({ page }) => {

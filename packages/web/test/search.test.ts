@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { filterPlayers, sortPlayers } from '../src/lib/search.js';
+import { filterPlayers } from '../src/lib/search.js';
 import type { PlayerSummary } from '@sahlykanta/shared';
 
 const player = (displayName: string, total: number): PlayerSummary => ({
@@ -109,31 +109,3 @@ describe('filterPlayers', () => {
   });
 });
 
-describe('sortPlayers', () => {
-  test('by total, highest first', () => {
-    expect(sortPlayers(DIRECTORY, 'total').slice(0, 3).map((p) => p.displayName)).toEqual([
-      'Matti Virtanen',
-      'Liisa Korhonen',
-      'Liisa Heinonen',
-    ]);
-  });
-
-  test('by name, in Finnish collation', () => {
-    const names = sortPlayers(DIRECTORY, 'name').map((p) => p.displayName);
-    expect(names[0]).toBe('Olli Väänänen');
-    // Finnish sorts ä after z, so Katja comes before anything ä-initial but
-    // "antti" sorts with the a's regardless of case.
-    expect(names.indexOf('antti aalto')).toBeLessThan(names.indexOf('Riikka Mäkelä'));
-  });
-
-  test('does not mutate the input', () => {
-    const copy = [...DIRECTORY];
-    sortPlayers(DIRECTORY, 'total');
-    expect(DIRECTORY).toEqual(copy);
-  });
-
-  test('breaks a tie on total by name so the order is stable', () => {
-    const tied = [player('Bea', 1), player('Ada', 1)];
-    expect(sortPlayers(tied, 'total').map((p) => p.displayName)).toEqual(['Ada', 'Bea']);
-  });
-});
