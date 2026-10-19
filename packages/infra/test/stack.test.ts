@@ -7,8 +7,6 @@ function synth(): Template {
   const app = new App();
   const stack = new SahlykantaStack(app, 'TestStack', {
     env: { account: '123456789012', region: 'eu-north-1' },
-    domainName: 'sahly.example',
-    hostedZoneId: 'Z0123456789ABCDEFGHIJ',
     budgetEmail: 'ops@example.test',
   });
   return Template.fromStack(stack);
@@ -176,13 +174,46 @@ describe('the distribution', () => {
     expect(api?.FunctionAssociations).toBeUndefined();
   });
 
-  test('serves the configured domain over its own certificate', () => {
-    expect(distribution().DistributionConfig.Aliases).toEqual(['sahly.example']);
-    expect(distribution().DistributionConfig.ViewerCertificate).toBeDefined();
+  test('answers on its own cloudfront.net name, with no custom domain', () => {
+    // No aliases, so CloudFront serves its default certificate and there is
+    // no DNS or ACM anywhere in this stack.
+    expect(distribution().DistributionConfig.Aliases).toBeUndefined();
+  });
+
+  test('carries no certificate of its own', () => {
+    // With no alias, CDK omits ViewerCertificate altogether and CloudFront
+    // serves the certificate for *.cloudfront.net. Nothing to renew.
+    expect(distribution().DistributionConfig.ViewerCertificate).toBeUndefined();
+  });
+
+  test('still serves over HTTPS', () => {
+    expect(
+      (distribution().DistributionConfig.DefaultCacheBehavior as { ViewerProtocolPolicy: string })
+        .ViewerProtocolPolicy,
+    ).toBe('redirect-to-https');
   });
 
   test('serves index.html at the root', () => {
     expect(distribution().DistributionConfig.DefaultRootObject).toBe('index.html');
+  });
+});
+
+describe('no DNS or certificate management', () => {
+  test('creates no ACM certificate', () => {
+    // A certificate would mean a domain, which would mean a hosted zone and
+    // something to renew. The whole point of the default domain is that none
+    // of that exists.
+    synth().resourceCountIs('AWS::CertificateManager::Certificate', 0);
+  });
+
+  test('creates no Route 53 record', () => {
+    synth().resourceCountIs('AWS::Route53::RecordSet', 0);
+  });
+
+  test('publishes the address it actually answers on', () => {
+    const outputs = synth().findOutputs('*');
+    expect(Object.keys(outputs)).toContain('SiteUrl');
+    expect(Object.keys(outputs)).toContain('SiteDomain');
   });
 });
 

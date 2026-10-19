@@ -10,19 +10,41 @@ absent in the run summary.
 | Name | Kind | Example |
 | --- | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
-| `SAHLYKANTA_DOMAIN` | variable | `peleille.example.fi` |
-| `SAHLYKANTA_HOSTED_ZONE_ID` | variable | `Z0123456789ABCDEFGHIJ` |
-| `SAHLYKANTA_BUDGET_EMAIL` | variable | `ops@example.fi` |
+| `SAHLYKANTA_BUDGET_EMAIL` | variable | `you@example.fi` |
 
 ```sh
 gh secret set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::...:role/...'
-gh variable set SAHLYKANTA_DOMAIN --body 'peleille.example.fi'
-gh variable set SAHLYKANTA_HOSTED_ZONE_ID --body 'Z...'
 gh variable set SAHLYKANTA_BUDGET_EMAIL --body 'you@example.fi'
 ```
 
-Create the Route 53 hosted zone and the deploy role (OIDC trust to this
-repository) before the first run; `cdk deploy` assumes both exist.
+Create the deploy role (OIDC trust to this repository) before the first run.
+There is no hosted zone and no certificate to create: see below.
+
+Optionally set `SAHLYKANTA_REGION` to move the stack off its `eu-north-1`
+default. Do that before the first deploy, not after — the table is in the
+region, and moving it later is a migration rather than a setting.
+
+## There is no custom domain
+
+The app answers on the address CloudFront gives the distribution,
+`https://d<something>.cloudfront.net`, with the certificate CloudFront
+provides. The deploy prints it in the run summary, and `cdk deploy` reports
+it as the `SiteUrl` output.
+
+That means no hosted zone, no ACM certificate, no DNS records, nothing to
+renew or validate, and no registrar bill. The cost is an unmemorable address,
+which for a team that bookmarks it once is a fair trade.
+
+**DuckDNS and similar free services cannot be used here**, which is worth
+recording so nobody spends an evening on it. ACM validates a certificate with
+a CNAME record, and DuckDNS only sets A, AAAA and TXT. Even with a certificate
+in hand, pointing the name at CloudFront needs a CNAME or a Route 53 alias,
+and an A record cannot do it because CloudFront has no fixed address. Both
+halves fail independently.
+
+Adding a real domain later is a small change: a hosted zone, a `Certificate`
+in `us-east-1`, `domainNames` on the distribution and an alias record. The
+commit that removed them is the guide.
 
 Optionally set `IP_HASH_SALT` on the Lambda. The audit trail stores a salted
 16-character fingerprint of the caller's address, never the address itself —

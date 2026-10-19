@@ -77,7 +77,7 @@ Things that would make this a failure even if it technically worked:
 
 ## Open questions
 
-- The hostname the app should answer on.
+None outstanding.
 
 ## Decisions taken after the design was written
 
@@ -88,6 +88,12 @@ Things that would make this a failure even if it technically worked:
   announcement writes from any caller either way.
 - Removing a name from the day's list takes a confirmation.
 - The application is named Peleille.
+- **No custom domain.** The app answers on CloudFront's own address. DuckDNS
+  and similar free services cannot work with this architecture: ACM validates
+  with a CNAME and DuckDNS offers only A/AAAA/TXT, and CloudFront cannot be
+  reached by an A record because it has no fixed address. A real domain was
+  judged not worth the yearly fee for a fifteen-person team. With the
+  certificate gone, the stack also left us-east-1 for eu-north-1.
 - **The history is no longer shown in the interface.** The Peliaktiivisuus
   page and its navigation were removed at the user's request. Importing and
   storing the archive is unchanged — that remains the point of the migration —

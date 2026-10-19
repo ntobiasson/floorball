@@ -27,9 +27,6 @@ import {
 } from 'aws-cdk-lib/aws-cloudfront';
 import { HttpOrigin, S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
-import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
-import { ARecord, HostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
-import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import { CfnBudget } from 'aws-cdk-lib/aws-budgets';
 import type { Construct } from 'constructs';
 
@@ -37,10 +34,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const apiEntry = path.join(here, '../../api/src/handler.ts');
 
 export interface SahlykantaStackProps extends StackProps {
-  /** The hostname the app answers on, e.g. `sahly.example`. */
-  domainName: string;
-  /** The Route 53 zone that hostname lives in. */
-  hostedZoneId: string;
   /** Where the budget alarm goes. */
   budgetEmail: string;
   /** Monthly ceiling, in USD, before the alarm fires. */
@@ -125,17 +118,6 @@ export class SahlykantaStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    const zone = HostedZone.fromHostedZoneAttributes(this, 'Zone', {
-      hostedZoneId: props.hostedZoneId,
-      zoneName: props.domainName,
-    });
-
-    // CloudFront only accepts certificates from us-east-1.
-    const certificate = new Certificate(this, 'Certificate', {
-      domainName: props.domainName,
-      validation: CertificateValidation.fromDns(zone),
-    });
-
     const apiDomain = `${httpApi.apiId}.execute-api.${this.region}.${this.urlSuffix}`;
 
     /**
@@ -168,8 +150,11 @@ function handler(event) {
 
     const distribution = new Distribution(this, 'Distribution', {
       defaultRootObject: 'index.html',
-      domainNames: [props.domainName],
-      certificate,
+      // No custom domain: the distribution answers on its own
+      // d<id>.cloudfront.net name, with the certificate CloudFront provides.
+      // That keeps DNS out of the picture entirely — no hosted zone, no ACM
+      // certificate, nothing to renew or validate — and it is why this stack
+      // is not pinned to us-east-1.
       priceClass: PriceClass.PRICE_CLASS_100,
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessControl(site),
@@ -198,12 +183,6 @@ function handler(event) {
       // Deliberately no errorResponses: see spaRewrite above.
     });
 
-    new ARecord(this, 'AliasRecord', {
-      zone,
-      recordName: props.domainName,
-      target: RecordTarget.fromAlias(new CloudFrontTarget(distribution)),
-    });
-
     // ---- Cost guard -------------------------------------------------------
     new CfnBudget(this, 'MonthlyBudget', {
       budget: {
@@ -228,6 +207,7 @@ function handler(event) {
     new CfnOutput(this, 'SiteBucketName', { value: site.bucketName });
     new CfnOutput(this, 'DistributionId', { value: distribution.distributionId });
     new CfnOutput(this, 'TableName', { value: table.tableName });
-    new CfnOutput(this, 'SiteUrl', { value: `https://${props.domainName}` });
+    new CfnOutput(this, 'SiteUrl', { value: `https://${distribution.distributionDomainName}` });
+    new CfnOutput(this, 'SiteDomain', { value: distribution.distributionDomainName });
   }
 }

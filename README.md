@@ -122,15 +122,15 @@ failing, and says in the run summary which are missing:
 
 | Name | Kind | Example |
 | --- | --- | --- |
-| `SAHLYKANTA_DOMAIN` | variable | `sahly.example.fi` |
-| `SAHLYKANTA_HOSTED_ZONE_ID` | variable | `Z0123456789ABCDEFGHIJ` |
-| `SAHLYKANTA_BUDGET_EMAIL` | variable | `ops@example.fi` |
-| `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/sahlykanta-deploy` |
+| `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
+| `SAHLYKANTA_BUDGET_EMAIL` | variable | `you@example.fi` |
 
-The stack lives in `us-east-1` because CloudFront only accepts ACM
-certificates from there, and keeping the certificate with everything else
-avoids a second cross-region stack. At this traffic every service stays inside
-the free tier; a budget alarm covers the rest.
+There is **no custom domain**: the app answers on the address CloudFront gives
+the distribution, and the deploy prints it in the run summary. That removes the
+hosted zone, the certificate and the DNS records — nothing to renew, nothing to
+pay a registrar. The stack defaults to `eu-north-1` (override with
+`SAHLYKANTA_REGION`, before the first deploy); CloudFront is global regardless.
+At this traffic every service stays inside the free tier, and a budget alarm
+covers the rest.
 
-Before the first deploy, create the Route 53 hosted zone and the deploy role —
-see the runbook.
+Before the first deploy, create the OIDC deploy role — see the runbook.

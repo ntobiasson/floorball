@@ -30,15 +30,11 @@ jobs:
       - id: check
         env:
           ROLE: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          DOMAIN: ${{ vars.SAHLYKANTA_DOMAIN }}
-          ZONE: ${{ vars.SAHLYKANTA_HOSTED_ZONE_ID }}
           BUDGET_EMAIL: ${{ vars.SAHLYKANTA_BUDGET_EMAIL }}
         run: |
           set -euo pipefail
           missing=""
           [ -n "$ROLE" ]         || missing="$missing AWS_DEPLOY_ROLE_ARN(secret)"
-          [ -n "$DOMAIN" ]       || missing="$missing SAHLYKANTA_DOMAIN(var)"
-          [ -n "$ZONE" ]         || missing="$missing SAHLYKANTA_HOSTED_ZONE_ID(var)"
           [ -n "$BUDGET_EMAIL" ] || missing="$missing SAHLYKANTA_BUDGET_EMAIL(var)"
 
           missing="${missing# }"
@@ -46,7 +42,6 @@ jobs:
 
           if [ -z "$missing" ]; then
             echo "deployable=true" >> "$GITHUB_OUTPUT"
-            echo "Deploying to $DOMAIN." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "deployable=false" >> "$GITHUB_OUTPUT"
             {
@@ -91,9 +86,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      AWS_REGION: us-east-1
-      SAHLYKANTA_DOMAIN: ${{ vars.SAHLYKANTA_DOMAIN }}
-      SAHLYKANTA_HOSTED_ZONE_ID: ${{ vars.SAHLYKANTA_HOSTED_ZONE_ID }}
+      # Overridable, but the stack has no reason to sit in us-east-1 now that
+      # there is no CloudFront certificate to keep there.
+      AWS_REGION: ${{ vars.SAHLYKANTA_REGION || 'eu-north-1' }}
+      SAHLYKANTA_REGION: ${{ vars.SAHLYKANTA_REGION || 'eu-north-1' }}
       SAHLYKANTA_BUDGET_EMAIL: ${{ vars.SAHLYKANTA_BUDGET_EMAIL }}
     steps:
       - uses: actions/checkout@v4
@@ -108,7 +104,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Resolve the account id the stack is deployed into
         run: echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_ENV"
@@ -130,6 +126,7 @@ jobs:
         run: |
           echo "bucket=$(jq -r '.Sahlykanta.SiteBucketName' cdk-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "distribution=$(jq -r '.Sahlykanta.DistributionId' cdk-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "site=$(jq -r '.Sahlykanta.SiteDomain' cdk-outputs.json)" >> "$GITHUB_OUTPUT"
 
       # Three steps in this order on purpose. Pruning before the new
       # index.html is published leaves the live page — which is revalidated on
@@ -162,9 +159,11 @@ jobs:
             --paths "/index.html" "/"
 
       - name: Smoke the deployment
+        env:
+          SITE: ${{ steps.outputs.outputs.site }}
         run: |
           set -euo pipefail
-          body=$(curl -fsS --retry 5 --retry-delay 5 "https://${SAHLYKANTA_DOMAIN}/api/today")
+          body=$(curl -fsS --retry 5 --retry-delay 5 "https://${SITE}/api/today")
           echo "$body"
           echo "$body" | jq -e 'has("isGameDay")' > /dev/null
 
@@ -181,8 +180,20 @@ jobs:
           # An API 404 must stay a JSON 404, not become the SPA shell with a
           # 200 — that is the CloudFront misconfiguration this guards against.
           status=$(curl -s -o /dev/null -w '%{http_code}' \
-            "https://${SAHLYKANTA_DOMAIN}/api/players/does-not-exist")
+            "https://${SITE}/api/players/does-not-exist")
           if [ "$status" != "404" ]; then
             echo "expected 404 for an unknown player, got $status" >&2
             exit 1
           fi
+
+      - name: Say where it is
+        env:
+          SITE: ${{ steps.outputs.outputs.site }}
+        run: |
+          {
+            echo "### Deployed"
+            echo
+            echo "<https://${SITE}>"
+            echo
+            echo "CloudFront's own address. Bookmark it; there is no custom domain."
+          } >> "$GITHUB_STEP_SUMMARY"
