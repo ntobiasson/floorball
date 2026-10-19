@@ -44,6 +44,28 @@ rotate. Trust is scoped to `repo:<owner>/<repo>:environment:production` — one
 repository *and* one environment. A workflow on a branch, a pull request from
 a fork, or any other repository in your account cannot assume it.
 
+**The subject claim is read from GitHub, not assembled from the names.**
+GitHub does not always send the documented `repo:owner/name:environment:x`
+form — this repository gets
+`repo:owner@<ownerId>/name@<repoId>:environment:x`, with numeric ids embedded
+so that deleting a repository and recreating it under the same name cannot
+inherit its trust. A trust policy written against the names alone is rejected.
+
+If assuming the role ever fails with **"Not authorized to perform
+sts:AssumeRoleWithWebIdentity"**, the Actions log will not say why: it only
+reports the refusal. CloudTrail holds the subject AWS actually saw, which is
+how to find the mismatch in one step:
+
+```sh
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity \
+  --max-results 3 --region eu-north-1 \
+  --query 'Events[].CloudTrailEvent' --output text | grep -o 'repo:[^"]*'
+```
+
+Re-running `./scripts/create-deploy-role.sh` refreshes the trust policy to
+whatever GitHub currently sends.
+
 That scoping needs the environment to exist:
 
 ```sh

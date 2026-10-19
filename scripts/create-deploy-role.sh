@@ -40,10 +40,31 @@ else
 fi
 
 # --- 2. Who may assume the role ----------------------------------------------
-# Scoped to one repository AND one environment. The deploy job declares
-# `environment: production`, which GitHub puts in the token's `sub` claim, so
-# a workflow on a branch — or in any other repository — cannot assume this
-# role even if it is in your account.
+# Scoped to one repository AND one environment, so a workflow on a branch — or
+# in any other repository — cannot assume this role even if it is in your
+# account.
+#
+# The subject claim is read from GitHub rather than assembled from the
+# owner/repo names, because GitHub does not always send the documented
+# `repo:owner/name:environment:x` form. This repository gets
+# `repo:owner@<ownerId>/name@<repoId>:environment:x`, embedding numeric ids so
+# that deleting a repository and recreating it under the same name does not
+# inherit its trust. A policy written against the names alone is rejected,
+# with nothing in the Actions log to say why — CloudTrail is where the real
+# subject shows up.
+#
+# Override SUBJECT if you need a different scope, e.g. a branch:
+#   SUBJECT='repo:owner/name:ref:refs/heads/main'
+if [ -z "${SUBJECT:-}" ]; then
+  if command -v gh >/dev/null 2>&1; then
+    SUBJECT="$(gh api "repos/${REPO}" \
+      --jq '"repo:\(.owner.login)@\(.owner.id)/\(.name)@\(.id):environment:production"')"
+  else
+    echo "gh is not installed; set SUBJECT explicitly (see the comment above)" >&2
+    exit 1
+  fi
+fi
+echo "trusting subject: ${SUBJECT}"
 TRUST=$(cat <<JSON
 {
   "Version": "2012-10-17",
@@ -54,7 +75,7 @@ TRUST=$(cat <<JSON
     "Condition": {
       "StringEquals": {
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-        "token.actions.githubusercontent.com:sub": "repo:${REPO}:environment:production"
+        "token.actions.githubusercontent.com:sub": "${SUBJECT}"
       }
     }
   }]
