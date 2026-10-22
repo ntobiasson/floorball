@@ -33,7 +33,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
 
 const openPage = (api: Api) => {
   window.history.pushState({}, '', NOTICES_PATH);
-  render(<App api={api} />);
+  return render(<App api={api} />);
 };
 
 beforeEach(() => {
@@ -292,6 +292,20 @@ describe('the bot check on the announcements page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ }));
 
     await waitFor(() => expect(widget().reset).toHaveBeenCalledTimes(1));
+  });
+
+  test('it is the last thing on the page, under both cards', async () => {
+    const { container } = openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    const main = container.querySelector('main') as HTMLElement;
+    expect(main.lastElementChild).toHaveClass('turnstile');
+
+    const widget = container.querySelector('.turnstile') as HTMLElement;
+    const list = screen.getByText('Kaikki tiedotteet');
+    expect(list.compareDocumentPosition(widget) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // And out of the form it used to sit in.
+    expect(container.querySelector('form')).not.toContainElement(widget);
   });
 
   test('nothing can be written before a token has arrived', async () => {

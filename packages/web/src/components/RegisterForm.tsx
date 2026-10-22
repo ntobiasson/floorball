@@ -1,8 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import type { PlayerSummary } from '@sahlykanta/shared';
-import { MAX_NAME_LENGTH, TURNSTILE_ACTIONS } from '@sahlykanta/shared';
+import { MAX_NAME_LENGTH } from '@sahlykanta/shared';
 import { filterPlayers } from '../lib/search.js';
-import { Turnstile } from './Turnstile.js';
 
 const MAX_SUGGESTIONS = 6;
 
@@ -11,22 +10,25 @@ export function RegisterForm({
   alreadyRegistered,
   onSubmit,
   error,
+  turnstileToken,
+  onTokenSpent,
 }: {
   directory: PlayerSummary[];
   alreadyRegistered: ReadonlySet<string>;
   onSubmit: (name: string, turnstileToken: string) => Promise<void>;
   error: string | undefined;
+  /**
+   * Arrives on its own, usually before anyone has finished typing a name. The
+   * widget that produces it lives at the foot of the page rather than in this
+   * form, so the page owns it and hands it down.
+   */
+  turnstileToken: string | undefined;
+  /** Called once a submission has consumed the token, so a fresh one is minted. */
+  onTokenSpent: () => void;
 }): React.ReactElement {
   const inputId = useId();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-  /**
-   * The widget hands this over on its own, usually before anyone has finished
-   * typing a name. `attempt` spends it: every submission bumps it, which
-   * resets the widget and clears the token until a fresh one arrives.
-   */
-  const [token, setToken] = useState<string | undefined>(undefined);
-  const [attempt, setAttempt] = useState(0);
 
   /**
    * Suggestions come from the cached directory, but typing a brand-new name
@@ -42,14 +44,14 @@ export function RegisterForm({
   }, [directory, name, alreadyRegistered]);
 
   const submit = async (value: string): Promise<void> => {
-    if (value.trim().length === 0 || busy || token === undefined) return;
+    if (value.trim().length === 0 || busy || turnstileToken === undefined) return;
     setBusy(true);
     try {
-      await onSubmit(value.trim(), token);
+      await onSubmit(value.trim(), turnstileToken);
       setName('');
     } finally {
       // Whether it worked or not, that token is spent.
-      setAttempt((previous) => previous + 1);
+      onTokenSpent();
       setBusy(false);
     }
   };
@@ -93,8 +95,6 @@ export function RegisterForm({
         </ul>
       )}
 
-      <Turnstile action={TURNSTILE_ACTIONS.register} resetKey={attempt} onToken={setToken} />
-
       {error !== undefined && (
         <p className="field__error" role="alert">
           {error}
@@ -105,14 +105,16 @@ export function RegisterForm({
         className="button"
         type="submit"
         aria-busy={busy}
-        disabled={busy || name.trim().length === 0 || token === undefined}
+        disabled={busy || name.trim().length === 0 || turnstileToken === undefined}
       >
         {busy ? 'Ilmoittaudutaan…' : 'Ilmoittaudu'}
       </button>
 
-      {/* Only worth saying once there is a name to submit: before that the
-          button is disabled for the obvious reason instead. */}
-      {token === undefined && name.trim().length > 0 && (
+      {/* Stays beside the button rather than beside the widget at the foot of
+          the page: it explains why this button is disabled, and that belongs
+          next to the button. Only worth saying once there is a name to submit
+          — before that it is disabled for the obvious reason instead. */}
+      {turnstileToken === undefined && name.trim().length > 0 && (
         <p className="field__hint">Odotetaan varmistusta…</p>
       )}
     </form>

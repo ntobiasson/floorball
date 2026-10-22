@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import type { PlayerSummary, TodayResponse } from '@sahlykanta/shared';
+import { TURNSTILE_ACTIONS, type PlayerSummary, type TodayResponse } from '@sahlykanta/shared';
 import { finnishDate, finnishDateWithWeekday, weekdayName } from '../lib/finnish.js';
 import { ClosedGlyph } from '../components/Graphics.js';
 import { Notices } from '../components/Notices.js';
 import { RegisterForm } from '../components/RegisterForm.js';
+import { Turnstile } from '../components/Turnstile.js';
 
 const GAME_WEEKDAYS = [1, 3, 6];
 const WEEK_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -29,6 +30,14 @@ export function Today({
    * quietly drop a teammate off the list with nothing to undo it.
    */
   const [confirming, setConfirming] = useState<string | undefined>(undefined);
+  /**
+   * The bot check sits at the foot of the page, under everything else, so the
+   * token it produces is owned here and handed down to the form. `attempt`
+   * spends it: every submission bumps it, which resets the widget and clears
+   * the token until a fresh one arrives.
+   */
+  const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
 
   if (!today.isGameDay) {
     return (
@@ -44,9 +53,7 @@ export function Today({
             Seuraava pelipäivä
           </h2>
           {today.nextGameDate !== undefined && (
-            <p className="closed__next">
-              {finnishDate(today.nextGameDate)}
-            </p>
+            <p className="closed__next">{finnishDate(today.nextGameDate)}</p>
           )}
           <p className="field__hint" style={{ textAlign: 'center' }}>
             Ilmoittautuminen avautuu pelipäivän aamuna
@@ -162,10 +169,12 @@ export function Today({
         directory={directory}
         alreadyRegistered={registeredIds}
         error={error}
-        onSubmit={async (name, turnstileToken) => {
+        turnstileToken={turnstileToken}
+        onTokenSpent={() => setAttempt((previous) => previous + 1)}
+        onSubmit={async (name, token) => {
           setError(undefined);
           try {
-            await onRegister(name, turnstileToken);
+            await onRegister(name, token);
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Ilmoittautuminen ei onnistunut.');
           }
@@ -173,6 +182,18 @@ export function Today({
       />
 
       <Notices announcements={today.announcements} />
+
+      {/*
+        Last on the page, under every card. It is outside the form on purpose:
+        the hidden cf-turnstile-response input it renders is never read by a
+        native form submission here — the token reaches the API through the
+        callback below and fetch — so nothing is lost by moving it out.
+      */}
+      <Turnstile
+        action={TURNSTILE_ACTIONS.register}
+        resetKey={attempt}
+        onToken={setTurnstileToken}
+      />
     </>
   );
 }

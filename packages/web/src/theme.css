@@ -405,17 +405,16 @@ body {
  * The bot check. Cloudflare renders the widget into an iframe of its own and
  * sizes it itself — 300x65 — so there is nothing here to style inside it.
  *
- * It is scaled down because 300x65 is a lot of furniture for a check nobody
- * is asked to perform; it should sit under the field, not compete with the
- * submit button. Scaling is used rather than Turnstile's own `compact` size,
- * which is narrower but half as tall again (150x140) and so takes more
- * vertical room on a phone, not less.
- */
-.turnstile {
-  margin-top: 14px;
-}
-
-/*
+ * It sits last on the page, under every card, as a footnote rather than as
+ * another control on the way to the submit button. It carries no margin of
+ * its own: it is a direct child of .app__main, whose `gap` already spaces it
+ * from the card above, and a margin here would double that.
+ *
+ * It is also scaled down, because 300x65 is a lot of furniture for a check
+ * nobody is asked to perform. Scaling is used rather than Turnstile's own
+ * `compact` size, which is narrower but half as tall again (150x140) and so
+ * takes more vertical room on a phone, not less.
+ *
  * A transform does not change the space an element reserves, so the box is
  * shrunk to the scaled height to match. The height is set rather than
  * min-height so that the gap is identical before the widget has loaded and

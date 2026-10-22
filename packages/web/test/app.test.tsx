@@ -437,6 +437,37 @@ describe('the bot check in front of registering', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/Varmistusta ei saatu ladattua/);
   });
 
+  test('it is the last thing on the page, under every card', async () => {
+    // It is a footnote, not another control on the way to the button. The
+    // position is a property of the page now, so it is easy to undo by
+    // accident; this is what catches that.
+    const { container } = render(<App api={fakeApi(MONDAY)} />);
+    await screen.findByLabelText('Nimi');
+
+    const main = container.querySelector('main') as HTMLElement;
+    expect(main.lastElementChild).toHaveClass('turnstile');
+
+    const widget = container.querySelector('.turnstile') as HTMLElement;
+    const form = container.querySelector('form.card') as HTMLElement;
+    const notices = screen.getByText('Kenttä varattu 21.10. klo 18–19.');
+    // DOCUMENT_POSITION_FOLLOWING: the widget comes after both.
+    expect(form.compareDocumentPosition(widget) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(notices.compareDocumentPosition(widget) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test('the button and its explanation stay together, away from the widget', async () => {
+    // The hint says why the button is disabled, so it belongs beside the
+    // button and not beside the widget at the foot of the page.
+    window.turnstile = { render: vi.fn(() => 'never-solved'), reset: vi.fn(), remove: vi.fn() };
+    const { container } = render(<App api={fakeApi(MONDAY)} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
+
+    const form = container.querySelector('form.card') as HTMLElement;
+    expect(form).toContainElement(screen.getByText('Odotetaan varmistusta…'));
+    expect(form).not.toContainElement(container.querySelector('.turnstile'));
+  });
+
   test('the not-a-game-day screen has no widget, having no form to protect', async () => {
     render(<App api={fakeApi(TUESDAY)} />);
 

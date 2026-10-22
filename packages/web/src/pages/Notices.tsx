@@ -14,12 +14,12 @@ import { Turnstile } from '../components/Turnstile.js';
  * names on the day's list.
  *
  * One Turnstile widget serves the whole page: adding and removing both spend
- * its token and then reset it. It is drawn in the form, above the button,
- * because that is where it reads as part of the action rather than as an
- * afterthought under it — but it is the page's widget, and the Poista
- * buttons below wait on the same token. It keeps scripts off these endpoints
- * and identifies nobody; calling the API directly now needs a solved
- * challenge, and that is the only thing that changed here.
+ * its token and then reset it. It is drawn last, under both cards, so that it
+ * reads as a footnote to the page rather than as another control to deal with
+ * on the way to the button — which is what it was doing inside the form. The
+ * Poista buttons below wait on the same token. It keeps scripts off these
+ * endpoints and identifies nobody; calling the API directly now needs a
+ * solved challenge, and that is the only thing that changed here.
  */
 
 export function Notices({
@@ -175,8 +175,6 @@ export function Notices({
             </label>
           </div>
 
-          <Turnstile action={TURNSTILE_ACTIONS.announce} resetKey={attempt} onToken={setToken} />
-
           <button
             className="button"
             type="submit"
@@ -265,6 +263,14 @@ export function Notices({
           })
         )}
       </section>
+
+      {/*
+        Last on the page, under both cards. It is outside the form on purpose:
+        the hidden cf-turnstile-response input it renders is never read by a
+        native form submission here — the token reaches the API through the
+        callback below and fetch — so nothing is lost by moving it out.
+      */}
+      <Turnstile action={TURNSTILE_ACTIONS.announce} resetKey={attempt} onToken={setToken} />
     </>
   );
 }
