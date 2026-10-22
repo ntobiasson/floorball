@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { PlayerSummary, TodayResponse } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
 import type { Api } from '../src/lib/api.js';
+import { TEST_TURNSTILE_TOKEN } from './setup.js';
 
 const DIRECTORY: PlayerSummary[] = [
   { playerId: 'p-aatu', displayName: 'Matti Virtanen', total: 278 },
@@ -78,7 +79,13 @@ describe('a game day', () => {
     await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
 
-    await waitFor(() => expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19'));
+    await waitFor(() =>
+      expect(api.register).toHaveBeenCalledWith(
+        'Uusi Pelaaja',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+      ),
+    );
   });
 
   test('does not call the API for an empty name', async () => {
@@ -110,7 +117,11 @@ describe('a game day', () => {
     );
 
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith('Riikka Mäkelä', '2026-10-19'),
+      expect(api.register).toHaveBeenCalledWith(
+        'Riikka Mäkelä',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+      ),
     );
   });
 
@@ -334,5 +345,112 @@ describe('history is kept but not shown', () => {
 
     const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
     expect(within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' })).toBeVisible();
+  });
+});
+
+describe('the bot check in front of registering', () => {
+  const widget = () => window.turnstile as NonNullable<typeof window.turnstile>;
+
+  test('the form renders one widget, for the registration action', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+    await screen.findByLabelText('Nimi');
+
+    await waitFor(() => expect(widget().render).toHaveBeenCalledTimes(1));
+    expect(widget().render).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'register' }),
+    );
+  });
+
+  test('the token it produces is what gets submitted', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+
+    await waitFor(() =>
+      expect(api.register).toHaveBeenCalledWith(
+        'Uusi Pelaaja',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+      ),
+    );
+  });
+
+  test('the widget is reset afterwards, because a token is spent by one submission', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+
+    await waitFor(() => expect(widget().reset).toHaveBeenCalledTimes(1));
+    // Reset in place, not rebuilt: a second render would issue a new
+    // challenge and shift the layout under whoever is looking at it.
+    expect(widget().render).toHaveBeenCalledTimes(1);
+  });
+
+  test('it is reset after a refused submission too', async () => {
+    const api = fakeApi(MONDAY, {
+      register: vi.fn().mockRejectedValue(new Error('nimi on jo listalla')),
+    });
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Mikko Laine');
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+
+    await screen.findByRole('alert');
+    await waitFor(() => expect(widget().reset).toHaveBeenCalledTimes(1));
+  });
+
+  test('nothing is submitted until a token has arrived', async () => {
+    // The widget resolves on a microtask, so this is the state the page is in
+    // for the first moment of its life.
+    window.turnstile = {
+      render: vi.fn(() => 'never-solved'),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
+
+    expect(screen.getByRole('button', { name: 'Ilmoittaudu' })).toBeDisabled();
+    expect(screen.getByText('Odotetaan varmistusta…')).toBeInTheDocument();
+    expect(api.register).not.toHaveBeenCalled();
+  });
+
+  test('a widget that cannot load says so instead of failing silently', async () => {
+    // What a blocked challenges.cloudflare.com looks like.
+    window.turnstile = {
+      render: vi.fn(() => {
+        throw new Error('blocked');
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByLabelText('Nimi');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Varmistusta ei saatu ladattua/);
+  });
+
+  test('the not-a-game-day screen has no widget, having no form to protect', async () => {
+    render(<App api={fakeApi(TUESDAY)} />);
+
+    await screen.findByRole('heading', { name: 'Tänään ei pelata' });
+    expect(widget().render).not.toHaveBeenCalled();
+  });
+
+  test('removing a name needs no token: it was never gated', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Poista Mikko Laine' }));
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }));
+
+    await waitFor(() => expect(api.unregister).toHaveBeenCalledWith('p-mikko'));
   });
 });

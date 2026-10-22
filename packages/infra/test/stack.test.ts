@@ -77,17 +77,111 @@ describe('the API Lambda', () => {
   });
 
   test('carries no secret in its environment', () => {
-    // Announcements are managed from an unlisted page with no secret to
-    // present, so nothing here should look like a credential.
+    // Nothing here should be a credential. The Turnstile secret is the one
+    // thing this application has that could be, and it is deliberately not
+    // here: the function is given the ARN and reads the value at runtime.
+    // An ARN is a pointer — it is in the template, in CloudTrail and on the
+    // console already — so it is named explicitly rather than waved through
+    // by loosening the pattern for everything else.
+    const allowedReferences = new Set(['TURNSTILE_SECRET_ARN']);
+
     const functions = synth().findResources('AWS::Lambda::Function');
     const envs = Object.values(functions).map(
       (fn) =>
         (fn.Properties as { Environment?: { Variables?: Record<string, unknown> } }).Environment
           ?.Variables ?? {},
     );
-    const rendered = JSON.stringify(envs);
-    expect(rendered).not.toMatch(/"[0-9a-f]{64}"/);
-    expect(rendered).not.toMatch(/PIN|SECRET|PASSWORD/i);
+
+    for (const env of envs) {
+      for (const [name, value] of Object.entries(env)) {
+        const rendered = JSON.stringify(value);
+        // No literal that looks like a key, whatever it is called.
+        expect(rendered).not.toMatch(/"[0-9a-f]{64}"/);
+
+        if (allowedReferences.has(name)) {
+          // And the one allowed name really is a reference, not a value.
+          expect(rendered).toMatch(/Ref|Fn::|arn:/);
+          continue;
+        }
+        expect(name).not.toMatch(/PIN|SECRET|PASSWORD/i);
+      }
+    }
+  });
+
+  test('reads the Turnstile secret from Secrets Manager rather than its environment', () => {
+    const template = synth();
+
+    /**
+     * The secret is created and filled in by hand, outside this stack. Owning
+     * it here too would make CloudFormation refuse to adopt the entry that
+     * already holds the real key, so the stack must import rather than
+     * create — and this is the assertion that keeps it that way.
+     */
+    expect(Object.keys(template.findResources('AWS::SecretsManager::Secret'))).toHaveLength(0);
+
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: { Variables: Match.objectLike({ TURNSTILE_SECRET_ARN: Match.anyValue() }) },
+    });
+  });
+
+  test('is pointed at the secret that actually holds the key', () => {
+    // A stack pointed at the wrong name deploys perfectly and then refuses
+    // every registration, which is a bad way to find out.
+    const functions = Object.values(synth().findResources('AWS::Lambda::Function'));
+    const arns = functions
+      .map(
+        (fn) =>
+          (fn.Properties as { Environment?: { Variables?: Record<string, unknown> } }).Environment
+            ?.Variables?.TURNSTILE_SECRET_ARN,
+      )
+      .filter((value) => value !== undefined);
+
+    expect(arns).toHaveLength(1);
+    expect(JSON.stringify(arns[0])).toContain('prod/floorball/turnstile');
+  });
+
+  test('may read that secret and nothing else, and may not write it', () => {
+    const policies = Object.values(synth().findResources('AWS::IAM::Policy'));
+    const statements = policies.flatMap(
+      (policy) =>
+        (
+          policy.Properties as {
+            PolicyDocument: { Statement: { Action?: unknown; Resource?: unknown }[] };
+          }
+        ).PolicyDocument.Statement,
+    );
+
+    const secretStatements = statements.filter((statement) =>
+      JSON.stringify(statement.Action ?? '').includes('secretsmanager:'),
+    );
+    expect(secretStatements.length).toBeGreaterThan(0);
+
+    for (const statement of secretStatements) {
+      const actions = JSON.stringify(statement.Action);
+      expect(actions).not.toMatch(/secretsmanager:\*/);
+      expect(actions).not.toMatch(/PutSecretValue|UpdateSecret|DeleteSecret/);
+      // Never a wildcard resource: one secret, by ARN.
+      expect(JSON.stringify(statement.Resource)).not.toBe('"*"');
+    }
+  });
+
+  test('accepts tokens only for this distribution, never for a local page', () => {
+    const functions = Object.values(synth().findResources('AWS::Lambda::Function'));
+    const hostnames = functions
+      .map(
+        (fn) =>
+          (
+            fn.Properties as {
+              Environment?: { Variables?: Record<string, unknown> };
+            }
+          ).Environment?.Variables?.TURNSTILE_HOSTNAMES,
+      )
+      .filter((value) => value !== undefined);
+
+    expect(hostnames).toHaveLength(1);
+    // The distribution's own name, resolved at deploy time.
+    expect(JSON.stringify(hostnames[0])).toMatch(/Fn::GetAtt|Ref/);
+    expect(JSON.stringify(hostnames[0])).not.toMatch(/localhost|127\.0\.0\.1/);
   });
 });
 

@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
-import type { Announcement, AnnouncementInput } from '@sahlykanta/shared';
+import { TURNSTILE_ACTIONS, type Announcement, type AnnouncementInput } from '@sahlykanta/shared';
 import { finnishDate } from '../lib/finnish.js';
+import { Turnstile } from '../components/Turnstile.js';
 
 /**
  * Managing the announcements shown on the landing page.
@@ -8,9 +9,17 @@ import { finnishDate } from '../lib/finnish.js';
  * Unlisted: nothing links here, and knowing the address is the only thing
  * standing between a visitor and this page. That is a deliberate choice, and
  * a limited one — it keeps the page out of the way of people who have no
- * business on it, but it is not a lock. Anyone who learns the address, or who
- * calls the API directly, can add and remove announcements, exactly as anyone
- * can already add and remove names on the day's list.
+ * business on it, but it is not a lock. Anyone who learns the address can
+ * add and remove announcements, exactly as anyone can already add and remove
+ * names on the day's list.
+ *
+ * One Turnstile widget serves the whole page: adding and removing both spend
+ * its token and then reset it. It is drawn in the form, above the button,
+ * because that is where it reads as part of the action rather than as an
+ * afterthought under it — but it is the page's widget, and the Poista
+ * buttons below wait on the same token. It keeps scripts off these endpoints
+ * and identifies nobody; calling the API directly now needs a solved
+ * challenge, and that is the only thing that changed here.
  */
 
 export function Notices({
@@ -19,8 +28,8 @@ export function Notices({
   remove,
 }: {
   load: () => Promise<{ announcements: Announcement[] }>;
-  add: (input: AnnouncementInput) => Promise<Announcement>;
-  remove: (id: string) => Promise<void>;
+  add: (input: AnnouncementInput, turnstileToken: string) => Promise<Announcement>;
+  remove: (id: string, turnstileToken: string) => Promise<void>;
 }): React.ReactElement {
   const fromId = useId();
   const toId = useId();
@@ -32,6 +41,8 @@ export function Notices({
   const [confirming, setConfirming] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [token, setToken] = useState<string | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     // An administrative page has no business in search results. The rest of
@@ -67,15 +78,18 @@ export function Notices({
   }, []);
 
   const submit = async (): Promise<void> => {
-    if (body.trim().length === 0 || busy) return;
+    if (body.trim().length === 0 || busy || token === undefined) return;
     setBusy(true);
     setError(undefined);
     try {
-      await add({
-        body: body.trim(),
-        ...(validFrom.length > 0 ? { validFrom } : {}),
-        ...(validTo.length > 0 ? { validTo } : {}),
-      });
+      await add(
+        {
+          body: body.trim(),
+          ...(validFrom.length > 0 ? { validFrom } : {}),
+          ...(validTo.length > 0 ? { validTo } : {}),
+        },
+        token,
+      );
       setBody('');
       setValidFrom('');
       setValidTo('');
@@ -83,20 +97,24 @@ export function Notices({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Tiedotteen lisäys ei onnistunut.');
     } finally {
+      setAttempt((previous) => previous + 1);
       setBusy(false);
     }
   };
 
   const drop = async (id: string): Promise<void> => {
+    if (token === undefined) return;
     setBusy(true);
     setError(undefined);
     try {
-      await remove(id);
+      await remove(id, token);
       setConfirming(undefined);
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Tiedotteen poisto ei onnistunut.');
     } finally {
+      // Spent either way, and the next removal needs its own.
+      setAttempt((previous) => previous + 1);
       setBusy(false);
     }
   };
@@ -157,15 +175,19 @@ export function Notices({
             </label>
           </div>
 
+          <Turnstile action={TURNSTILE_ACTIONS.announce} resetKey={attempt} onToken={setToken} />
+
           <button
             className="button"
             type="submit"
             aria-busy={busy}
-            disabled={busy || body.trim().length === 0}
+            disabled={busy || body.trim().length === 0 || token === undefined}
           >
             Lisää tiedote
           </button>
         </form>
+
+        {token === undefined && <p className="field__hint">Odotetaan varmistusta…</p>}
 
         {error !== undefined && (
           <p className="field__error" role="alert">
@@ -211,7 +233,7 @@ export function Notices({
                       className="notice-row__confirm"
                       type="button"
                       aria-label={`Vahvista: poista tiedote ${announcement.body}`}
-                      disabled={busy}
+                      disabled={busy || token === undefined}
                       onClick={() => void drop(announcement.id)}
                     >
                       Kyllä

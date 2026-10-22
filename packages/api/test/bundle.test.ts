@@ -63,6 +63,11 @@ test('the handler can be loaded from an esbuild bundle, as Lambda loads it', asy
     env: {
       ...process.env,
       TABLE_NAME: 'bundle-test-table',
+      // The handler refuses to start without these, exactly as a misconfigured
+      // deployment should. Neither is read until a request arrives.
+      TURNSTILE_SECRET_ARN:
+        'arn:aws:secretsmanager:eu-north-1:000000000000:secret:sahlykanta/turnstile-AbCdEf',
+      TURNSTILE_HOSTNAMES: 'd111111abcdef8.cloudfront.net',
       AWS_REGION: process.env.AWS_REGION ?? 'eu-north-1',
     },
   });

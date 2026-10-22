@@ -8,11 +8,13 @@ import {
   type Repo,
 } from '../src/repo.js';
 import { createApp } from '../src/app.js';
-import type {
-  Announcement,
-  PlayerDetail,
-  PlayerSummary,
-  TodayResponse,
+import type { VerifyTurnstile } from '../src/turnstile.js';
+import {
+  TURNSTILE_TOKEN_FIELD,
+  type Announcement,
+  type PlayerDetail,
+  type PlayerSummary,
+  type TodayResponse,
 } from '@sahlykanta/shared';
 
 async function jsonBody<T>(res: Response): Promise<T> {
@@ -27,7 +29,16 @@ let client: DynamoDBDocumentClient;
 let tableName: string;
 let repo: Repo;
 
-const appAt = (now: Date) => createApp({ repo, now: () => now });
+/**
+ * Bot verification is the seam. These tests are about the routes, so they
+ * stand in for "Cloudflare said yes" and "Cloudflare said no"; verification
+ * itself — the siteverify call, the action and hostname checks — is covered
+ * in turnstile.test.ts against a stubbed endpoint.
+ */
+const accept: VerifyTurnstile = async () => true;
+const refuse: VerifyTurnstile = async () => false;
+
+const appAt = (now: Date) => createApp({ repo, now: () => now, verifyTurnstile: accept });
 
 beforeAll(async () => {
   client = localClient();
@@ -242,7 +253,7 @@ describe('server-side faults are reported as JSON, not as a blank 500', () => {
     }) as Repo;
 
   const post = (brokenRepo: Repo) =>
-    createApp({ repo: brokenRepo, now: () => MONDAY_MORNING }).request(
+    createApp({ repo: brokenRepo, now: () => MONDAY_MORNING, verifyTurnstile: accept }).request(
       '/api/registrations',
       {
         method: 'POST',
@@ -269,7 +280,7 @@ describe('server-side faults are reported as JSON, not as a blank 500', () => {
 });
 
 describe('managing announcements', () => {
-  const app = () => createApp({ repo, now: () => MONDAY_MORNING });
+  const app = () => createApp({ repo, now: () => MONDAY_MORNING, verifyTurnstile: accept });
 
   const post = (body: unknown) =>
     app().request('/api/announcements', {
@@ -343,11 +354,119 @@ describe('managing announcements', () => {
     // Announcements are not tied to the game-day rule.
     const created = await repo.createAnnouncement({ body: 'Poistettava' });
 
-    const res = await createApp({ repo, now: () => TUESDAY_MORNING }).request(
+    const res = await createApp({
+      repo,
+      now: () => TUESDAY_MORNING,
+      verifyTurnstile: accept,
+    }).request(
       `/api/announcements/${created.id}`,
       { method: 'DELETE' },
     );
 
     expect(res.status).toBe(204);
+  });
+});
+
+describe('bot verification gates the writes', () => {
+  const gated = (verifyTurnstile: VerifyTurnstile) =>
+    createApp({ repo, now: () => MONDAY_MORNING, verifyTurnstile });
+
+  const register = (app: ReturnType<typeof gated>, body: unknown) =>
+    app.request('/api/registrations', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  const valid = { name: 'Uusi Pelaaja', gameDate: '2026-10-19' };
+
+  test('an unverified registration is refused and writes nothing', async () => {
+    const res = await register(gated(refuse), valid);
+
+    expect(res.status).toBe(403);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/varmistus/i) });
+    expect(await repo.listRegistrations('2026-10-19')).toEqual([]);
+  });
+
+  test('a verified registration goes through as before', async () => {
+    const res = await register(gated(accept), valid);
+
+    expect(res.status).toBe(201);
+    expect(await repo.listRegistrations('2026-10-19')).toHaveLength(1);
+  });
+
+  test('the token travels from the body, under the registration action', async () => {
+    const seen = vi.fn<VerifyTurnstile>().mockResolvedValue(true);
+
+    await register(gated(seen), { ...valid, [TURNSTILE_TOKEN_FIELD]: 'a-token' });
+
+    expect(seen).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'a-token', action: 'register' }),
+    );
+  });
+
+  test('the caller address is offered to the verifier as a hint', async () => {
+    const seen = vi.fn<VerifyTurnstile>().mockResolvedValue(true);
+
+    await gated(seen).request('/api/registrations', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.7, 10.0.0.1' },
+      body: JSON.stringify(valid),
+    });
+
+    // The client, not the proxy that forwarded it.
+    expect(seen).toHaveBeenCalledWith(expect.objectContaining({ remoteIp: '203.0.113.7' }));
+  });
+
+  test('verification runs before validation, so a bot learns nothing from the 400s', async () => {
+    const res = await register(gated(refuse), { name: '', gameDate: 'not-a-date' });
+
+    expect(res.status).toBe(403);
+  });
+
+  test('an unverified announcement is refused', async () => {
+    const res = await gated(refuse).request('/api/announcements', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ body: 'Kenttä varattu' }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await repo.listAllAnnouncements()).toEqual([]);
+  });
+
+  test('an unverified announcement removal is refused and the announcement stays', async () => {
+    const created = await repo.createAnnouncement({ body: 'Jää paikalleen' });
+
+    const res = await gated(refuse).request(`/api/announcements/${created.id}`, {
+      method: 'DELETE',
+    });
+
+    expect(res.status).toBe(403);
+    expect(await repo.listAllAnnouncements()).toHaveLength(1);
+  });
+
+  test('a removal carries its token in a header, since a DELETE has no body', async () => {
+    const seen = vi.fn<VerifyTurnstile>().mockResolvedValue(true);
+    const created = await repo.createAnnouncement({ body: 'Poistettava' });
+
+    const res = await gated(seen).request(`/api/announcements/${created.id}`, {
+      method: 'DELETE',
+      headers: { [TURNSTILE_TOKEN_FIELD]: 'a-token' },
+    });
+
+    expect(res.status).toBe(204);
+    expect(seen).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'a-token', action: 'announce' }),
+    );
+  });
+
+  test('reading is left open: the landing page is not gated', async () => {
+    const app = gated(refuse);
+
+    expect((await app.request('/api/today')).status).toBe(200);
+    expect((await app.request('/api/players')).status).toBe(200);
+    expect((await app.request('/api/announcements')).status).toBe(200);
   });
 });

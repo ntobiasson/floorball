@@ -86,6 +86,92 @@ Optionally set `SAHLYKANTA_REGION` to move the stack off its `eu-north-1`
 default. Do that before the first deploy, not after — the table is in the
 region, and moving it later is a migration rather than a setting.
 
+## Turnstile
+
+Writing — registering a name, adding or removing an announcement — carries a
+Cloudflare Turnstile token that the API redeems before the handler runs. The
+widget solves itself for an ordinary visitor; nobody is asked to click
+anything, and nobody is identified. Reading is not gated, and neither is
+removing a name from the day's list.
+
+The sitekey is public and lives in `packages/web/.env.production`. The secret
+does not go in this repository.
+
+### Putting the secret in
+
+The secret lives in Secrets Manager as **`prod/floorball/turnstile`**, in
+`eu-north-1`. The stack *imports* it and grants the Lambda
+`GetSecretValue`/`DescribeSecret` on that one entry and nothing else.
+
+It is deliberately not created by the stack. The value cannot come from
+source control, so it is put in by hand — and if CloudFormation also owned
+the resource it would refuse to adopt an entry that already existed, failing
+the deploy. **The secret therefore has to exist before the first deploy.** If
+it does not, cold starts still succeed and reads keep working; only the first
+gated write fails, when the function tries to read it.
+
+The name is a constant in `packages/infra/lib/sahlykanta-stack.ts`
+(`TURNSTILE_SECRET_NAME`). Changing it there is the only place that matters.
+
+Copy the secret key from the Cloudflare dashboard (Turnstile → the widget →
+Settings) and put it in without it passing through a shell argument, your
+history, or this repository:
+
+```sh
+# First time only — create it. Paste at the prompt; nothing is echoed.
+read -rs -p 'Turnstile secret: ' s && printf '%s' "$s" | \
+  aws secretsmanager create-secret \
+    --name prod/floorball/turnstile \
+    --region eu-north-1 \
+    --secret-string file:///dev/stdin
+unset s
+
+# Rotating it later is the same thing with put-secret-value.
+read -rs -p 'Turnstile secret: ' s && printf '%s' "$s" | \
+  aws secretsmanager put-secret-value \
+    --secret-id prod/floorball/turnstile \
+    --region eu-north-1 \
+    --secret-string file:///dev/stdin
+unset s
+```
+
+Then force a cold start so the function reads the new value — it caches the
+secret for the life of an execution environment:
+
+```sh
+aws lambda update-function-configuration \
+  --function-name <the ApiFn name> \
+  --region eu-north-1 \
+  --environment "Variables={TABLE_NAME=...,TURNSTILE_SECRET_ARN=...,TURNSTILE_HOSTNAMES=...,NODE_OPTIONS=--enable-source-maps}"
+```
+
+A redeploy does the same thing and is less error-prone than retyping the whole
+environment.
+
+### The widget's domain list must match the distribution
+
+Turnstile reports the hostname the widget was solved on, and the API accepts
+only the one in `TURNSTILE_HOSTNAMES` — which the stack sets to this
+distribution's own `d<something>.cloudfront.net` name. **That name has to be
+in the widget's domain list in the Cloudflare dashboard**, or the widget will
+not render for visitors and every write will be refused.
+
+Take the name from the `SiteDomain` output and add it there. Do not add
+`localhost` or `127.0.0.1`: the Lambda refuses to start if either appears in
+its allowlist, because a widget solved on somebody's own copy of the page
+must not be good here. Local development does not need them — it uses
+Cloudflare's testing keys instead.
+
+### When writes start failing
+
+| What you see | What it means |
+| --- | --- |
+| Every write is 403, the widget renders | The secret is wrong, or `prod/floorball/turnstile` does not exist. Put the real one in, then force a cold start. |
+| The widget does not render at all | The distribution's hostname is missing from the widget's domain list. |
+| Cold starts fail, the whole API 500s | `TURNSTILE_SECRET_ARN` or `TURNSTILE_HOSTNAMES` is unset, or the allowlist contains a local hostname. The function says which in its first log line. |
+| `invalid-input-secret` in the logs | The value in Secrets Manager is not this widget's secret. |
+| Writes work for one person and not another | A token is single-use and expires in a few minutes. A page left open overnight mints a fresh one on its own; a replay does not. |
+
 ## There is no custom domain
 
 The app answers on the address CloudFront gives the distribution,
@@ -121,12 +207,15 @@ there, and the page asks not to be indexed, but the address is an obvious one:
 treat the page as reachable by anyone who visits the site.
 
 That is deliberate and consistent with the rest of the app — the API accepts
-announcement writes from any caller regardless of the page, and anyone can
-already add or remove any name on the day's list. Nobody is identified
-anywhere in this system.
+announcement writes from any caller who can solve a Turnstile challenge,
+regardless of the page, and anyone can already add or remove any name on the
+day's list. Nobody is identified anywhere in this system.
 
-If that stops being acceptable, the realistic options are a shared secret on
-the write endpoints, or CloudFront with a signed cookie. Neither is in place.
+Turnstile changes who can write only in the sense of keeping scripts out: it
+proves a person is there, not which person. If *that* stops being acceptable
+— if some people should manage announcements and others should not — the
+realistic options are still a shared secret on the write endpoints, or
+CloudFront with a signed cookie. Neither is in place.
 
 
 ## Importing the history out of Domino

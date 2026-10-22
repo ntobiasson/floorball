@@ -18,6 +18,11 @@ server.
   there, but the address is an obvious one and there is no password: anyone
   who visits the site can manage them, as anyone can already add or remove any
   name.
+- **Writing needs a Cloudflare Turnstile check.** Registering a name and
+  managing announcements each carry a token the API redeems with Cloudflare
+  before the handler runs. It identifies nobody and asks nothing of the
+  visitor — the widget solves itself — it only keeps scripts off the three
+  write endpoints. Reading is untouched, and removing a name is not gated.
 
 ## Stack
 
@@ -69,7 +74,22 @@ One game falls on 19.10.2026, so the day's list does not start empty.
 
 Add `FAKE_TODAY=2026-10-20` to the API's environment to see the
 not-a-game-day screen without waiting for a Tuesday. It is read only by
-`serve.ts`, which is never deployed.
+`serve.ts`, which is never deployed. Today is rarely a game day, so
+`FAKE_TODAY=2026-10-19` is the quickest way to get the registration form —
+and the Turnstile widget — on screen at all.
+
+**Turnstile, locally.** Nothing to configure. The real widget is registered
+for the deployed hostname only, so the dev server pairs Cloudflare's published
+testing sitekey (`packages/web/.env.development`) with its published
+always-passes secret (`packages/api/src/serve.ts`). The widget renders for
+real, marked "For testing only", and every token is accepted. Neither value is
+a credential; both are in Cloudflare's documentation, and the Lambda refuses
+to start if it ever finds one of them in production.
+
+That also means a bogus token is accepted locally — the always-passes dummy
+accepts anything. To watch the refusal path instead, start the API with
+`TURNSTILE_SECRET=2x0000000000000000000000000000000AA`, the always-fails
+dummy, and every write comes back 403.
 
 **On ports.** DynamoDB Local is published on **8001** and these examples use
 **3400** and **5273** rather than 8000/3000/5173, which are routinely occupied
@@ -82,7 +102,7 @@ are taken on yours.
 ```sh
 npm run lint
 npm run typecheck
-npm test        # 237 unit and integration tests; needs docker compose up
+npm test        # 422 unit and integration tests; needs docker compose up
 npm run e2e     # Playwright, starts its own servers
 ```
 

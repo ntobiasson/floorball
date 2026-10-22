@@ -27,10 +27,18 @@ import {
 } from 'aws-cdk-lib/aws-cloudfront';
 import { HttpOrigin, S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import type { Construct } from 'constructs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const apiEntry = path.join(here, '../../api/src/handler.ts');
+
+/**
+ * The Secrets Manager entry holding the Cloudflare Turnstile secret key. It
+ * is managed outside this stack — created and filled in by hand — because the
+ * value cannot come from source control. See docs/runbook.md.
+ */
+const TURNSTILE_SECRET_NAME = 'prod/floorball/turnstile';
 
 export class SahlykantaStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -54,6 +62,27 @@ export class SahlykantaStack extends Stack {
       sortKey: { name: 'GSI1SK', type: AttributeType.STRING },
     });
 
+    // ---- Bot verification -------------------------------------------------
+    /**
+     * The Cloudflare Turnstile secret key.
+     *
+     * Imported, not created. The value is put in by hand from the Cloudflare
+     * dashboard (see docs/runbook.md), so it never passes through this
+     * repository, a CDK context value or a CloudFormation parameter — all
+     * three of which end up readable in the synthesized template or in
+     * CloudTrail. Owning the resource here as well would mean CloudFormation
+     * refusing to adopt the secret that already holds the real key.
+     *
+     * The consequence is that the secret has to exist before the first
+     * deploy. If it does not, cold starts still succeed — only the first
+     * gated write fails, when the function tries to read it.
+     */
+    const turnstileSecret = Secret.fromSecretNameV2(
+      this,
+      'TurnstileSecret',
+      TURNSTILE_SECRET_NAME,
+    );
+
     // ---- API --------------------------------------------------------------
     const apiLogs = new LogGroup(this, 'ApiLogs', {
       retention: RetentionDays.ONE_MONTH,
@@ -70,6 +99,10 @@ export class SahlykantaStack extends Stack {
       logGroup: apiLogs,
       environment: {
         TABLE_NAME: table.tableName,
+        // A pointer, not a credential: the function reads the value out of
+        // Secrets Manager on its first gated write. Nothing in this
+        // function's environment is secret, and a test below holds that line.
+        TURNSTILE_SECRET_ARN: turnstileSecret.secretArn,
         NODE_OPTIONS: '--enable-source-maps',
       },
       bundling: {
@@ -77,11 +110,22 @@ export class SahlykantaStack extends Stack {
         target: 'node24',
         sourceMap: true,
         minify: true,
+        /**
+         * externalModules is left at the CDK default, `@aws-sdk/*`, which the
+         * Node 18+ runtimes provide — the same bet the DynamoDB clients here
+         * already make. Bundling the Secrets Manager client instead was tried
+         * and reverted: its CommonJS entry reaches node:https through a
+         * dynamic `require` that does not survive the ESM conversion, and the
+         * bundle died at load exactly as `ulid` once did. See
+         * packages/api/test/bundle.test.ts.
+         */
       },
     });
 
     // Scoped to this table and its indexes — never dynamodb:* on *.
     table.grantReadWriteData(api);
+    // Read-only, and only this one secret.
+    turnstileSecret.grantRead(api);
 
     const httpApi = new HttpApi(this, 'HttpApi', {
       // No corsPreflight: the SPA and the API are served from one CloudFront
@@ -179,6 +223,15 @@ function handler(event) {
     // in us-east-1, and this stack is regional. Keeping it would pin the
     // whole application to Virginia for the sake of one alarm. It is created
     // once by scripts/create-budget.sh instead.
+
+    /**
+     * The hostname siteverify must report for a token to be accepted: this
+     * distribution and nothing else. Set after the distribution exists
+     * because its name is only known then, and never containing a local
+     * hostname — the function refuses to start on one, because a widget
+     * solved on somebody's own copy of this page must not be good here.
+     */
+    api.addEnvironment('TURNSTILE_HOSTNAMES', distribution.distributionDomainName);
 
     new CfnOutput(this, 'SiteBucketName', { value: site.bucketName });
     new CfnOutput(this, 'DistributionId', { value: distribution.distributionId });

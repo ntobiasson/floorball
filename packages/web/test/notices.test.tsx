@@ -5,6 +5,7 @@ import type { Announcement } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
 import type { Api } from '../src/lib/api.js';
 import { NOTICES_PATH } from '../src/lib/routes.js';
+import { TEST_TURNSTILE_TOKEN } from './setup.js';
 
 const ANNOUNCEMENTS: Announcement[] = [
   { id: 'a1', body: 'Kenttä varattu 21.10. klo 18-19.' },
@@ -74,7 +75,10 @@ describe('the unlisted announcements page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Lisää tiedote' }));
 
     await waitFor(() =>
-      expect(api.addAnnouncement).toHaveBeenCalledWith({ body: 'Uusi tiedote' }),
+      expect(api.addAnnouncement).toHaveBeenCalledWith(
+        { body: 'Uusi tiedote' },
+        TEST_TURNSTILE_TOKEN,
+      ),
     );
   });
 
@@ -89,11 +93,14 @@ describe('the unlisted announcements page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Lisää tiedote' }));
 
     await waitFor(() =>
-      expect(api.addAnnouncement).toHaveBeenCalledWith({
-        body: 'Talvitauko',
-        validFrom: '2026-12-01',
-        validTo: '2026-12-31',
-      }),
+      expect(api.addAnnouncement).toHaveBeenCalledWith(
+        {
+          body: 'Talvitauko',
+          validFrom: '2026-12-01',
+          validTo: '2026-12-31',
+        },
+        TEST_TURNSTILE_TOKEN,
+      ),
     );
   });
 
@@ -150,7 +157,9 @@ describe('the unlisted announcements page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Poista.*Joulutauko/ }));
     await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ }));
 
-    await waitFor(() => expect(api.removeAnnouncement).toHaveBeenCalledWith('a2'));
+    await waitFor(() =>
+      expect(api.removeAnnouncement).toHaveBeenCalledWith('a2', TEST_TURNSTILE_TOKEN),
+    );
   });
 
   test('cancelling leaves it alone', async () => {
@@ -248,5 +257,71 @@ describe('the address', () => {
     expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toMatch(
       /noindex/,
     );
+  });
+});
+
+describe('the bot check on the announcements page', () => {
+  const widget = () => window.turnstile as NonNullable<typeof window.turnstile>;
+
+  test('one widget serves the whole page, under the announcement action', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    await waitFor(() => expect(widget().render).toHaveBeenCalledTimes(1));
+    expect(widget().render).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'announce' }),
+    );
+  });
+
+  test('adding spends the token and resets the widget', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Tiedote' }), 'Uusi tiedote');
+    await userEvent.click(screen.getByRole('button', { name: 'Lisää tiedote' }));
+
+    await waitFor(() => expect(widget().reset).toHaveBeenCalledTimes(1));
+  });
+
+  test('removing spends it too, so two removals cannot share one token', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    await userEvent.click(screen.getByRole('button', { name: /Poista tiedote Joulutauko/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ }));
+
+    await waitFor(() => expect(widget().reset).toHaveBeenCalledTimes(1));
+  });
+
+  test('nothing can be written before a token has arrived', async () => {
+    window.turnstile = {
+      render: vi.fn(() => 'never-solved'),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Joulutauko');
+
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Tiedote' }), 'Uusi tiedote');
+    expect(screen.getByRole('button', { name: 'Lisää tiedote' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: /Poista tiedote Joulutauko/ }));
+    expect(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ })).toBeDisabled();
+
+    expect(api.addAnnouncement).not.toHaveBeenCalled();
+    expect(api.removeAnnouncement).not.toHaveBeenCalled();
+  });
+
+  test('reading the list is not gated', async () => {
+    window.turnstile = {
+      render: vi.fn(() => 'never-solved'),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    openPage(fakeApi());
+
+    expect(await screen.findByText('Joulutauko')).toBeInTheDocument();
   });
 });

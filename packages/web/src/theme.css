@@ -18,6 +18,8 @@
   --chip: #f1f4f1;
   --chip-button: #e0e5e1;
   --danger: #9b2c1f;
+  /* See .turnstile below: the widget is drawn at 300x65 and scaled down. */
+  --turnstile-scale: 0.8;
   --radius-card: 20px;
   --radius-control: 12px;
   --shadow-card: 0 1px 2px rgba(16, 33, 26, 0.06);
@@ -397,6 +399,37 @@ body {
   color: var(--danger);
   font-size: 13px;
   font-weight: 500;
+}
+
+/*
+ * The bot check. Cloudflare renders the widget into an iframe of its own and
+ * sizes it itself — 300x65 — so there is nothing here to style inside it.
+ *
+ * It is scaled down because 300x65 is a lot of furniture for a check nobody
+ * is asked to perform; it should sit under the field, not compete with the
+ * submit button. Scaling is used rather than Turnstile's own `compact` size,
+ * which is narrower but half as tall again (150x140) and so takes more
+ * vertical room on a phone, not less.
+ */
+.turnstile {
+  margin-top: 14px;
+}
+
+/*
+ * A transform does not change the space an element reserves, so the box is
+ * shrunk to the scaled height to match. The height is set rather than
+ * min-height so that the gap is identical before the widget has loaded and
+ * after it has, and nothing shifts under the reader's thumb.
+ */
+.turnstile__widget {
+  display: flex;
+  justify-content: center;
+  height: calc(65px * var(--turnstile-scale));
+}
+
+.turnstile__widget > * {
+  transform: scale(var(--turnstile-scale));
+  transform-origin: top center;
 }
 
 .button {

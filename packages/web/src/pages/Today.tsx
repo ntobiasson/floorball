@@ -18,7 +18,7 @@ export function Today({
 }: {
   today: TodayResponse;
   directory: PlayerSummary[];
-  onRegister: (name: string) => Promise<void>;
+  onRegister: (name: string, turnstileToken: string) => Promise<void>;
   onUnregister: (playerId: string) => Promise<void>;
 }): React.ReactElement {
   const [error, setError] = useState<string | undefined>(undefined);
@@ -162,10 +162,10 @@ export function Today({
         directory={directory}
         alreadyRegistered={registeredIds}
         error={error}
-        onSubmit={async (name) => {
+        onSubmit={async (name, turnstileToken) => {
           setError(undefined);
           try {
-            await onRegister(name);
+            await onRegister(name, turnstileToken);
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Ilmoittautuminen ei onnistunut.');
           }

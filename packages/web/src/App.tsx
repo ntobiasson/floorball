@@ -84,8 +84,8 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
           <Today
             today={today}
             directory={directory}
-            onRegister={async (name) => {
-              await api.register(name, today.date);
+            onRegister={async (name, turnstileToken) => {
+              await api.register(name, today.date, turnstileToken);
               await refreshToday();
               // A brand-new player belongs in the directory immediately, so
               // the next person can pick the name from the suggestions.

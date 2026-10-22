@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { TURNSTILE_TOKEN_FIELD } from '@sahlykanta/shared';
 import { ApiError, api } from '../src/lib/api.js';
 
 const respondWith = (body: string, init: ResponseInit) => {
@@ -15,7 +16,9 @@ describe('a well-formed error response', () => {
   test('becomes an ApiError carrying the server message', async () => {
     respondWith(JSON.stringify({ error: 'nimi on jo listalla' }), { status: 409 });
 
-    await expect(api.register('Matti', '2026-10-19')).rejects.toThrow('nimi on jo listalla');
+    await expect(api.register('Matti', '2026-10-19', 'a-token')).rejects.toThrow(
+      'nimi on jo listalla',
+    );
   });
 
   test('carries the status', async () => {
@@ -73,5 +76,64 @@ describe('a successful response', () => {
     });
 
     await expect(api.players()).resolves.toEqual({ players: [] });
+  });
+});
+
+describe('the Turnstile token', () => {
+  const sentWith = (): { body: string; headers: Record<string, string> } => {
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    return {
+      body: String(init.body ?? ''),
+      headers: init.headers as Record<string, string>,
+    };
+  };
+
+  test('rides in the body when registering', async () => {
+    respondWith(JSON.stringify({ playerId: 'p1', displayName: 'Matti' }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+
+    await api.register('Matti', '2026-10-19', 'a-token');
+
+    expect(JSON.parse(sentWith().body)).toEqual({
+      name: 'Matti',
+      gameDate: '2026-10-19',
+      [TURNSTILE_TOKEN_FIELD]: 'a-token',
+    });
+  });
+
+  test('rides in the body when adding an announcement, beside its fields', async () => {
+    respondWith(JSON.stringify({ id: 'a1', body: 'Kenttä varattu' }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+
+    await api.addAnnouncement({ body: 'Kenttä varattu' }, 'a-token');
+
+    expect(JSON.parse(sentWith().body)).toEqual({
+      body: 'Kenttä varattu',
+      [TURNSTILE_TOKEN_FIELD]: 'a-token',
+    });
+  });
+
+  test('rides in a header when removing one, a DELETE having no body', async () => {
+    respondWith('', { status: 204 });
+
+    await api.removeAnnouncement('a1', 'a-token');
+
+    const { body, headers } = sentWith();
+    expect(headers[TURNSTILE_TOKEN_FIELD]).toBe('a-token');
+    expect(body).toBe('');
+  });
+
+  test('is not sent when removing a name, which is not gated', async () => {
+    respondWith('', { status: 204 });
+
+    await api.unregister('p1');
+
+    const { body, headers } = sentWith();
+    expect(body).toBe('');
+    expect(Object.keys(headers)).not.toContain(TURNSTILE_TOKEN_FIELD);
   });
 });

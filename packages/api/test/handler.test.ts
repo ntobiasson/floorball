@@ -13,6 +13,9 @@ beforeAll(async () => {
   process.env.AWS_ACCESS_KEY_ID = 'local';
   process.env.AWS_SECRET_ACCESS_KEY = 'local';
   process.env.AWS_REGION = process.env.AWS_REGION ?? 'eu-north-1';
+  process.env.TURNSTILE_SECRET_ARN =
+    'arn:aws:secretsmanager:eu-north-1:000000000000:secret:sahlykanta/turnstile-AbCdEf';
+  process.env.TURNSTILE_HOSTNAMES = 'd111111abcdef8.cloudfront.net';
 });
 
 afterAll(async () => {
@@ -52,6 +55,45 @@ test('the handler refuses to start without a table name', async () => {
     await expect(import('../src/handler.js')).rejects.toThrow(/TABLE_NAME/);
   } finally {
     process.env.TABLE_NAME = previous;
+    vi.resetModules();
+  }
+});
+
+/**
+ * The read routes do not touch Secrets Manager, so the test above needs no
+ * credentials — but a deployment that cannot verify anything should fail
+ * loudly at cold start rather than quietly refuse every registration, and
+ * these hold that.
+ */
+const withoutEnv = async (name: string, expected: RegExp): Promise<void> => {
+  const previous = process.env[name];
+  delete process.env[name];
+  vi.resetModules();
+  try {
+    await expect(import('../src/handler.js')).rejects.toThrow(expected);
+  } finally {
+    process.env[name] = previous;
+    vi.resetModules();
+  }
+};
+
+test('the handler refuses to start without somewhere to read the Turnstile secret', async () => {
+  await withoutEnv('TURNSTILE_SECRET_ARN', /TURNSTILE_SECRET_ARN/);
+});
+
+test('the handler refuses to start without an expected-hostname allowlist', async () => {
+  // An empty allowlist would accept a token solved on any page anywhere.
+  await withoutEnv('TURNSTILE_HOSTNAMES', /TURNSTILE_HOSTNAMES/);
+});
+
+test('the handler refuses to start if a local hostname is in that allowlist', async () => {
+  const previous = process.env.TURNSTILE_HOSTNAMES;
+  process.env.TURNSTILE_HOSTNAMES = 'd111111abcdef8.cloudfront.net,localhost';
+  vi.resetModules();
+  try {
+    await expect(import('../src/handler.js')).rejects.toThrow(/local hostname/);
+  } finally {
+    process.env.TURNSTILE_HOSTNAMES = previous;
     vi.resetModules();
   }
 });

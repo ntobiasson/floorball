@@ -1,13 +1,19 @@
-import type {
-  Announcement,
-  AnnouncementInput,
-  PlayerSummary,
-  TodayResponse,
+import {
+  TURNSTILE_TOKEN_FIELD,
+  type Announcement,
+  type AnnouncementInput,
+  type PlayerSummary,
+  type TodayResponse,
 } from '@sahlykanta/shared';
 
 /**
  * The SPA and the API share one origin, so these are plain relative paths and
  * there is no CORS anywhere in this application.
+ *
+ * The three write calls carry a Turnstile token. The browser never verifies
+ * it — it only collects it from the widget and passes it on, and the API
+ * redeems it with Cloudflare. A token is spent by one call, so the caller
+ * resets its widget afterwards.
  */
 
 export class ApiError extends Error {
@@ -71,11 +77,11 @@ export const api = {
    */
   players: () => request<{ players: PlayerSummary[] }>('/api/players'),
 
-  register: (name: string, gameDate: string) =>
+  register: (name: string, gameDate: string, turnstileToken: string) =>
     request<{ playerId: string; displayName: string }>('/api/registrations', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, gameDate }),
+      body: JSON.stringify({ name, gameDate, [TURNSTILE_TOKEN_FIELD]: turnstileToken }),
     }),
 
   unregister: (playerId: string) =>
@@ -84,15 +90,19 @@ export const api = {
   /** Everything, including announcements outside their validity window. */
   allAnnouncements: () => request<{ announcements: Announcement[] }>('/api/announcements?all=1'),
 
-  addAnnouncement: (input: AnnouncementInput) =>
+  addAnnouncement: (input: AnnouncementInput, turnstileToken: string) =>
     request<Announcement>('/api/announcements', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, [TURNSTILE_TOKEN_FIELD]: turnstileToken }),
     }),
 
-  removeAnnouncement: (id: string) =>
-    request<void>(`/api/announcements/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // A DELETE has no body to put the token in, so it travels as a header.
+  removeAnnouncement: (id: string, turnstileToken: string) =>
+    request<void>(`/api/announcements/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { [TURNSTILE_TOKEN_FIELD]: turnstileToken },
+    }),
 };
 
 export type Api = typeof api;

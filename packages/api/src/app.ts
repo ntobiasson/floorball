@@ -1,13 +1,16 @@
 import { createHash } from 'node:crypto';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import {
   AnnouncementInputSchema,
   RegistrationInputSchema,
+  TURNSTILE_ACTIONS,
+  TURNSTILE_TOKEN_FIELD,
   isGameDay,
   nextGameDay,
   todayInHelsinki,
   weekdayOf,
   type TodayResponse,
+  type TurnstileAction,
 } from '@sahlykanta/shared';
 import {
   AlreadyRegisteredError,
@@ -18,10 +21,17 @@ import {
   type Repo,
 } from './repo.js';
 import { EmptyNameError } from '@sahlykanta/shared';
+import type { VerifyTurnstile } from './turnstile.js';
 
 export interface AppConfig {
   repo: Repo;
   now?: () => Date;
+  /**
+   * Bot verification for the three write routes. Required, not optional, so
+   * that a new entry point cannot forget it and silently serve an unprotected
+   * form — the compiler asks for one.
+   */
+  verifyTurnstile: VerifyTurnstile;
 }
 
 /** The directory is ~500 rows that change a few times a week. */
@@ -31,8 +41,21 @@ function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
-export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
+export function createApp({ repo, now = () => new Date(), verifyTurnstile }: AppConfig): Hono {
   const app = new Hono();
+
+  /**
+   * The write routes are gated, not replaced: verification runs first and
+   * everything after it is the handler that was already there. There is still
+   * no account and no password anywhere in this application — anyone can
+   * register anyone and remove anyone — this only establishes that the caller
+   * is a person rather than a script.
+   */
+  const verified = async (c: Context, action: TurnstileAction, body: unknown): Promise<boolean> =>
+    verifyTurnstile({ token: tokenFrom(c, body), action, remoteIp: clientIpOf(c) });
+
+  const refused = (c: Context) =>
+    c.json({ error: 'varmistus ei onnistunut — päivitä sivu ja yritä uudelleen' }, 403);
 
   /**
    * The one source of truth for "which day is it". Never taken from the
@@ -67,6 +90,8 @@ export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
     } catch {
       return c.json({ error: 'virheellinen pyyntö' }, 400);
     }
+
+    if (!(await verified(c, TURNSTILE_ACTIONS.register, raw))) return refused(c);
 
     const parsed = RegistrationInputSchema.safeParse(raw);
     if (!parsed.success) {
@@ -134,10 +159,12 @@ export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
   });
 
   /**
-   * Announcements are managed from an unlisted page. There is no secret to
-   * present here: the page's address is the only thing not widely known, and
-   * that protects the page, not this endpoint. It is the same trust model as
-   * registrations, where anyone can already add or remove any name.
+   * Announcements are managed from an unlisted page. There is still no secret
+   * to present: the page's address is the only thing not widely known, and
+   * that protects the page, not these endpoints. The writes below are gated
+   * on Turnstile, which keeps scripts out but identifies nobody — it is the
+   * same trust model as registrations, where anyone can add or remove any
+   * name. Reading is left open, as the landing page reads this too.
    */
   app.get('/api/announcements', async (c) => {
     const announcements =
@@ -157,6 +184,8 @@ export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
       return c.json({ error: 'virheellinen pyyntö' }, 400);
     }
 
+    if (!(await verified(c, TURNSTILE_ACTIONS.announce, raw))) return refused(c);
+
     const parsed = AnnouncementInputSchema.safeParse(raw);
     if (!parsed.success) return c.json({ error: 'tiedote on virheellinen' }, 400);
 
@@ -165,6 +194,9 @@ export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
   });
 
   app.delete('/api/announcements/:id', async (c) => {
+    // A DELETE carries no body, so its token arrives in a header instead.
+    if (!(await verified(c, TURNSTILE_ACTIONS.announce, undefined))) return refused(c);
+
     try {
       await repo.deleteAnnouncement(c.req.param('id'));
       return c.body(null, 204);
@@ -206,8 +238,30 @@ export function createApp({ repo, now = () => new Date() }: AppConfig): Hono {
  * identify a teammate.
  */
 function ipHashOf(forwardedFor: string | undefined): { ipHash?: string } {
-  const first = forwardedFor?.split(',')[0]?.trim();
-  if (first === undefined || first.length === 0) return {};
+  const first = firstHop(forwardedFor);
+  if (first === undefined) return {};
   const salt = process.env.IP_HASH_SALT ?? '';
   return { ipHash: sha256Hex(`${salt}:${first}`).slice(0, 16) };
+}
+
+function firstHop(forwardedFor: string | undefined): string | undefined {
+  const first = forwardedFor?.split(',')[0]?.trim();
+  return first === undefined || first.length === 0 ? undefined : first;
+}
+
+/** Passed to siteverify as `remoteip`, which Cloudflare treats as a hint. */
+function clientIpOf(c: Context): string | undefined {
+  return firstHop(c.req.header('x-forwarded-for'));
+}
+
+/**
+ * The POST routes carry the token in the JSON body, as the widget's own form
+ * field would; the bodyless DELETE carries it in a header of the same name.
+ * Both are read here so neither route has to care which it was.
+ */
+function tokenFrom(c: Context, body: unknown): unknown {
+  if (typeof body === 'object' && body !== null && TURNSTILE_TOKEN_FIELD in body) {
+    return (body as Record<string, unknown>)[TURNSTILE_TOKEN_FIELD];
+  }
+  return c.req.header(TURNSTILE_TOKEN_FIELD);
 }
