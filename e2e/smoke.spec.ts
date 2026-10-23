@@ -9,8 +9,7 @@ import { expect, test, type Page } from '@playwright/test';
  * there: the tests care that adding a name adds one and removing it removes
  * one, not what the list happened to be seeded with.
  *
- * The history itself is imported and stored but never displayed, so there is
- * nothing here that reads it back through the interface.
+ * The history has its own spec; this one stays on the day's list.
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -111,20 +110,15 @@ test('a player already on the list is not suggested again', async ({ page }) => 
 
 
 
-test('the archive is kept but never shown', async ({ page }) => {
+test('the day shows no history of its own', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
 
-  // No navigation to it, no search over it, and no historical total on
-  // screen: the only number shown is today's count, which is single digit.
-  await expect(page.getByRole('link', { name: /peliaktiivisuus/i })).toHaveCount(0);
+  // The archive has its own page. On this one there is no search over it and
+  // no historical total — the only number shown is today's count.
   await expect(page.getByLabel('Hae pelaajan nimellä')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Vuosi' })).toHaveCount(0);
   await expect(page.getByText(/^\d{2,}$/)).toHaveCount(0);
-
-  // The old address falls through to the registration page.
-  await page.goto('/peliaktiivisuus');
-  await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
-  await expect(page.getByLabel('Hae pelaajan nimellä')).toHaveCount(0);
 });
 
 test('the stored history still reaches the form as name suggestions', async ({ page }) => {

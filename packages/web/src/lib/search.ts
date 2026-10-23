@@ -26,7 +26,11 @@ function wordsOf(name: string): string[] {
     .filter((word) => word.length > 0);
 }
 
-export function filterPlayers(players: PlayerSummary[], query: string): PlayerSummary[] {
+/**
+ * Generic over the player shape so the history page can filter the richer
+ * PlayerDetail — with its per-year breakdown — and get it back intact.
+ */
+export function filterPlayers<T extends PlayerSummary>(players: T[], query: string): T[] {
   const terms = wordsOf(query);
   if (terms.length === 0) return players;
 

@@ -2,6 +2,7 @@ import {
   TURNSTILE_TOKEN_FIELD,
   type Announcement,
   type AnnouncementInput,
+  type HistoryResponse,
   type PlayerSummary,
   type TodayResponse,
 } from '@sahlykanta/shared';
@@ -72,10 +73,16 @@ export const api = {
   today: () => request<TodayResponse>('/api/today'),
 
   /**
-   * The player directory. Still fetched although no history is shown: the
-   * registration form suggests previously seen names from it.
+   * The player directory: names and lifetime totals. What the registration
+   * form suggests previously seen names from.
    */
   players: () => request<{ players: PlayerSummary[] }>('/api/players'),
+
+  /**
+   * The whole archive with per-year counts, for the history page. Fetched
+   * only when that page is opened — the day's list has no use for it.
+   */
+  history: () => request<HistoryResponse>('/api/history'),
 
   register: (name: string, gameDate: string, turnstileToken: string) =>
     request<{ playerId: string; displayName: string }>('/api/registrations', {

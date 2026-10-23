@@ -1,4 +1,10 @@
 /**
+ * The history page. Linked from the tab bar, so unlike the announcements
+ * address this one is meant to be found.
+ */
+export const HISTORY_PATH = '/peliaktiivisuus';
+
+/**
  * Where the announcements page lives.
  *
  * A fixed, readable address, chosen so it can be told to someone over the
