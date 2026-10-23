@@ -146,6 +146,64 @@ describe('listPlayers', () => {
   });
 });
 
+describe('listHistory', () => {
+  test('returns every player with their per-year counts, ordered by name', async () => {
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+    await repo.register({ gameDate: '2026-10-21', rawName: 'Matti Virtanen' });
+    await repo.register({ gameDate: '2024-01-15', rawName: 'Matti Virtanen' });
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Liisa Korhonen' });
+
+    const players = await repo.listHistory();
+
+    expect(players.map((p) => p.displayName)).toEqual(['Liisa Korhonen', 'Matti Virtanen']);
+    expect(players[0]?.years).toEqual([{ year: '2026', count: 1 }]);
+    // Newest year first, as getPlayer already orders them.
+    expect(players[1]?.years).toEqual([
+      { year: '2026', count: 2 },
+      { year: '2024', count: 1 },
+    ]);
+    expect(players[1]?.total).toBe(3);
+  });
+
+  test('is empty before anyone registers', async () => {
+    expect(await repo.listHistory()).toEqual([]);
+  });
+
+  test('leaves out a player who has registered for nothing', async () => {
+    // resolvePlayer creates a profile for any name submitted, so a name typed
+    // into the form but never registered must not appear in the history.
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+    await repo.unregister({ gameDate: '2026-10-19', playerId });
+
+    expect(await repo.listHistory()).toEqual([]);
+  });
+
+  test('leaves out a year the player ended up not playing', async () => {
+    // An unregister decrements the year row to zero rather than deleting it,
+    // so a year with nothing in it must not reach the page as an empty bar.
+    await repo.register({ gameDate: '2024-01-15', rawName: 'Matti Virtanen' });
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+    await repo.unregister({ gameDate: '2026-10-19', playerId });
+
+    const players = await repo.listHistory();
+    expect(players[0]?.years).toEqual([{ year: '2024', count: 1 }]);
+  });
+
+  test('leaves out a player merged into another', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Pekka N' });
+    await client.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { PK: `PLAYER#${playerId}`, SK: 'PROFILE' },
+        UpdateExpression: 'SET mergedInto = :into',
+        ExpressionAttributeValues: { ':into': 'p-other' },
+      }),
+    );
+
+    expect(await repo.listHistory()).toEqual([]);
+  });
+});
+
 describe('getPlayer', () => {
   test('returns null for an unknown player', async () => {
     expect(await repo.getPlayer('nobody')).toBeNull();

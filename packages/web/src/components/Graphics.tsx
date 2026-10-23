@@ -1,6 +1,6 @@
 /**
  * Every image in this application lives in this file, as inline SVG: the ball
- * mark and a closed-door glyph. Imagery option 1 from the layout review — no
+ * mark, a magnifier and a closed-door glyph. Imagery option 1 from the layout review — no
  * photographs, no illustration files, nothing licensed, nothing to download,
  * and it stays sharp at any size.
  */
@@ -22,6 +22,15 @@ export function BallMark(): React.ReactElement {
       <circle cx="8" cy="5.2" r="1.05" fill="#ffffff" />
       <circle cx="5.3" cy="9.3" r="1.05" fill="#ffffff" />
       <circle cx="10.7" cy="9.3" r="1.05" fill="#ffffff" />
+    </svg>
+  );
+}
+
+export function SearchGlyph(): React.ReactElement {
+  return (
+    <svg width="17" height="17" viewBox="0 0 17 17" aria-hidden="true">
+      <circle cx="7" cy="7" r="5.2" fill="none" stroke="#5a6b63" strokeWidth="1.7" />
+      <path d="M11 11l4 4" stroke="#5a6b63" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   );
 }

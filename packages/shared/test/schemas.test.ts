@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   AnnouncementSchema,
+  HistoryResponseSchema,
   PlayerDetailSchema,
   PlayerSummarySchema,
   RegistrationInputSchema,
@@ -104,5 +105,31 @@ describe('response schemas', () => {
 
   test('Announcement requires a body', () => {
     expect(AnnouncementSchema.safeParse({ id: 'a1', body: '' }).success).toBe(false);
+  });
+
+  test('HistoryResponse carries every player with their years', () => {
+    const value = {
+      players: [
+        {
+          playerId: 'p1',
+          displayName: 'Matti Virtanen',
+          total: 72,
+          years: [
+            { year: '2026', count: 25 },
+            { year: '2025', count: 47 },
+          ],
+        },
+        { playerId: 'p2', displayName: 'Olli Väänänen', total: 0, years: [] },
+      ],
+    };
+    expect(HistoryResponseSchema.parse(value)).toEqual(value);
+  });
+
+  test('HistoryResponse rejects a player whose years are missing', () => {
+    expect(
+      HistoryResponseSchema.safeParse({
+        players: [{ playerId: 'p1', displayName: 'Matti Virtanen', total: 72 }],
+      }).success,
+    ).toBe(false);
   });
 });

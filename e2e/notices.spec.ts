@@ -20,9 +20,9 @@ test('nothing on the app links to the page', async ({ page }) => {
   );
   expect(hrefs).not.toContain(NOTICES);
 
-  // With the history page gone, the registration page has no navigation at
-  // all, so there is nowhere a link to the announcements page could hide.
-  expect(hrefs).toHaveLength(0);
+  // The tab bar is the only navigation there is, and it offers the day and
+  // the history — there is nowhere a link to this page could hide.
+  expect(hrefs).toEqual(['/', '/peliaktiivisuus']);
 });
 
 test('the mark at the top leads back to the registration page', async ({ page }) => {

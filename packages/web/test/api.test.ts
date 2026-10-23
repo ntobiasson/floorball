@@ -137,3 +137,26 @@ describe('the Turnstile token', () => {
     expect(Object.keys(headers)).not.toContain(TURNSTILE_TOKEN_FIELD);
   });
 });
+
+describe('the history call', () => {
+  test('asks the archive endpoint and returns the players', async () => {
+    const players = [
+      { playerId: 'p1', displayName: 'Matti Virtanen', total: 2, years: [{ year: '2026', count: 2 }] },
+    ];
+    respondWith(JSON.stringify({ players }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const result = await api.history();
+
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe('/api/history');
+    expect(result.players).toEqual(players);
+  });
+
+  test('a failure surfaces as an ApiError', async () => {
+    respondWith(JSON.stringify({ error: 'historiaa ei saatu' }), { status: 500 });
+
+    await expect(api.history()).rejects.toThrow('historiaa ei saatu');
+  });
+});

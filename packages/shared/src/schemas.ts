@@ -63,6 +63,18 @@ export const PlayerDirectorySchema = z.object({
   players: z.array(PlayerSummarySchema),
 });
 
+/**
+ * The whole archive in one response: every player with their per-year counts.
+ *
+ * The directory (above) carries lifetime totals only, which is all the
+ * registration form's suggestions need. The history page also ranks players
+ * within a chosen year, so it needs the breakdown for everybody at once —
+ * fetching it a player at a time would be ~500 requests.
+ */
+export const HistoryResponseSchema = z.object({
+  players: z.array(PlayerDetailSchema),
+});
+
 export const AnnouncementInputSchema = z.object({
   body: z.string().trim().min(1).max(500),
   validFrom: IsoDateSchema.optional(),
@@ -77,5 +89,6 @@ export type PlayerSummary = z.infer<typeof PlayerSummarySchema>;
 export type PlayerYear = z.infer<typeof PlayerYearSchema>;
 export type PlayerDetail = z.infer<typeof PlayerDetailSchema>;
 export type PlayerDirectory = z.infer<typeof PlayerDirectorySchema>;
+export type HistoryResponse = z.infer<typeof HistoryResponseSchema>;
 export type Announcement = z.infer<typeof AnnouncementSchema>;
 export type AnnouncementInput = z.infer<typeof AnnouncementInputSchema>;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Announcement } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
@@ -47,8 +47,12 @@ describe('the unlisted announcements page', () => {
     await screen.findByRole('heading', { name: 'maanantai' });
 
     expect(screen.queryByRole('link', { name: /tiedot/i })).not.toBeInTheDocument();
-    // With the history page gone there is no navigation at all.
-    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    // The tab bar is the only navigation there is, and it offers the day and
+    // the history — nothing points here.
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/',
+      '/peliaktiivisuus',
+    ]);
   });
 
   test('lists every announcement, including ones not currently showing', async () => {
@@ -211,11 +215,15 @@ describe('getting back to the registration page', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
-  test('the registration page does not link to itself', async () => {
+  test('this page is absent from the tab bar on the day\'s page', async () => {
     render(<App api={fakeApi()} />);
     await screen.findByRole('heading', { name: 'maanantai' });
 
-    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    const tabs = screen.getByRole('navigation', { name: 'Sivut' });
+    expect(within(tabs).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/',
+      '/peliaktiivisuus',
+    ]);
   });
 });
 

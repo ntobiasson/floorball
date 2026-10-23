@@ -3,6 +3,7 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   TransactWriteCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
@@ -17,6 +18,7 @@ import {
   type AnnouncementInput,
   type PlayerDetail,
   type PlayerSummary,
+  type PlayerYear,
   type Registration,
 } from '@sahlykanta/shared';
 import {
@@ -108,6 +110,8 @@ export interface Repo {
   unregister(input: UnregisterInput): Promise<void>;
   listRegistrations(gameDate: string): Promise<Registration[]>;
   listPlayers(): Promise<PlayerSummary[]>;
+  /** Every player with their per-year counts: what the history page ranks. */
+  listHistory(): Promise<PlayerDetail[]>;
   getPlayer(playerId: string): Promise<PlayerDetail | null>;
   listAnnouncements(onDate: string): Promise<Announcement[]>;
   /** Everything, validity window ignored — what the management page edits. */
@@ -483,6 +487,90 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
         }
         startKey = out.LastEvaluatedKey;
       } while (startKey !== undefined);
+
+      return players;
+    },
+
+    /**
+     * The whole archive: every player, every year, in one pass.
+     *
+     * A Scan, deliberately. The year rows (PLAYER#<id> / YEAR#<yyyy>) are
+     * reachable by no index — GSI1 projects profiles only, and putting the
+     * year rows in it would mean a key on every one of them plus a backfill
+     * over the imported archive. Twenty-five years of this team is a few
+     * thousand rows and a couple of megabytes, so one Scan costs a fraction
+     * of a cent and the route caches its answer. The alternative, a Query per
+     * player, is ~500 round trips for the same data.
+     *
+     * If the archive ever outgrows a Scan, the fix is a GSI1PK of
+     * YEAR#<yyyy> on the year rows and a per-year route; nothing above this
+     * function would have to change.
+     */
+    async listHistory() {
+      const profiles = new Map<string, ProfileItem>();
+      const years = new Map<string, PlayerYear[]>();
+      let startKey: Record<string, unknown> | undefined;
+
+      do {
+        const out = await client.send(
+          new ScanCommand({
+            TableName: tableName,
+            // total and count are both DynamoDB reserved words.
+            ProjectionExpression:
+              'PK, SK, playerId, displayName, normalizedName, #total, #count, mergedInto',
+            ExpressionAttributeNames: { '#total': 'total', '#count': 'count' },
+            ExclusiveStartKey: startKey,
+          }),
+        );
+
+        for (const item of out.Items ?? []) {
+          const pk = String(item.PK);
+          if (!pk.startsWith('PLAYER#')) continue;
+          const playerId = pk.slice('PLAYER#'.length);
+          const sk = String(item.SK);
+
+          if (sk === PROFILE_SK) {
+            profiles.set(playerId, item as ProfileItem);
+            continue;
+          }
+          if (!sk.startsWith('YEAR#')) continue;
+
+          const count = Number(item.count ?? 0);
+          // An unregister decrements the row rather than deleting it, so a
+          // year the player ended up not playing sits here at zero.
+          if (count <= 0) continue;
+          const list = years.get(playerId) ?? [];
+          list.push({ year: sk.slice('YEAR#'.length), count });
+          years.set(playerId, list);
+        }
+
+        startKey = out.LastEvaluatedKey;
+      } while (startKey !== undefined);
+
+      const players: PlayerDetail[] = [];
+      for (const [playerId, profile] of profiles) {
+        // The same two exclusions listPlayers makes, for the same reasons: a
+        // merged duplicate is no longer its own entry, and a profile with no
+        // games is a name somebody typed into the form and never registered.
+        if (profile.mergedInto !== undefined) continue;
+        const total = Number(profile.total ?? 0);
+        if (total <= 0) continue;
+
+        players.push({
+          playerId: profile.playerId,
+          displayName: profile.displayName,
+          total,
+          years: (years.get(playerId) ?? []).sort((a, b) => b.year.localeCompare(a.year)),
+        });
+      }
+
+      // A Scan returns no useful order, so sort into the one the directory
+      // already arrives in: by normalized name, as GSI1 is keyed.
+      players.sort((a, b) => {
+        const left = profiles.get(a.playerId)?.normalizedName ?? '';
+        const right = profiles.get(b.playerId)?.normalizedName ?? '';
+        return left.localeCompare(right);
+      });
 
       return players;
     },

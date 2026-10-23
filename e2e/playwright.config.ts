@@ -40,7 +40,7 @@ export default defineConfig({
   projects: [
     {
       name: 'monday',
-      testMatch: /(smoke|notices)\.spec\.ts/,
+      testMatch: /(smoke|notices|history)\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${WEB_MONDAY_PORT}` },
     },
     {

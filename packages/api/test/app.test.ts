@@ -236,6 +236,48 @@ describe('GET /api/players/:playerId', () => {
   });
 });
 
+describe('GET /api/history', () => {
+  test('returns every player with their per-year counts', async () => {
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+    await repo.register({ gameDate: '2024-01-15', rawName: 'Matti Virtanen' });
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Liisa Korhonen' });
+
+    const res = await appAt(MONDAY_MORNING).request('/api/history');
+
+    expect(res.status).toBe(200);
+    const body = await jsonBody<{ players: PlayerDetail[] }>(res);
+    expect(body.players).toEqual([
+      {
+        playerId: expect.any(String),
+        displayName: 'Liisa Korhonen',
+        total: 1,
+        years: [{ year: '2026', count: 1 }],
+      },
+      {
+        playerId: expect.any(String),
+        displayName: 'Matti Virtanen',
+        total: 2,
+        years: [
+          { year: '2026', count: 1 },
+          { year: '2024', count: 1 },
+        ],
+      },
+    ]);
+  });
+
+  test('is cacheable, since the archive barely changes', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/history');
+
+    expect(res.headers.get('cache-control')).toMatch(/max-age=\d+/);
+  });
+
+  test('is an empty list on an empty table', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/history');
+
+    expect(await jsonBody<{ players: PlayerDetail[] }>(res)).toEqual({ players: [] });
+  });
+});
+
 describe('unknown routes', () => {
   test('a missing API path is a 404 JSON error', async () => {
     const res = await appAt(MONDAY_MORNING).request('/api/nope');

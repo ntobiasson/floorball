@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { PlayerSummary, TodayResponse } from '@sahlykanta/shared';
+import type { PlayerDetail, PlayerSummary, TodayResponse } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
 import type { Api } from '../src/lib/api.js';
 import { TEST_TURNSTILE_TOKEN } from './setup.js';
@@ -10,6 +10,39 @@ const DIRECTORY: PlayerSummary[] = [
   { playerId: 'p-aatu', displayName: 'Matti Virtanen', total: 278 },
   { playerId: 'p-sivula', displayName: 'Liisa Korhonen', total: 233 },
   { playerId: 'p-katja', displayName: 'Riikka Mäkelä', total: 5 },
+];
+
+/**
+ * Shaped like the real archive: a regular, somebody who stopped in 2009 and
+ * survives only in the imported directory, and the `(EHKÄ)` duplicate that is
+ * its own player.
+ */
+const ARCHIVE: PlayerDetail[] = [
+  {
+    playerId: 'p-sivula',
+    displayName: 'Liisa Korhonen',
+    total: 30,
+    years: [
+      { year: '2026', count: 10 },
+      { year: '2025', count: 20 },
+    ],
+  },
+  {
+    playerId: 'p-aatu',
+    displayName: 'Matti Virtanen',
+    total: 45,
+    years: [
+      { year: '2026', count: 5 },
+      { year: '2025', count: 25 },
+      { year: '2024', count: 15 },
+    ],
+  },
+  {
+    playerId: 'p-olli',
+    displayName: 'Olli Väänänen',
+    total: 7,
+    years: [{ year: '2009', count: 7 }],
+  },
 ];
 
 const MONDAY: TodayResponse = {
@@ -44,8 +77,34 @@ function fakeApi(today: TodayResponse, overrides: Partial<Api> = {}): Api {
     players: vi.fn().mockResolvedValue({ players: DIRECTORY }),
     register: vi.fn().mockResolvedValue({ playerId: 'p-new', displayName: 'Uusi' }),
     unregister: vi.fn().mockResolvedValue(undefined),
+    history: vi.fn().mockResolvedValue({ players: ARCHIVE }),
     ...overrides,
   } as Api;
+}
+
+/** Opens the history page through the tab bar, as a visitor would. */
+async function openHistory(api: Api): Promise<void> {
+  render(<App api={api} />);
+  await userEvent.click(await screen.findByRole('link', { name: 'Historia' }));
+  await screen.findByRole('heading', { name: 'Peliaktiivisuus' });
+}
+
+/**
+ * The names the history list is showing, in the order it shows them. Each row
+ * is one toggle button whose accessible name is "<player>, <n> peliä", so
+ * reading the list back needs no knowledge of its markup.
+ */
+function listedNames(): string[] {
+  return within(screen.getByRole('list', { name: 'Pelaajat' }))
+    .getAllByRole('button')
+    .map((button) => (button.getAttribute('aria-label') ?? '').split(',')[0] ?? '');
+}
+
+/** What each row reports as its count, in list order. */
+function listedCounts(): string[] {
+  return within(screen.getByRole('list', { name: 'Pelaajat' }))
+    .getAllByRole('button')
+    .map((button) => (button.getAttribute('aria-label') ?? '').split(', ')[1] ?? '');
 }
 
 describe('a game day', () => {
@@ -301,25 +360,24 @@ describe('removing a name asks first', () => {
   });
 });
 
-describe('history is kept but not shown', () => {
-  test('there is no history page to navigate to', async () => {
+describe('the day keeps the history off its own page', () => {
+  test('the day shows no search box and no historical figures', async () => {
     render(<App api={fakeApi(MONDAY)} />);
     await screen.findByRole('heading', { name: 'maanantai' });
 
-    expect(screen.queryByRole('link', { name: /peliaktiivisuus/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /peliaktiivisuus/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Hae pelaajan nimellä')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Vuosi' })).not.toBeInTheDocument();
   });
 
-  test('the old history address falls back to the registration page', async () => {
-    window.history.pushState({}, '', '/peliaktiivisuus');
-    render(<App api={fakeApi(MONDAY)} />);
+  test('the archive is not fetched until the history is opened', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await screen.findByRole('heading', { name: 'maanantai' });
 
-    expect(await screen.findByRole('heading', { name: 'maanantai' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Hae pelaajan nimellä')).not.toBeInTheDocument();
+    expect(api.history).not.toHaveBeenCalled();
   });
 
-  test('no total or per-year figure is rendered anywhere', async () => {
+  test('no total or per-year figure is rendered on the day', async () => {
     const api = fakeApi(MONDAY);
     render(<App api={api} />);
     await screen.findByRole('heading', { name: 'maanantai' });
@@ -327,6 +385,8 @@ describe('history is kept but not shown', () => {
     // Matti Virtanen's 278 games are in the directory the suggestions come from;
     // the count on screen is today's list, nothing historical.
     expect(screen.queryByText('278')).not.toBeInTheDocument();
+    // There is still no per-player call: the history page takes the archive
+    // in one response rather than a request per name.
     expect(Object.keys(api)).not.toContain('player');
   });
 
@@ -483,5 +543,237 @@ describe('the bot check in front of registering', () => {
     await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }));
 
     await waitFor(() => expect(api.unregister).toHaveBeenCalledWith('p-mikko'));
+  });
+});
+
+describe('getting to the history', () => {
+  test('both pages are offered in the tab bar', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    const tabs = screen.getByRole('navigation', { name: 'Sivut' });
+    expect(within(tabs).getByRole('link', { name: 'Tänään' })).toHaveAttribute('href', '/');
+    expect(within(tabs).getByRole('link', { name: 'Historia' })).toHaveAttribute(
+      'href',
+      '/peliaktiivisuus',
+    );
+  });
+
+  test('the day is the tab marked as current to begin with', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    expect(screen.getByRole('link', { name: 'Tänään' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Historia' })).not.toHaveAttribute('aria-current');
+  });
+
+  test('tapping the history tab opens it without leaving the page', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    expect(screen.getByRole('link', { name: 'Historia' })).toHaveAttribute('aria-current', 'page');
+    expect(window.location.pathname).toBe('/peliaktiivisuus');
+  });
+
+  test('the address opens the history directly', async () => {
+    window.history.pushState({}, '', '/peliaktiivisuus');
+    render(<App api={fakeApi(MONDAY)} />);
+
+    expect(await screen.findByRole('heading', { name: 'Peliaktiivisuus' })).toBeInTheDocument();
+  });
+
+  test('the back button returns to the day', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    window.history.back();
+
+    expect(await screen.findByRole('heading', { name: 'maanantai' })).toBeInTheDocument();
+  });
+
+  test('the unlisted announcements page stays out of the tab bar', async () => {
+    window.history.pushState({}, '', '/tiedotteet');
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByRole('heading', { name: 'Tiedote' });
+    expect(screen.queryByRole('navigation', { name: 'Sivut' })).not.toBeInTheDocument();
+  });
+
+  test('the day is fetched once, not again on the way back', async () => {
+    const api = fakeApi(MONDAY);
+    await openHistory(api);
+    await userEvent.click(screen.getByRole('link', { name: 'Tänään' }));
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    expect(api.today).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the history list', () => {
+  test('ranks everyone by lifetime games to begin with', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    expect(listedNames()).toEqual(['Matti Virtanen', 'Liisa Korhonen', 'Olli Väänänen']);
+    expect(listedCounts()).toEqual(['45 peliä', '30 peliä', '7 peliä']);
+  });
+
+  test('says which years the archive covers', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    expect(screen.getByText('Kaikki pelikerrat 2009–2026')).toBeInTheDocument();
+  });
+
+  test('says so when the archive holds nothing yet', async () => {
+    const api = fakeApi(MONDAY, { history: vi.fn().mockResolvedValue({ players: [] }) });
+    await openHistory(api);
+
+    expect(screen.queryByRole('list', { name: 'Pelaajat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Vuosi' })).not.toBeInTheDocument();
+    expect(screen.getByText('Ei vielä pelikertoja.')).toBeInTheDocument();
+  });
+
+  test('switches to Finnish name order', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Nimi A–Ö' }));
+
+    expect(listedNames()).toEqual(['Liisa Korhonen', 'Matti Virtanen', 'Olli Väänänen']);
+  });
+
+  test('filters by name as you type', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.type(screen.getByLabelText('Hae pelaajan nimellä'), 'korho');
+
+    expect(listedNames()).toEqual(['Liisa Korhonen']);
+  });
+
+  test('says so when a search matches nobody', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.type(screen.getByLabelText('Hae pelaajan nimellä'), 'zzzz');
+
+    expect(screen.queryByRole('list', { name: 'Pelaajat' })).not.toBeInTheDocument();
+    expect(screen.getByText(/zzzz/)).toBeInTheDocument();
+  });
+
+  test('expanding a player shows the per-year breakdown', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Matti Virtanen, 45 peliä' }));
+
+    const rows = screen.getByRole('list', { name: 'Matti Virtanen vuosittain' });
+    expect(
+      within(rows).getAllByRole('listitem').map((li) => li.getAttribute('aria-label')),
+    ).toEqual(['2026: 5 peliä', '2025: 25 peliä', '2024: 15 peliä']);
+  });
+
+  test('collapses the player again', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    const toggle = screen.getByRole('button', { name: 'Matti Virtanen, 45 peliä' });
+    await userEvent.click(toggle);
+    await userEvent.click(toggle);
+
+    expect(screen.queryByRole('list', { name: 'Matti Virtanen vuosittain' })).not.toBeInTheDocument();
+  });
+
+  test('the archive is fetched once, not per player', async () => {
+    const api = fakeApi(MONDAY);
+    await openHistory(api);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Matti Virtanen, 45 peliä' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Liisa Korhonen, 30 peliä' }));
+
+    expect(api.history).toHaveBeenCalledTimes(1);
+  });
+
+  test('says so when the archive cannot be fetched', async () => {
+    const api = fakeApi(MONDAY, {
+      history: vi.fn().mockRejectedValue(new Error('historiaa ei saatu')),
+    });
+    render(<App api={api} />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Historia' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('historiaa ei saatu');
+  });
+});
+
+describe('filtering the history by year', () => {
+  test('offers every year anyone played, newest first, plus all of them', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    const years = screen.getByRole('group', { name: 'Vuosi' });
+    expect(within(years).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Kaikki',
+      '2026',
+      '2025',
+      '2024',
+      '2009',
+    ]);
+  });
+
+  test('ranks by that year count, not the lifetime total', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2026' }));
+
+    // Matti has played more in total; Liisa played more in 2026.
+    expect(listedNames()).toEqual(['Liisa Korhonen', 'Matti Virtanen']);
+    expect(listedCounts()).toEqual(['10 peliä', '5 peliä']);
+  });
+
+  test('leaves out everyone who did not play that year', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2009' }));
+
+    expect(listedNames()).toEqual(['Olli Väänänen']);
+  });
+
+  test('the subtitle names the chosen year instead of the whole span', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2025' }));
+    expect(screen.getByText('Pelikerrat vuonna 2025')).toBeInTheDocument();
+    expect(screen.queryByText('Kaikki pelikerrat 2009–2026')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Kaikki' }));
+    expect(screen.getByText('Kaikki pelikerrat 2009–2026')).toBeInTheDocument();
+  });
+
+  test('marks the chosen year as pressed, and only that one', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2025' }));
+
+    expect(screen.getByRole('button', { name: '2025' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Kaikki' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('combines with the name search', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2025' }));
+    await userEvent.type(screen.getByLabelText('Hae pelaajan nimellä'), 'virtanen');
+
+    expect(listedNames()).toEqual(['Matti Virtanen']);
+    expect(listedCounts()).toEqual(['25 peliä']);
+  });
+
+  test('combines with name ordering', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2025' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Nimi A–Ö' }));
+
+    expect(listedNames()).toEqual(['Liisa Korhonen', 'Matti Virtanen']);
+  });
+
+  test('going back to Kaikki restores the lifetime ranking', async () => {
+    await openHistory(fakeApi(MONDAY));
+
+    await userEvent.click(screen.getByRole('button', { name: '2009' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Kaikki' }));
+
+    expect(listedNames()).toEqual(['Matti Virtanen', 'Liisa Korhonen', 'Olli Väänänen']);
   });
 });

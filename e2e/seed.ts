@@ -153,7 +153,17 @@ async function main(): Promise<void> {
     registrations: REGISTRATIONS,
   });
   const repo = createRepo({ client, tableName });
-  await repo.createAnnouncement({ body: 'Kenttä varattu 21.10. klo 18-19.' });
+  /**
+   * validFrom is explicit, and early, on purpose. Left to default it would be
+   * the real date on the machine doing the seeding, while the API under test
+   * is pinned to Monday 19.10.2026 — so from 20.10.2026 onwards the seeded
+   * announcement would be filtered out as not yet valid and the landing page
+   * would come up without it.
+   */
+  await repo.createAnnouncement({
+    body: 'Kenttä varattu 21.10. klo 18-19.',
+    validFrom: '2026-10-01',
+  });
 
   console.log(
     `seeded ${tableName}: ${result.players} players, ${result.registrations} registrations`,
