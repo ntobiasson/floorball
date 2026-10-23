@@ -37,6 +37,13 @@ export interface AppConfig {
 /** The directory is ~500 rows that change a few times a week. */
 const PLAYERS_CACHE_SECONDS = 300;
 
+/**
+ * The archive behind the history page. Same cadence as the directory — it
+ * moves only when somebody registers — but this one is assembled by a Scan,
+ * so the cache is what keeps the page from paying for it on every visit.
+ */
+const HISTORY_CACHE_SECONDS = 300;
+
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
@@ -149,6 +156,19 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
   app.get('/api/players', async (c) => {
     const players = await repo.listPlayers();
     c.header('cache-control', `public, max-age=${PLAYERS_CACHE_SECONDS}`);
+    return c.json({ players });
+  });
+
+  /**
+   * The whole archive, for the history page: every player with their per-year
+   * counts. One response rather than a call per player, because the page
+   * ranks everybody within a chosen year and so needs all of it at once. The
+   * filtering and sorting happen in the browser, as they already do for the
+   * directory.
+   */
+  app.get('/api/history', async (c) => {
+    const players = await repo.listHistory();
+    c.header('cache-control', `public, max-age=${HISTORY_CACHE_SECONDS}`);
     return c.json({ players });
   });
 
