@@ -94,10 +94,24 @@ None outstanding.
   reached by an A record because it has no fixed address. A real domain was
   judged not worth the yearly fee for a fifteen-person team. With the
   certificate gone, the stack also left us-east-1 for eu-north-1.
-- **The history is no longer shown in the interface.** The Peliaktiivisuus
-  page and its navigation were removed at the user's request. Importing and
-  storing the archive is unchanged — that remains the point of the migration —
-  and it is still readable through `GET /api/players` and
-  `GET /api/players/:id`. The player directory is still fetched by the client,
-  because the registration form suggests previously seen names from it, so
-  names and totals remain publicly readable from the API.
+- **The history was hidden, then brought back.** The Peliaktiivisuus page and
+  its navigation were first removed at the user's request, to ship something
+  simpler; the archive kept being imported and stored throughout, which was
+  always the point of the migration. With the application in real use, the
+  page is back, and the tab bar with it.
+
+  Its shape, decided with the user: the two tabs are the day's list and the
+  history; a row of year chips sits above the search box and the ordering
+  buttons, so the year filter, the name filter and the ordering are all
+  visible at once. Choosing a year changes what the list counts — the number
+  beside a name becomes that year's games, the ranking follows it, and anyone
+  who did not play that year drops out of the list.
+
+  It is served by one new route, `GET /api/history`, which returns every
+  player with their per-year counts so that filtering and ranking can happen
+  in the browser, as they already do for the directory. The route assembles
+  its answer with a Scan: the per-year rows are reachable by no index, and at
+  this size — a few thousand rows, a response of roughly a hundred kilobytes —
+  a cached Scan is cheaper than a key on every year row plus a backfill over
+  the imported archive. `repo.listHistory` names the per-year GSI that would
+  replace it if the archive ever outgrew that.

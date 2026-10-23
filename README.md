@@ -8,12 +8,12 @@ server.
   the current day. Any other day shows a "not a game day" screen.
 - **No accounts.** Anyone can register anyone, by picking a previous player or
   typing a new name, and anyone can remove a name.
-- **The 25-year history is imported and stored, but not displayed.** The
-  archive is the reason this project exists — the Domino server is being
-  switched off — so it is preserved in full and reachable through the API. The
-  interface does not surface it. The one place it shows through is the
-  registration form, which suggests previously seen names from the imported
-  player directory.
+- **The 25-year history** is at `/peliaktiivisuus`, the second of the two
+  tabs. The archive is the reason this project exists — the Domino server is
+  being switched off — so it is preserved in full. The page filters it by name
+  and by year and orders it by name or by games played; choosing a year ranks
+  everyone by that year alone. It also shows through on the registration form,
+  which suggests previously seen names from the imported player directory.
 - **Announcements** are written and deleted at `/tiedotteet`. Nothing links
   there, but the address is an obvious one and there is no password: anyone
   who visits the site can manage them, as anyone can already add or remove any
