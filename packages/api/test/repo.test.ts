@@ -3,7 +3,7 @@ import { PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
-import { createRepo, type Repo } from '../src/repo.js';
+import { createRepo, NotRegisteredError, type Repo } from '../src/repo.js';
 import { auditPk } from '../src/table.js';
 
 const MONDAY = '2026-10-19';
@@ -527,5 +527,67 @@ describe('managing announcements', () => {
 
   test('refuses to delete an id that is not there', async () => {
     await expect(repo.deleteAnnouncement('ei-ole')).rejects.toThrow(/not found|ei löytynyt/i);
+  });
+});
+
+describe('setGoalkeeper', () => {
+  test('marks a registered player, and the day s list says so', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId, isGoalkeeper: true });
+
+    const [entry] = await repo.listRegistrations(MONDAY);
+    expect(entry?.isGoalkeeper).toBe(true);
+  });
+
+  test('unmarks again, because it is decided on the night and changes', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId, isGoalkeeper: true });
+
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId, isGoalkeeper: false });
+
+    const [entry] = await repo.listRegistrations(MONDAY);
+    expect(entry?.isGoalkeeper).toBeUndefined();
+  });
+
+  test('leaves everyone else alone', async () => {
+    const keeper = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: MONDAY, rawName: 'Mikko Laine' });
+
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId: keeper.playerId, isGoalkeeper: true });
+
+    const marked = (await repo.listRegistrations(MONDAY))
+      .filter((r) => r.isGoalkeeper === true)
+      .map((r) => r.displayName);
+    expect(marked).toEqual(['Jukka Rantanen']);
+  });
+
+  test('several keepers on one night are allowed', async () => {
+    const a = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    const b = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' });
+
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId: a.playerId, isGoalkeeper: true });
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId: b.playerId, isGoalkeeper: true });
+
+    const marked = (await repo.listRegistrations(MONDAY)).filter((r) => r.isGoalkeeper === true);
+    expect(marked).toHaveLength(2);
+  });
+
+  test('is a fact about one night, not about the player', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    await repo.setGoalkeeper({ gameDate: MONDAY, playerId, isGoalkeeper: true });
+
+    await repo.register({ gameDate: WEDNESDAY, rawName: 'Jukka Rantanen' });
+
+    const [wednesday] = await repo.listRegistrations(WEDNESDAY);
+    expect(wednesday?.isGoalkeeper).toBeUndefined();
+  });
+
+  test('refuses somebody who is not on that day s list', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+
+    await expect(
+      repo.setGoalkeeper({ gameDate: WEDNESDAY, playerId, isGoalkeeper: true }),
+    ).rejects.toThrow(NotRegisteredError);
   });
 });

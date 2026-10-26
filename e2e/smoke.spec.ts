@@ -57,6 +57,43 @@ test('a name can be added and then removed again', async ({ page }) => {
   await expect(page.getByText('Testi Pelaaja')).toBeHidden();
 });
 
+test('a registered player can be marked as goalkeeper, and unmarked', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByLabel('Nimi').fill('Testi Maalivahti');
+  await page.getByRole('button', { name: 'Ilmoittaudu' }).click();
+
+  const list = page.getByRole('list', { name: 'Ilmoittautuneet' });
+  const chip = list.locator('li', { hasText: 'Testi Maalivahti' });
+  await expect(chip).toBeVisible();
+  await expect(chip).not.toHaveClass(/chip--goalkeeper/);
+
+  // Tapping the name is what opens the goalkeeper question.
+  await page.getByRole('button', { name: 'Testi Maalivahti', exact: true }).click();
+  // click, not check: ticking it closes the panel on success, so the checkbox
+  // is gone by the time check() would read its state back.
+  await page.getByRole('checkbox', { name: 'Maalivahti (MV)' }).click();
+
+  await expect(chip).toHaveClass(/chip--goalkeeper/);
+  await expect(chip.getByText('MV')).toBeVisible();
+
+  // It survives a reload, so it really reached DynamoDB and not just the tab.
+  await page.reload();
+  const afterReload = page
+    .getByRole('list', { name: 'Ilmoittautuneet' })
+    .locator('li', { hasText: 'Testi Maalivahti' });
+  await expect(afterReload.getByText('MV')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Testi Maalivahti', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Maalivahti (MV)' }).click();
+  await expect(afterReload.getByText('MV')).toBeHidden();
+
+  // Tidy up, so the serial specs after this one see the list they expect.
+  await page.getByRole('button', { name: 'Poista Testi Maalivahti' }).click();
+  await page.getByRole('button', { name: /Vahvista.*Testi Maalivahti/ }).click();
+  await expect(page.getByText('Testi Maalivahti')).toBeHidden();
+});
+
 test('cancelling the removal prompt keeps the name on the list', async ({ page }) => {
   await page.goto('/');
   const before = await countOf(page);

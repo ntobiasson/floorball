@@ -77,6 +77,7 @@ function fakeApi(today: TodayResponse, overrides: Partial<Api> = {}): Api {
     players: vi.fn().mockResolvedValue({ players: DIRECTORY }),
     register: vi.fn().mockResolvedValue({ playerId: 'p-new', displayName: 'Uusi' }),
     unregister: vi.fn().mockResolvedValue(undefined),
+    setGoalkeeper: vi.fn().mockResolvedValue(undefined),
     history: vi.fn().mockResolvedValue({ players: ARCHIVE }),
     ...overrides,
   } as Api;
@@ -405,6 +406,115 @@ describe('the day keeps the history off its own page', () => {
 
     const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
     expect(within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' })).toBeVisible();
+  });
+});
+
+describe('marking tonight s goalkeeper', () => {
+  /** The chip is the row; the name inside it is what you tap. */
+  const chipFor = (name: string): HTMLElement =>
+    screen.getByText(name).closest('li') as HTMLElement;
+
+  const withKeeper: TodayResponse = {
+    ...MONDAY,
+    registrations: [
+      { playerId: 'p-mikko', displayName: 'Mikko Laine', createdAt: '2026-10-19T06:00:00Z' },
+      {
+        playerId: 'p-jukka',
+        displayName: 'Jukka Rantanen',
+        createdAt: '2026-10-19T06:05:00Z',
+        isGoalkeeper: true,
+      },
+    ],
+  };
+
+  test('a goalkeeper is marked MV on the list, and nobody else is', async () => {
+    render(<App api={fakeApi(withKeeper)} />);
+    await screen.findByLabelText('Nimi');
+
+    expect(within(chipFor('Jukka Rantanen')).getByText('MV')).toBeInTheDocument();
+    expect(within(chipFor('Mikko Laine')).queryByText('MV')).not.toBeInTheDocument();
+  });
+
+  test('tapping a name opens the goalkeeper checkbox', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+    await screen.findByLabelText('Nimi');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mikko Laine' }));
+
+    expect(screen.getByRole('checkbox', { name: 'Maalivahti (MV)' })).not.toBeChecked();
+  });
+
+  test('ticking it marks that player for tonight', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await screen.findByLabelText('Nimi');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mikko Laine' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Maalivahti (MV)' }));
+
+    await waitFor(() => expect(api.setGoalkeeper).toHaveBeenCalledWith('p-mikko', true));
+  });
+
+  test('unticking it takes the mark off again', async () => {
+    const api = fakeApi(withKeeper);
+    render(<App api={api} />);
+    await screen.findByLabelText('Nimi');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Jukka Rantanen' }));
+    expect(screen.getByRole('checkbox', { name: 'Maalivahti (MV)' })).toBeChecked();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Maalivahti (MV)' }));
+
+    await waitFor(() => expect(api.setGoalkeeper).toHaveBeenCalledWith('p-jukka', false));
+  });
+
+  test('the list is refetched, so the mark shows without a reload', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await screen.findByLabelText('Nimi');
+    vi.mocked(api.today).mockResolvedValue(withKeeper);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mikko Laine' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Maalivahti (MV)' }));
+
+    await waitFor(() =>
+      expect(within(chipFor('Jukka Rantanen')).getByText('MV')).toBeInTheDocument(),
+    );
+  });
+
+  test('several people can be in goal on the same night', async () => {
+    const both: TodayResponse = {
+      ...MONDAY,
+      registrations: withKeeper.registrations.map((r) => ({ ...r, isGoalkeeper: true })),
+    };
+    render(<App api={fakeApi(both)} />);
+    await screen.findByLabelText('Nimi');
+
+    expect(within(chipFor('Jukka Rantanen')).getByText('MV')).toBeInTheDocument();
+    expect(within(chipFor('Mikko Laine')).getByText('MV')).toBeInTheDocument();
+  });
+
+  test('the remove prompt and the goalkeeper checkbox do not open together', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+    await screen.findByLabelText('Nimi');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mikko Laine' }));
+    expect(screen.getByRole('checkbox', { name: 'Maalivahti (MV)' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Poista Jukka Rantanen' }));
+
+    expect(screen.queryByRole('checkbox', { name: 'Maalivahti (MV)' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Vahvista.*Jukka Rantanen/ })).toBeInTheDocument();
+  });
+
+  test('removing a name still works, and is still asked about first', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+    await screen.findByLabelText('Nimi');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Poista Mikko Laine' }));
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }));
+
+    await waitFor(() => expect(api.unregister).toHaveBeenCalledWith('p-mikko'));
   });
 });
 

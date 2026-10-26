@@ -33,6 +33,22 @@ export const RegistrationSchema = z.object({
   playerId: z.string().min(1),
   displayName: z.string().min(1),
   createdAt: z.string().min(1),
+  /**
+   * Who is in goal tonight. Optional rather than a required `false`, because
+   * it is absent from every registration ever written before this existed and
+   * from most of them since — a normal evening has nobody marked. Omitted
+   * rather than stored false, so unmarking leaves no trace.
+   *
+   * It belongs to the night, not to the player: it is settled shortly before
+   * the game, sometimes after people have already registered, and Wednesday
+   * knows nothing of Monday.
+   */
+  isGoalkeeper: z.boolean().optional(),
+});
+
+/** The body of the request that marks or unmarks tonight's goalkeeper. */
+export const GoalkeeperInputSchema = z.object({
+  isGoalkeeper: z.boolean(),
 });
 
 export const TodayResponseSchema = z.object({
@@ -84,6 +100,7 @@ export const AnnouncementInputSchema = z.object({
 export type IsoDate = z.infer<typeof IsoDateSchema>;
 export type RegistrationInput = z.infer<typeof RegistrationInputSchema>;
 export type Registration = z.infer<typeof RegistrationSchema>;
+export type GoalkeeperInput = z.infer<typeof GoalkeeperInputSchema>;
 export type TodayResponse = z.infer<typeof TodayResponseSchema>;
 export type PlayerSummary = z.infer<typeof PlayerSummarySchema>;
 export type PlayerYear = z.infer<typeof PlayerYearSchema>;

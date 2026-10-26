@@ -165,6 +165,98 @@ describe('POST /api/registrations', () => {
   });
 });
 
+describe('PATCH /api/registrations/:playerId/goalkeeper', () => {
+  const patch = (playerId: string, isGoalkeeper: boolean, now = MONDAY_MORNING) =>
+    appAt(now).request(`/api/registrations/${playerId}/goalkeeper`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isGoalkeeper }),
+    });
+
+  test('marks somebody on today list, and the day says so', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
+
+    const res = await patch(playerId, true);
+
+    expect(res.status).toBe(204);
+    const [entry] = await repo.listRegistrations('2026-10-19');
+    expect(entry?.isGoalkeeper).toBe(true);
+  });
+
+  test('unmarks again', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
+    await patch(playerId, true);
+
+    const res = await patch(playerId, false);
+
+    expect(res.status).toBe(204);
+    const [entry] = await repo.listRegistrations('2026-10-19');
+    expect(entry?.isGoalkeeper).toBeUndefined();
+  });
+
+  test('the day list carries the flag', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: '2026-10-19', rawName: 'Mikko Laine' });
+    await patch(playerId, true);
+
+    const body = await jsonBody<TodayResponse>(await appAt(MONDAY_MORNING).request('/api/today'));
+
+    expect(
+      body.registrations.filter((r) => r.isGoalkeeper === true).map((r) => r.displayName),
+    ).toEqual(['Jukka Rantanen']);
+  });
+
+  test('is a 404 when that player is not on today list', async () => {
+    const res = await patch('nobody', true);
+
+    expect(res.status).toBe(404);
+    // The route's own refusal, not Hono's catch-all: without this the test
+    // passes just as well when the route does not exist at all.
+    expect(await jsonBody<{ error: string }>(res)).toEqual({
+      error: 'nimeä ei löytynyt tämän päivän listalta',
+    });
+  });
+
+  test('refuses a body that is not a boolean', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
+
+    const res = await appAt(MONDAY_MORNING).request(
+      `/api/registrations/${playerId}/goalkeeper`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ isGoalkeeper: 'kyllä' }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  test('refuses on a day that is not a game day', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
+
+    const res = await patch(playerId, true, TUESDAY_MORNING);
+
+    expect(res.status).toBe(409);
+  });
+
+  test('is not gated on Turnstile, as removing a name is not', async () => {
+    // A reversible toggle on a row that already exists. Gating it would mint
+    // a token per tap for no gain, and removal — which is destructive — is
+    // deliberately open too.
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
+    const app = createApp({ repo, now: () => MONDAY_MORNING, verifyTurnstile: refuse });
+
+    const res = await app.request(`/api/registrations/${playerId}/goalkeeper`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isGoalkeeper: true }),
+    });
+
+    expect(res.status).toBe(204);
+  });
+});
+
 describe('DELETE /api/registrations/:playerId', () => {
   test('removes a name from today', async () => {
     const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });

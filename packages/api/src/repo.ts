@@ -5,9 +5,13 @@ import {
   QueryCommand,
   ScanCommand,
   TransactWriteCommand,
+  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
+import {
+  ConditionalCheckFailedException,
+  TransactionCanceledException,
+} from '@aws-sdk/client-dynamodb';
 import { newId } from './ids.js';
 import {
   cleanDisplayName,
@@ -105,9 +109,21 @@ export interface UnregisterInput {
   ipHash?: string;
 }
 
+export interface SetGoalkeeperInput {
+  gameDate: string;
+  playerId: string;
+  isGoalkeeper: boolean;
+}
+
 export interface Repo {
   register(input: RegisterInput): Promise<RegisterResult>;
   unregister(input: UnregisterInput): Promise<void>;
+  /**
+   * Marks or unmarks somebody already on that day's list. Touches the day row
+   * and nothing else — no total, no year count, no profile — because standing
+   * in goal is still playing, and the archive counts games played.
+   */
+  setGoalkeeper(input: SetGoalkeeperInput): Promise<void>;
   listRegistrations(gameDate: string): Promise<Registration[]>;
   listPlayers(): Promise<PlayerSummary[]>;
   /** Every player with their per-year counts: what the history page ranks. */
@@ -441,6 +457,35 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
       }
     },
 
+    async setGoalkeeper({ gameDate, playerId, isGoalkeeper }) {
+      try {
+        await client.send(
+          new UpdateCommand({
+            TableName: tableName,
+            Key: { PK: dayPk(gameDate), SK: playerSk(playerId) },
+            // Removed rather than set to false, so that an unmarked
+            // registration is byte-for-byte what it was before anyone touched
+            // it, and `isGoalkeeper` means the same thing as its absence on
+            // every row written before this existed.
+            ...(isGoalkeeper
+              ? {
+                  UpdateExpression: 'SET #gk = :true',
+                  ExpressionAttributeValues: { ':true': true },
+                }
+              : { UpdateExpression: 'REMOVE #gk' }),
+            ExpressionAttributeNames: { '#gk': 'isGoalkeeper' },
+            // Not an upsert: Update would otherwise create a day row for
+            // somebody who never registered, and that row would then show on
+            // the list with no name.
+            ConditionExpression: 'attribute_exists(PK)',
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ConditionalCheckFailedException) throw new NotRegisteredError();
+        throw error;
+      }
+    },
+
     async listRegistrations(gameDate) {
       const out = await client.send(
         new QueryCommand({
@@ -453,6 +498,9 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
         playerId: String(item.playerId),
         displayName: String(item.displayName),
         createdAt: String(item.createdAt),
+        // Absent on every row that predates goalkeepers, and on every player
+        // who is not one — so the field is only carried when it is true.
+        ...(item.isGoalkeeper === true ? { isGoalkeeper: true } : {}),
       }));
     },
 

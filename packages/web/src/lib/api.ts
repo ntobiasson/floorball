@@ -94,6 +94,18 @@ export const api = {
   unregister: (playerId: string) =>
     request<void>(`/api/registrations/${encodeURIComponent(playerId)}`, { method: 'DELETE' }),
 
+  /**
+   * Who is in goal tonight. Carries no Turnstile token: it is a reversible
+   * toggle on a name already on the list, and the API does not gate it — for
+   * the same reason removing a name is not gated.
+   */
+  setGoalkeeper: (playerId: string, isGoalkeeper: boolean) =>
+    request<void>(`/api/registrations/${encodeURIComponent(playerId)}/goalkeeper`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isGoalkeeper }),
+    }),
+
   /** Everything, including announcements outside their validity window. */
   allAnnouncements: () => request<{ announcements: Announcement[] }>('/api/announcements?all=1'),
 

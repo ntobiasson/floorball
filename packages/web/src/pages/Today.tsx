@@ -16,11 +16,14 @@ export function Today({
   directory,
   onRegister,
   onUnregister,
+  onSetGoalkeeper,
 }: {
   today: TodayResponse;
   directory: PlayerSummary[];
   onRegister: (name: string, turnstileToken: string) => Promise<void>;
   onUnregister: (playerId: string) => Promise<void>;
+  /** Marks or unmarks somebody already on tonight's list. */
+  onSetGoalkeeper: (playerId: string, isGoalkeeper: boolean) => Promise<void>;
 }): React.ReactElement {
   const [error, setError] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState<string | undefined>(undefined);
@@ -30,6 +33,14 @@ export function Today({
    * quietly drop a teammate off the list with nothing to undo it.
    */
   const [confirming, setConfirming] = useState<string | undefined>(undefined);
+  /**
+   * Which name is open for editing. Who is in goal is settled shortly before
+   * the game — sometimes after people have registered — so it is changed from
+   * the list rather than asked for at registration. Mutually exclusive with
+   * `confirming`: one name, one question at a time.
+   */
+  const [editing, setEditing] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState<string | undefined>(undefined);
   /**
    * The bot check sits at the foot of the page, under everything else, so the
    * token it produces is owned here and handed down to the form. `attempt`
@@ -98,6 +109,27 @@ export function Today({
 
   const registeredIds = new Set(today.registrations.map((r) => r.playerId));
 
+  const setGoalkeeper = async (
+    playerId: string,
+    displayName: string,
+    isGoalkeeper: boolean,
+  ): Promise<void> => {
+    setError(undefined);
+    setSaving(playerId);
+    try {
+      await onSetGoalkeeper(playerId, isGoalkeeper);
+      // Closed on success, so the answer is the chip itself changing colour
+      // rather than a tick inside a panel covering it.
+      setEditing(undefined);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : `${displayName} merkitseminen ei onnistunut.`,
+      );
+    } finally {
+      setSaving(undefined);
+    }
+  };
+
   const remove = async (playerId: string, displayName: string): Promise<void> => {
     setError(undefined);
     setRemoving(playerId);
@@ -133,45 +165,103 @@ export function Today({
           <p className="field__hint">Kukaan ei ole vielä ilmoittautunut.</p>
         ) : (
           <ul className="chips" aria-label="Ilmoittautuneet">
-            {today.registrations.map((registration) =>
-              confirming === registration.playerId ? (
-                <li className="chip chip--confirming" key={registration.playerId}>
-                  {registration.displayName}
+            {today.registrations.map((registration) => {
+              const keeper = registration.isGoalkeeper === true;
+              // The goalkeeper colour rides along in every state, so the chip
+              // does not flicker back to grey while it is open.
+              const base = keeper ? 'chip chip--goalkeeper' : 'chip';
+
+              if (confirming === registration.playerId) {
+                return (
+                  <li className={`${base} chip--confirming`} key={registration.playerId}>
+                    {registration.displayName}
+                    <button
+                      className="chip__confirm"
+                      type="button"
+                      aria-label={`Vahvista: poista ${registration.displayName}`}
+                      disabled={removing === registration.playerId}
+                      onClick={() => void remove(registration.playerId, registration.displayName)}
+                    >
+                      {removing === registration.playerId ? 'Poistetaan…' : 'Poista'}
+                    </button>
+                    <button
+                      className="chip__cancel"
+                      type="button"
+                      aria-label={`Peruuta: ${registration.displayName} jää listalle`}
+                      onClick={() => setConfirming(undefined)}
+                    >
+                      Peru
+                    </button>
+                  </li>
+                );
+              }
+
+              if (editing === registration.playerId) {
+                return (
+                  <li className={`${base} chip--editing`} key={registration.playerId}>
+                    <span className="chip__name-static">{registration.displayName}</span>
+                    <label className="chip__gk">
+                      <input
+                        type="checkbox"
+                        checked={keeper}
+                        disabled={saving === registration.playerId}
+                        onChange={(event) =>
+                          void setGoalkeeper(
+                            registration.playerId,
+                            registration.displayName,
+                            event.target.checked,
+                          )
+                        }
+                      />
+                      Maalivahti (MV)
+                    </label>
+                    <button
+                      className="chip__done"
+                      type="button"
+                      onClick={() => setEditing(undefined)}
+                    >
+                      Valmis
+                    </button>
+                  </li>
+                );
+              }
+
+              return (
+                <li className={base} key={registration.playerId}>
+                  {/* The name is the control: tapping it is how the goalkeeper
+                      mark is set, which is why it is a button and not text. */}
                   <button
-                    className="chip__confirm"
+                    className="chip__name"
                     type="button"
-                    aria-label={`Vahvista: poista ${registration.displayName}`}
-                    disabled={removing === registration.playerId}
-                    onClick={() => void remove(registration.playerId, registration.displayName)}
+                    aria-expanded={false}
+                    onClick={() => {
+                      setError(undefined);
+                      setConfirming(undefined);
+                      setEditing(registration.playerId);
+                    }}
                   >
-                    {removing === registration.playerId ? 'Poistetaan…' : 'Poista'}
+                    {registration.displayName}
                   </button>
-                  <button
-                    className="chip__cancel"
-                    type="button"
-                    aria-label={`Peruuta: ${registration.displayName} jää listalle`}
-                    onClick={() => setConfirming(undefined)}
-                  >
-                    Peru
-                  </button>
-                </li>
-              ) : (
-                <li className="chip" key={registration.playerId}>
-                  {registration.displayName}
+                  {keeper && (
+                    <span className="chip__mv" title="Maalivahti">
+                      MV
+                    </span>
+                  )}
                   <button
                     className="chip__remove"
                     type="button"
                     aria-label={`Poista ${registration.displayName}`}
                     onClick={() => {
                       setError(undefined);
+                      setEditing(undefined);
                       setConfirming(registration.playerId);
                     }}
                   >
                     ×
                   </button>
                 </li>
-              ),
-            )}
+              );
+            })}
           </ul>
         )}
       </section>

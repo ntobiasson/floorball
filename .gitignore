@@ -19,3 +19,6 @@ e2e/.playwright
 
 # esbuild output from the bundle test
 packages/api/.bundle-test/
+
+# Brainstorming scratch (mockups, not product code)
+.superpowers/

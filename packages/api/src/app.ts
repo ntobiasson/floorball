@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import {
   AnnouncementInputSchema,
+  GoalkeeperInputSchema,
   RegistrationInputSchema,
   TURNSTILE_ACTIONS,
   TURNSTILE_TOKEN_FIELD,
@@ -143,6 +144,44 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
         gameDate: date,
         playerId: c.req.param('playerId'),
         ...ipHashOf(c.req.header('x-forwarded-for')),
+      });
+      return c.body(null, 204);
+    } catch (error) {
+      if (error instanceof NotRegisteredError) {
+        return c.json({ error: 'nimeä ei löytynyt tämän päivän listalta' }, 404);
+      }
+      throw error;
+    }
+  });
+
+  /**
+   * Who is in goal tonight. Deliberately not gated on Turnstile: it is a
+   * reversible toggle on a row that already exists, the destructive sibling
+   * below — removing a name outright — is not gated either, and a widget
+   * token per tap would buy nothing. Whoever can reach the form can already
+   * add and remove any name.
+   */
+  app.patch('/api/registrations/:playerId/goalkeeper', async (c) => {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: 'virheellinen pyyntö' }, 400);
+    }
+
+    const parsed = GoalkeeperInputSchema.safeParse(raw);
+    if (!parsed.success) return c.json({ error: 'virheellinen pyyntö' }, 400);
+
+    const date = today();
+    if (!isGameDay(date)) {
+      return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
+    }
+
+    try {
+      await repo.setGoalkeeper({
+        gameDate: date,
+        playerId: c.req.param('playerId'),
+        isGoalkeeper: parsed.data.isGoalkeeper,
       });
       return c.body(null, 204);
     } catch (error) {
