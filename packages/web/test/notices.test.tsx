@@ -336,6 +336,27 @@ describe('the bot check on the announcements page', () => {
     expect(api.removeAnnouncement).not.toHaveBeenCalled();
   });
 
+  test('a check that fails offers a retry, with the code that explains it', async () => {
+    // The same dead end the registration form had: every write button
+    // disabled behind "Odotetaan varmistusta…" with nothing to press.
+    window.turnstile = {
+      render: vi.fn((_host, options) => {
+        queueMicrotask(() => options['error-callback']?.('110200'));
+        return 'failed-widget';
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    openPage(fakeApi());
+    await screen.findByText('Joulutauko');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/110200/);
+    expect(
+      await screen.findByRole('button', { name: 'Yritä varmistusta uudelleen' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Odotetaan varmistusta…')).not.toBeInTheDocument();
+  });
+
   test('reading the list is not gated', async () => {
     window.turnstile = {
       render: vi.fn(() => 'never-solved'),

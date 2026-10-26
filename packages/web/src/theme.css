@@ -464,6 +464,21 @@ body {
   cursor: progress;
 }
 
+/*
+ * The retry beside a failed bot check. Quieter than the submit button it sits
+ * under: it is a way out of a fault, not the thing the page is for, and two
+ * equally loud buttons would leave it unclear which one registers you.
+ */
+.button--quiet {
+  min-height: 42px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .suggestions {
   margin: 10px 0 0;
   padding: 0;

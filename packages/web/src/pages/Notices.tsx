@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { TURNSTILE_ACTIONS, type Announcement, type AnnouncementInput } from '@sahlykanta/shared';
 import { finnishDate } from '../lib/finnish.js';
-import { Turnstile } from '../components/Turnstile.js';
+import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
 
 /**
  * Managing the announcements shown on the landing page.
@@ -43,6 +43,19 @@ export function Notices({
   const [error, setError] = useState<string | undefined>(undefined);
   const [token, setToken] = useState<string | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
+  /**
+   * A check that has failed, as against one that simply has not answered yet.
+   * Both leave `token` undefined, but only one of them is worth waiting for.
+   */
+  const [failure, setFailure] = useState<{ code: string | undefined } | undefined>(undefined);
+  /** Bumped to build the widget again, which is what a retry needs. */
+  const [reload, setReload] = useState(0);
+
+  const retryVerification = (): void => {
+    setFailure(undefined);
+    setToken(undefined);
+    setReload((previous) => previous + 1);
+  };
 
   useEffect(() => {
     // An administrative page has no business in search results. The rest of
@@ -185,7 +198,11 @@ export function Notices({
           </button>
         </form>
 
-        {token === undefined && <p className="field__hint">Odotetaan varmistusta…</p>}
+        {failure !== undefined ? (
+          <TurnstileFailure code={failure.code} onRetry={retryVerification} />
+        ) : (
+          token === undefined && <p className="field__hint">Odotetaan varmistusta…</p>
+        )}
 
         {error !== undefined && (
           <p className="field__error" role="alert">
@@ -270,7 +287,13 @@ export function Notices({
         native form submission here — the token reaches the API through the
         callback below and fetch — so nothing is lost by moving it out.
       */}
-      <Turnstile action={TURNSTILE_ACTIONS.announce} resetKey={attempt} onToken={setToken} />
+      <Turnstile
+        action={TURNSTILE_ACTIONS.announce}
+        resetKey={attempt}
+        reloadKey={reload}
+        onToken={setToken}
+        onFailure={(code) => setFailure({ code })}
+      />
     </>
   );
 }

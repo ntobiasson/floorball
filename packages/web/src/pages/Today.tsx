@@ -38,6 +38,17 @@ export function Today({
    */
   const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
+  /**
+   * Set when the check fails rather than merely not having answered yet. The
+   * two look identical from the token alone — both are `undefined` — but only
+   * one of them is worth waiting for, and telling somebody to wait for the
+   * other is how this form became a dead end.
+   */
+  const [turnstileFailure, setTurnstileFailure] = useState<
+    { code: string | undefined } | undefined
+  >(undefined);
+  /** Bumped to build the widget again, which is what a retry needs. */
+  const [reload, setReload] = useState(0);
 
   if (!today.isGameDay) {
     return (
@@ -171,6 +182,12 @@ export function Today({
         error={error}
         turnstileToken={turnstileToken}
         onTokenSpent={() => setAttempt((previous) => previous + 1)}
+        turnstileFailure={turnstileFailure}
+        onRetryVerification={() => {
+          setTurnstileFailure(undefined);
+          setTurnstileToken(undefined);
+          setReload((previous) => previous + 1);
+        }}
         onSubmit={async (name, token) => {
           setError(undefined);
           try {
@@ -192,7 +209,9 @@ export function Today({
       <Turnstile
         action={TURNSTILE_ACTIONS.register}
         resetKey={attempt}
+        reloadKey={reload}
         onToken={setTurnstileToken}
+        onFailure={(code) => setTurnstileFailure({ code })}
       />
     </>
   );
