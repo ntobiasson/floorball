@@ -154,6 +154,12 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
               await refreshToday();
               setHistory(undefined);
             }}
+            onSetGoalkeeper={async (playerId, isGoalkeeper) => {
+              await api.setGoalkeeper(playerId, isGoalkeeper);
+              // Only the day's list moves. Standing in goal is still playing,
+              // so no total changes and the archive is untouched.
+              await refreshToday();
+            }}
           />
         )}
       </main>

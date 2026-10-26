@@ -79,6 +79,40 @@ describe('a successful response', () => {
   });
 });
 
+describe('marking a goalkeeper', () => {
+  const sentTo = (): { url: string; method: string; body: string } => {
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    return { url: String(url), method: String(init.method), body: String(init.body ?? '') };
+  };
+
+  test('PATCHes the one night that player is registered for', async () => {
+    respondWith('', { status: 204 });
+
+    await api.setGoalkeeper('p1', true);
+
+    const { url, method, body } = sentTo();
+    expect(method).toBe('PATCH');
+    expect(url).toBe('/api/registrations/p1/goalkeeper');
+    expect(JSON.parse(body)).toEqual({ isGoalkeeper: true });
+  });
+
+  test('carries false when unmarking', async () => {
+    respondWith('', { status: 204 });
+
+    await api.setGoalkeeper('p1', false);
+
+    expect(JSON.parse(sentTo().body)).toEqual({ isGoalkeeper: false });
+  });
+
+  test('escapes the player id, as the other calls do', async () => {
+    respondWith('', { status: 204 });
+
+    await api.setGoalkeeper('a/b', true);
+
+    expect(sentTo().url).toBe('/api/registrations/a%2Fb/goalkeeper');
+  });
+});
+
 describe('the Turnstile token', () => {
   const sentWith = (): { body: string; headers: Record<string, string> } => {
     const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];

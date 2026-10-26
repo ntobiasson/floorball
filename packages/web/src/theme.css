@@ -203,6 +203,97 @@ body {
 }
 
 /*
+ * The name inside a chip is a button, because tapping it is how the
+ * goalkeeper mark is set. It carries none of a button's usual furniture: on a
+ * list of twenty names, twenty bordered controls would read as a form rather
+ * than as a list of who is coming.
+ */
+.chip__name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* The same text in the states where it is not pressable, so nothing shifts. */
+.chip__name-static {
+  font: inherit;
+}
+
+/*
+ * Tonight's goalkeeper.
+ *
+ * --accent-wash-strong rather than --accent-wash: the lighter one is barely
+ * separable from the grey of an ordinary chip at arm's length in a hall. It is
+ * borrowed from the pressed state of a control on the announcements page,
+ * which never appears beside these chips, so the two meanings cannot collide.
+ *
+ * Deliberately not colour alone: the MV badge carries the meaning in text, so
+ * it survives a bright doorway and anyone who cannot pick green from grey.
+ */
+.chip--goalkeeper {
+  background: var(--accent-wash-strong);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.chip--goalkeeper .chip__remove {
+  background: #aadcc8;
+  color: var(--accent-ink);
+}
+
+.chip--goalkeeper .chip__remove:hover {
+  background: #97d2bb;
+}
+
+.chip__mv {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+/*
+ * The open chip. It wraps to its own line because a checkbox, its label and a
+ * close button do not fit beside a name on a phone, and a row that scrolls
+ * sideways is a row nobody finds the end of.
+ */
+.chip--editing {
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.chip__gk {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.chip__gk input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.chip__gk input:disabled {
+  cursor: progress;
+}
+
+/*
  * Removal is two taps. The confirming chip changes colour as well as content,
  * so which name is about to go is unmistakable even on a crowded list.
  */
@@ -214,7 +305,8 @@ body {
 }
 
 .chip__confirm,
-.chip__cancel {
+.chip__cancel,
+.chip__done {
   min-height: 32px;
   padding: 0 12px;
   border: none;
@@ -370,6 +462,20 @@ body {
 
 .chip__cancel:hover {
   background: #e7d3ce;
+}
+
+/*
+ * Closing the goalkeeper panel. It borrows the cancel button's shape but not
+ * its colour: cancel is the red half of "remove this name?", and the same red
+ * on a button that only folds a panel away reads as undoing something.
+ */
+.chip__done {
+  background: var(--chip-button);
+  color: var(--ink-soft);
+}
+
+.chip__done:hover {
+  background: #d3dad5;
 }
 
 .field__label {
