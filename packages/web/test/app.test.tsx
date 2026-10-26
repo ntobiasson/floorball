@@ -528,6 +528,75 @@ describe('the bot check in front of registering', () => {
     expect(form).not.toContainElement(container.querySelector('.turnstile'));
   });
 
+  test('the Cloudflare error code reaches the page, so a refusal can be diagnosed', async () => {
+    // The code is the only thing that names the cause — 110200 is "domain not
+    // allowed" — and a check that fails without it is a silent one.
+    window.turnstile = {
+      render: vi.fn((_host, options) => {
+        queueMicrotask(() => options['error-callback']?.('110200'));
+        return 'failed-widget';
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByLabelText('Nimi');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/110200/);
+  });
+
+  test('a check that fails offers a retry rather than waiting for ever', async () => {
+    // The dead end this replaces: the button disabled behind "Odotetaan
+    // varmistusta…" — waiting for verification — when nothing further is
+    // coming and there is nothing on the page to press.
+    window.turnstile = {
+      render: vi.fn((_host, options) => {
+        queueMicrotask(() => options['error-callback']?.('110200'));
+        return 'failed-widget';
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    const { container } = render(<App api={fakeApi(MONDAY)} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
+
+    const retry = await screen.findByRole('button', { name: 'Yritä varmistusta uudelleen' });
+    const form = container.querySelector('form.card') as HTMLElement;
+    // Beside the button it unblocks, not at the foot of the page by the widget.
+    expect(form).toContainElement(retry);
+    expect(screen.queryByText('Odotetaan varmistusta…')).not.toBeInTheDocument();
+  });
+
+  test('retrying builds the widget again and unblocks the button', async () => {
+    let attempt = 0;
+    window.turnstile = {
+      render: vi.fn((_host, options) => {
+        attempt += 1;
+        // Fails once, then succeeds — a dropped connection, not a
+        // misconfiguration.
+        if (attempt === 1) queueMicrotask(() => options['error-callback']?.('300030'));
+        else queueMicrotask(() => options.callback?.(TEST_TURNSTILE_TOKEN));
+        return `widget-${attempt}`;
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Uusi Pelaaja');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Yritä varmistusta uudelleen' }),
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Ilmoittaudu' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+    await waitFor(() =>
+      expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19', TEST_TURNSTILE_TOKEN),
+    );
+  });
+
   test('the not-a-game-day screen has no widget, having no form to protect', async () => {
     render(<App api={fakeApi(TUESDAY)} />);
 

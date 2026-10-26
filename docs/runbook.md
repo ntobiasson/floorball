@@ -113,6 +113,12 @@ gated write fails, when the function tries to read it.
 The name is a constant in `packages/infra/lib/sahlykanta-stack.ts`
 (`TURNSTILE_SECRET_NAME`). Changing it there is the only place that matters.
 
+**Store it as plaintext, not as a key/value pair.** The whole of
+`SecretString` is sent to Cloudflare as the `secret` parameter — nothing
+parses it as JSON — so a key/value entry arrives at siteverify as a literal
+`{"...":"..."}` and every write comes back 403. The AWS console defaults to
+the key/value editor; the Plaintext tab beside it is the one to use.
+
 Copy the secret key from the Cloudflare dashboard (Turnstile → the widget →
 Settings) and put it in without it passing through a shell argument, your
 history, or this repository:
@@ -135,8 +141,14 @@ read -rs -p 'Turnstile secret: ' s && printf '%s' "$s" | \
 unset s
 ```
 
-Then force a cold start so the function reads the new value — it caches the
-secret for the life of an execution environment:
+**Only when replacing a value that already worked** does the function need a
+cold start: a successful read is cached for the life of an execution
+environment. A read that *failed* is not cached — `createSecretReader` clears
+it so one throttled response cannot disable every write until the next cold
+start — so a secret created after a `ResourceNotFoundException` is picked up
+by the very next write, with nothing to restart.
+
+To force one when rotating:
 
 ```sh
 aws lambda update-function-configuration \
@@ -166,7 +178,8 @@ Cloudflare's testing keys instead.
 
 | What you see | What it means |
 | --- | --- |
-| Every write is 403, the widget renders | The secret is wrong, or `prod/floorball/turnstile` does not exist. Put the real one in, then force a cold start. |
+| Every write is 403, the widget renders | The secret is the wrong value — Cloudflare answered `invalid-input-secret`. Put the real one in; no cold start needed. |
+| Every write is 500, `ResourceNotFoundException` in the logs | `prod/floorball/turnstile` does not exist, or is in another region. The read in `secret.ts` throws before siteverify is ever called, so this is a 500 and not a 403. |
 | The widget does not render at all | The distribution's hostname is missing from the widget's domain list. |
 | Cold starts fail, the whole API 500s | `TURNSTILE_SECRET_ARN` or `TURNSTILE_HOSTNAMES` is unset, or the allowlist contains a local hostname. The function says which in its first log line. |
 | `invalid-input-secret` in the logs | The value in Secrets Manager is not this widget's secret. |

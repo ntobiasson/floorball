@@ -23,7 +23,14 @@ export interface TurnstileRenderOptions {
   callback?: (token: string) => void;
   'expired-callback'?: () => void;
   'timeout-callback'?: () => void;
-  'error-callback'?: () => void;
+  /**
+   * Cloudflare passes the error code that explains the refusal — 110200 is
+   * "this hostname is not on the widget's domain list", for instance. It is
+   * the only thing that names the cause, so it is carried up rather than
+   * dropped: without it a misconfigured widget and a dropped connection look
+   * exactly alike from the page.
+   */
+  'error-callback'?: (code?: string) => void;
 }
 
 export interface TurnstileApi {

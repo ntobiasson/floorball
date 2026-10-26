@@ -2,6 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import type { PlayerSummary } from '@sahlykanta/shared';
 import { MAX_NAME_LENGTH } from '@sahlykanta/shared';
 import { filterPlayers } from '../lib/search.js';
+import { TurnstileFailure } from './Turnstile.js';
 
 const MAX_SUGGESTIONS = 6;
 
@@ -12,6 +13,8 @@ export function RegisterForm({
   error,
   turnstileToken,
   onTokenSpent,
+  turnstileFailure,
+  onRetryVerification,
 }: {
   directory: PlayerSummary[];
   alreadyRegistered: ReadonlySet<string>;
@@ -25,6 +28,14 @@ export function RegisterForm({
   turnstileToken: string | undefined;
   /** Called once a submission has consumed the token, so a fresh one is minted. */
   onTokenSpent: () => void;
+  /**
+   * Set once the check has failed, carrying Cloudflare's code when it gave
+   * one. Distinct from simply having no token yet: that one resolves itself
+   * in a moment, this one never will until somebody retries.
+   */
+  turnstileFailure: { code: string | undefined } | undefined;
+  /** Builds the widget again, for when the check has failed. */
+  onRetryVerification: () => void;
 }): React.ReactElement {
   const inputId = useId();
   const [name, setName] = useState('');
@@ -112,10 +123,17 @@ export function RegisterForm({
 
       {/* Stays beside the button rather than beside the widget at the foot of
           the page: it explains why this button is disabled, and that belongs
-          next to the button. Only worth saying once there is a name to submit
-          — before that it is disabled for the obvious reason instead. */}
-      {turnstileToken === undefined && name.trim().length > 0 && (
-        <p className="field__hint">Odotetaan varmistusta…</p>
+          next to the button.
+
+          A failure is shown whether or not a name has been typed — it is the
+          page that is broken, not the entry — while the patient "waiting" is
+          only worth saying once there is a name to submit. Saying "waiting"
+          when nothing is coming is what made this a dead end before. */}
+      {turnstileFailure !== undefined ? (
+        <TurnstileFailure code={turnstileFailure.code} onRetry={onRetryVerification} />
+      ) : (
+        turnstileToken === undefined &&
+        name.trim().length > 0 && <p className="field__hint">Odotetaan varmistusta…</p>
       )}
     </form>
   );

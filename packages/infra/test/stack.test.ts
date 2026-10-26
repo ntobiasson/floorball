@@ -137,7 +137,10 @@ describe('the API Lambda', () => {
       .filter((value) => value !== undefined);
 
     expect(arns).toHaveLength(1);
-    expect(JSON.stringify(arns[0])).toContain('prod/floorball/turnstile');
+    // Anchored on the `:secret:` separator rather than matched loosely: the
+    // name is the tail of the ARN, so a bare `toContain` would also accept a
+    // name this one is a suffix of, and quietly pass on the wrong secret.
+    expect(JSON.stringify(arns[0])).toContain(':secret:prod/floorball/turnstile');
   });
 
   test('may read that secret and nothing else, and may not write it', () => {
