@@ -504,6 +504,34 @@ body {
   font-size: 12px;
 }
 
+/*
+ * The goalkeeper box on the registration form. No frame and no background:
+ * it is one more row of the card, not a panel, which is what keeps the form
+ * the same height it has always been plus a single line.
+ *
+ * It sits above the suggestions on purpose — tapping a suggestion registers
+ * that name immediately, so a box below them would come after the point of
+ * no return. The chips' own box (.chip__gk) is the same control for a name
+ * already on the list; the two never appear in the same card.
+ */
+.field__gk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.field__gk input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .field__error {
   margin: 8px 0 0;
   color: var(--danger);

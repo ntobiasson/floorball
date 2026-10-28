@@ -18,6 +18,12 @@ export const PlayerNameSchema = z
 export const RegistrationInputSchema = z.object({
   name: PlayerNameSchema,
   gameDate: IsoDateSchema,
+  /**
+   * The form's goalkeeper box. Optional because it is absent from every
+   * request a client sent before the box existed, and because an empty box is
+   * the ordinary case: the mark is only ever carried when it is true.
+   */
+  isGoalkeeper: z.boolean().optional(),
 });
 
 export const AnnouncementSchema = z.object({

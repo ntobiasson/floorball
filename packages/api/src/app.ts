@@ -119,6 +119,11 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       const result = await repo.register({
         gameDate: date,
         rawName: parsed.data.name,
+        // Spread rather than passed as `undefined`: an absent flag is how
+        // every client before the form's box phrased an ordinary player.
+        ...(parsed.data.isGoalkeeper === undefined
+          ? {}
+          : { isGoalkeeper: parsed.data.isGoalkeeper }),
         ...ipHashOf(c.req.header('x-forwarded-for')),
       });
       return c.json(result, 201);

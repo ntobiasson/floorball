@@ -18,7 +18,7 @@ export function RegisterForm({
 }: {
   directory: PlayerSummary[];
   alreadyRegistered: ReadonlySet<string>;
-  onSubmit: (name: string, turnstileToken: string) => Promise<void>;
+  onSubmit: (name: string, turnstileToken: string, isGoalkeeper: boolean) => Promise<void>;
   error: string | undefined;
   /**
    * Arrives on its own, usually before anyone has finished typing a name. The
@@ -40,6 +40,17 @@ export function RegisterForm({
   const inputId = useId();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  /**
+   * Whether this registration is for the goal. Never ticked to begin with:
+   * most evenings nobody is marked, and a box that remembers the last answer
+   * would quietly put the next person in goal.
+   *
+   * It is settled here, before the name is submitted, because picking a
+   * suggestion registers that name on the spot — so the box has to be
+   * answerable before the tap. Changing it afterwards still happens from the
+   * list, where who is in goal is usually decided.
+   */
+  const [goalkeeper, setGoalkeeper] = useState(false);
 
   /**
    * Suggestions come from the cached directory, but typing a brand-new name
@@ -58,8 +69,12 @@ export function RegisterForm({
     if (value.trim().length === 0 || busy || turnstileToken === undefined) return;
     setBusy(true);
     try {
-      await onSubmit(value.trim(), turnstileToken);
+      await onSubmit(value.trim(), turnstileToken, goalkeeper);
+      // The box is emptied with the name, never left behind: the next name
+      // typed into this form is somebody else, and an inherited tick would
+      // put them in goal without anyone asking.
       setName('');
+      setGoalkeeper(false);
     } finally {
       // Whether it worked or not, that token is spent.
       onTokenSpent();
@@ -89,6 +104,18 @@ export function RegisterForm({
         onChange={(event) => setName(event.target.value)}
       />
       <p className="field__hint">Ehdotetaan aiemmin pelanneista · uusi nimi käy myös</p>
+
+      {/* Above the suggestions, because tapping one of them registers that
+          name immediately: below them, the box would sit past the point of
+          no return. */}
+      <label className="field__gk">
+        <input
+          type="checkbox"
+          checked={goalkeeper}
+          onChange={(event) => setGoalkeeper(event.target.checked)}
+        />
+        Ilmoittaudun maalivahdiksi
+      </label>
 
       {suggestions.length > 0 && (
         <ul className="suggestions" aria-label="Ehdotukset">

@@ -140,7 +140,12 @@ describe('a game day', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
 
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19', TEST_TURNSTILE_TOKEN),
+      expect(api.register).toHaveBeenCalledWith(
+        'Uusi Pelaaja',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+        false,
+      ),
     );
   });
 
@@ -175,6 +180,7 @@ describe('a game day', () => {
         'Riikka Mäkelä',
         '2026-10-19',
         TEST_TURNSTILE_TOKEN,
+        false,
       ),
     );
   });
@@ -189,6 +195,102 @@ describe('a game day', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('nimi on jo listalla');
+  });
+});
+
+describe('registering as the goalkeeper', () => {
+  /** The form's box. The chips carry one too, under a different name. */
+  const box = (): HTMLElement =>
+    screen.getByRole('checkbox', { name: 'Ilmoittaudun maalivahdiksi' });
+
+  test('the box is on the form before a name is, and starts empty', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByLabelText('Nimi');
+    expect(box()).not.toBeChecked();
+  });
+
+  test('a ticked box registers a typed name as the goalkeeper', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Jukka Rantanen');
+    await userEvent.click(box());
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+
+    await waitFor(() =>
+      expect(api.register).toHaveBeenCalledWith(
+        'Jukka Rantanen',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+        true,
+      ),
+    );
+  });
+
+  /**
+   * Tapping a suggestion registers that name on the spot, so the box has to
+   * be reachable — and tickable — before the tap. This is why it sits above
+   * the suggestions rather than beside the submit button.
+   */
+  test('a ticked box is carried into a name picked from the suggestions', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'makel');
+    await userEvent.click(box());
+    const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
+    await userEvent.click(within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' }));
+
+    await waitFor(() =>
+      expect(api.register).toHaveBeenCalledWith(
+        'Riikka Mäkelä',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+        true,
+      ),
+    );
+  });
+
+  test('the box empties after a registration, so the next name is not marked by accident', async () => {
+    const api = fakeApi(MONDAY);
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Jukka Rantanen');
+    await userEvent.click(box());
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+
+    await waitFor(() => expect(box()).not.toBeChecked());
+  });
+
+  /**
+   * The box follows the name field, which this form has always cleared once a
+   * submission has been answered — refused or not. A box left ticked after a
+   * refusal is how the next name typed into an empty field would end up in
+   * goal without anyone asking for it.
+   */
+  test('a refused registration leaves neither the name nor the box behind', async () => {
+    const api = fakeApi(MONDAY, {
+      register: vi.fn().mockRejectedValue(new Error('nimi on jo listalla')),
+    });
+    render(<App api={api} />);
+
+    await userEvent.type(await screen.findByLabelText('Nimi'), 'Mikko Laine');
+    await userEvent.click(box());
+    await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Nimi')).toHaveValue('');
+    expect(box()).not.toBeChecked();
+  });
+
+  test('the not-a-game-day screen has no box, having no form', async () => {
+    render(<App api={fakeApi(TUESDAY)} />);
+
+    await screen.findByRole('heading', { name: 'Tänään ei pelata' });
+    expect(
+      screen.queryByRole('checkbox', { name: 'Ilmoittaudun maalivahdiksi' }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -534,7 +636,12 @@ describe('the bot check in front of registering', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
 
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19', TEST_TURNSTILE_TOKEN),
+      expect(api.register).toHaveBeenCalledWith(
+        'Uusi Pelaaja',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+        false,
+      ),
     );
   });
 
@@ -693,7 +800,12 @@ describe('the bot check in front of registering', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Ilmoittaudu' })).toBeEnabled());
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19', TEST_TURNSTILE_TOKEN),
+      expect(api.register).toHaveBeenCalledWith(
+        'Uusi Pelaaja',
+        '2026-10-19',
+        TEST_TURNSTILE_TOKEN,
+        false,
+      ),
     );
   });
 

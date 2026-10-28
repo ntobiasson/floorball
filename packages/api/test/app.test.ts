@@ -151,6 +151,47 @@ describe('POST /api/registrations', () => {
     expect(res.status).toBe(400);
   });
 
+  test('puts a ticked goalkeeper box straight onto the day s list', async () => {
+    const res = await post(MONDAY_MORNING, {
+      name: 'Jukka Rantanen',
+      gameDate: '2026-10-19',
+      isGoalkeeper: true,
+    });
+
+    expect(res.status).toBe(201);
+    const [entry] = await repo.listRegistrations('2026-10-19');
+    expect(entry?.isGoalkeeper).toBe(true);
+  });
+
+  test('registers an ordinary player when the box was left empty', async () => {
+    await post(MONDAY_MORNING, {
+      name: 'Jukka Rantanen',
+      gameDate: '2026-10-19',
+      isGoalkeeper: false,
+    });
+
+    const [entry] = await repo.listRegistrations('2026-10-19');
+    expect(entry?.isGoalkeeper).toBeUndefined();
+  });
+
+  test('registers an ordinary player when the flag is absent, as older clients send it', async () => {
+    await post(MONDAY_MORNING, { name: 'Jukka Rantanen', gameDate: '2026-10-19' });
+
+    const [entry] = await repo.listRegistrations('2026-10-19');
+    expect(entry?.isGoalkeeper).toBeUndefined();
+  });
+
+  test('refuses a goalkeeper flag that is not a boolean, and writes nothing', async () => {
+    const res = await post(MONDAY_MORNING, {
+      name: 'Jukka Rantanen',
+      gameDate: '2026-10-19',
+      isGoalkeeper: 'kyllä',
+    });
+
+    expect(res.status).toBe(400);
+    expect(await repo.listRegistrations('2026-10-19')).toEqual([]);
+  });
+
   test('refuses the same player twice on one day', async () => {
     await post(MONDAY_MORNING, { name: 'Matti Virtanen', gameDate: '2026-10-19' });
     const res = await post(MONDAY_MORNING, { name: 'Matti  virtanen', gameDate: '2026-10-19' });
