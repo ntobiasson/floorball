@@ -357,6 +357,36 @@ Three things must line up:
    purpose: this repository holds no real player data, and the numbers keep
    moving until Domino is switched off.
 
+## Indexing the registrations by player
+
+Run once, after deploying the version that introduced it. Skip it and nothing
+breaks: a player's own dates simply come back empty for every game written
+before the change, which is all of them.
+
+A registration is keyed `DAY#<iso> / PLAYER#<id>`, so the table answers "who
+played on this date" and cannot answer the reverse. The reverse needs
+`GSI1PK=PLAYER#<id>`, `GSI1SK=DAY#<iso>` on the same row, which the API and
+the importer now write and which the rows already in the table lack.
+
+```sh
+export TABLE_NAME=sahlykanta-prod
+export AWS_REGION=eu-north-1
+
+npx tsx scripts/backfill-player-dates.ts --dry-run
+npx tsx scripts/backfill-player-dates.ts
+```
+
+The dry run prints how many rows it would touch; that number should be the
+number of registrations in the table, which `GET /api/history` totals.
+Nothing else in the table is a `DAY#` row, and a row that already carries the
+keys is skipped, so a second run writes nothing and costs one scan. It is
+safe to run while the application is serving: each write is conditional on
+the keys still being absent, so a registration made mid-run is never
+overwritten.
+
+It is a Scan, which reads the whole table once — a few thousand rows here,
+well inside the free tier.
+
 ## Merging two players
 
 The import stays faithful to Domino, which means `Matti Virtanen (EHKÄ)` and

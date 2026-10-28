@@ -85,6 +85,14 @@ export const api = {
   history: () => request<HistoryResponse>('/api/history'),
 
   /**
+   * The dates behind one player's counts, newest first. Asked for one player
+   * at a time, when somebody opens that name: the archive holds a quarter of
+   * a century of them and no page needs all of it at once.
+   */
+  playerDates: (playerId: string) =>
+    request<{ dates: string[] }>(`/api/players/${encodeURIComponent(playerId)}/dates`),
+
+  /**
    * `isGoalkeeper` is sent only when the form's box was ticked: an empty box
    * is the ordinary evening, and leaving the field out keeps that request
    * identical to what this client sent before the box existed. The API reads

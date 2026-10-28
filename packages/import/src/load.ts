@@ -5,6 +5,8 @@ import {
   GSI1_PK,
   NAME_SK,
   PROFILE_SK,
+  dayGsi1Pk,
+  dayGsi1Sk,
   dayPk,
   gsi1Sk,
   namePk,
@@ -287,6 +289,10 @@ export async function loadHarvest({
     items.push({
       PK: dayPk(row.date),
       SK: playerSk(row.playerId),
+      // The same index keys the API writes, so an imported game answers
+      // "which dates did this player play" exactly as a fresh one does.
+      GSI1PK: dayGsi1Pk(row.playerId),
+      GSI1SK: dayGsi1Sk(row.date),
       playerId: row.playerId,
       displayName: groups.get(normalizeName(row.name))?.displayName ?? row.name,
       rawName: row.name,

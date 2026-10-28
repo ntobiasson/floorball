@@ -33,6 +33,8 @@ import {
   PROFILE_SK,
   announcementSk,
   auditPk,
+  dayGsi1Pk,
+  dayGsi1Sk,
   dayPk,
   gsi1Sk,
   namePk,
@@ -133,6 +135,13 @@ export interface Repo {
    */
   setGoalkeeper(input: SetGoalkeeperInput): Promise<void>;
   listRegistrations(gameDate: string): Promise<Registration[]>;
+  /**
+   * Every date that player has registered for, newest first. The mirror of
+   * `listRegistrations`, and the only question the base table cannot answer:
+   * it is keyed by day, so it knows who played on a date and not which dates
+   * a player played.
+   */
+  listPlayerDates(playerId: string): Promise<string[]>;
   listPlayers(): Promise<PlayerSummary[]>;
   /** Every player with their per-year counts: what the history page ranks. */
   listHistory(): Promise<PlayerDetail[]>;
@@ -347,6 +356,10 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
                   Item: {
                     PK: dayPk(gameDate),
                     SK: playerSk(player.playerId),
+                    // The same row, findable by player and date as well as
+                    // by date and player.
+                    GSI1PK: dayGsi1Pk(player.playerId),
+                    GSI1SK: dayGsi1Sk(gameDate),
                     playerId: player.playerId,
                     displayName: player.displayName,
                     rawName,
@@ -514,6 +527,33 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
         // who is not one — so the field is only carried when it is true.
         ...(item.isGoalkeeper === true ? { isGoalkeeper: true } : {}),
       }));
+    },
+
+    async listPlayerDates(playerId) {
+      const dates: string[] = [];
+      let startKey: Record<string, unknown> | undefined;
+
+      do {
+        const out = await client.send(
+          new QueryCommand({
+            TableName: tableName,
+            IndexName: GSI1,
+            KeyConditionExpression: 'GSI1PK = :pk',
+            ExpressionAttributeValues: { ':pk': dayGsi1Pk(playerId) },
+            // Newest first, as a Domino view of somebody's games was.
+            ScanIndexForward: false,
+            ExclusiveStartKey: startKey,
+          }),
+        );
+        for (const item of out.Items ?? []) {
+          // The date is the sort key, so nothing beyond the keys is needed
+          // and the index projects nothing extra for this.
+          dates.push(String(item.GSI1SK).replace('DAY#', ''));
+        }
+        startKey = out.LastEvaluatedKey;
+      } while (startKey !== undefined);
+
+      return dates;
     },
 
     async listPlayers() {

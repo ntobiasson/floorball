@@ -6,7 +6,16 @@ import { Tabs, type Tab } from './components/Tabs.js';
 import { Today } from './pages/Today.js';
 import { History } from './pages/History.js';
 import { Notices } from './pages/Notices.js';
+import { Retro } from './pages/Retro.js';
 import { HISTORY_PATH, NOTICES_PATH } from './lib/routes.js';
+import './retro.css';
+
+/**
+ * Taps on the masthead mark that bring back the application this one
+ * replaced. Seven, in one go: few enough to find by fidgeting, many enough
+ * that nobody arrives there by mis-tapping the logo.
+ */
+const TAPS_TO_2002 = 7;
 
 /**
  * Three pages: the day's list, the history, and the unlisted announcements
@@ -31,6 +40,13 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
   const [fatal, setFatal] = useState<string | undefined>(undefined);
   const [history, setHistory] = useState<PlayerDetail[] | undefined>(undefined);
   const [historyError, setHistoryError] = useState<string | undefined>(undefined);
+  /**
+   * The easter egg. Deliberately held in memory and nowhere else: no route,
+   * no stored flag, no link to it — a reload is always the way back to the
+   * present, and Esc or the banner is the quick one.
+   */
+  const [retro, setRetro] = useState(false);
+  const [taps, setTaps] = useState(0);
 
   const refreshToday = useCallback(async () => {
     setToday(await api.today());
@@ -86,10 +102,64 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  // Esc is the way out of 2002, as it is out of anything that took over the
+  // screen without being asked.
+  useEffect(() => {
+    if (!retro) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setRetro(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [retro]);
+
   const navigate = (tab: Tab): void => {
     window.history.pushState({}, '', tab === 'history' ? HISTORY_PATH : '/');
     setView(tab);
+    // Going somewhere counts as having meant to: the run of taps is over.
+    setTaps(0);
   };
+
+  const tapMark = (): void => {
+    const next = taps + 1;
+    if (next >= TAPS_TO_2002) {
+      setTaps(0);
+      setRetro(true);
+      return;
+    }
+    setTaps(next);
+  };
+
+  const register = async (
+    name: string,
+    turnstileToken: string,
+    isGoalkeeper: boolean,
+  ): Promise<void> => {
+    // Neither page offers the form before the day has arrived, so this is
+    // unreachable rather than a case worth reporting.
+    if (today === undefined) return;
+    await api.register(name, today.date, turnstileToken, isGoalkeeper);
+    await refreshToday();
+    // A brand-new player belongs in the directory immediately, so the next
+    // person can pick the name from the suggestions.
+    setDirectory((await api.players()).players);
+    // And the archive it is now part of is stale; it will be fetched again
+    // next time the history is opened.
+    setHistory(undefined);
+  };
+
+  if (retro && today !== undefined) {
+    return (
+      <Retro
+        today={today}
+        directory={directory}
+        onRegister={(name, turnstileToken) => register(name, turnstileToken, false)}
+        loadHistory={async () => (await api.history()).players}
+        loadDates={async (playerId) => (await api.playerDates(playerId)).dates}
+        onLeave={() => setRetro(false)}
+      />
+    );
+  }
 
   return (
     <div className="app">
@@ -104,9 +174,16 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
             </span>
           </a>
         ) : (
-          <span className="masthead__mark">
+          // A button, not a span: it is tappable, and a tappable span is one
+          // the keyboard cannot reach. What it does is nobody's business.
+          <button
+            className="masthead__mark masthead__mark--tap"
+            type="button"
+            aria-label="Peleille"
+            onClick={tapMark}
+          >
             <BallMark />
-          </span>
+          </button>
         )}
         <span className="masthead__name">PELEILLE</span>
       </header>
@@ -138,16 +215,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
           <Today
             today={today}
             directory={directory}
-            onRegister={async (name, turnstileToken, isGoalkeeper) => {
-              await api.register(name, today.date, turnstileToken, isGoalkeeper);
-              await refreshToday();
-              // A brand-new player belongs in the directory immediately, so
-              // the next person can pick the name from the suggestions.
-              setDirectory((await api.players()).players);
-              // And the archive it is now part of is stale; it will be
-              // fetched again next time the history is opened.
-              setHistory(undefined);
-            }}
+            onRegister={register}
             onUnregister={async (playerId) => {
               await api.unregister(playerId);
               await refreshToday();

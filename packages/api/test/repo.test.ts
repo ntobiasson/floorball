@@ -139,6 +139,56 @@ describe('register', () => {
   });
 });
 
+/**
+ * A registration is stored under its day, which answers "who played on this
+ * date". The reverse question — "which dates did this player play" — is what
+ * the index keys on the day row are for.
+ */
+describe('listPlayerDates', () => {
+  test('gives back every date that player registered for, newest first', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: WEDNESDAY, rawName: 'Jukka Rantanen' });
+
+    expect(await repo.listPlayerDates(playerId)).toEqual([WEDNESDAY, MONDAY]);
+  });
+
+  test('spans the years, as the archive does', async () => {
+    const { playerId } = await repo.register({ gameDate: '2024-10-21', rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: '2025-10-20', rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+
+    expect(await repo.listPlayerDates(playerId)).toEqual([MONDAY, '2025-10-20', '2024-10-21']);
+  });
+
+  test('carries nobody else s dates', async () => {
+    const mine = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: WEDNESDAY, rawName: 'Matti Virtanen' });
+
+    expect(await repo.listPlayerDates(mine.playerId)).toEqual([MONDAY]);
+  });
+
+  test('a date that was unregistered is gone from it', async () => {
+    const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+    await repo.register({ gameDate: WEDNESDAY, rawName: 'Jukka Rantanen' });
+
+    await repo.unregister({ gameDate: MONDAY, playerId });
+
+    expect(await repo.listPlayerDates(playerId)).toEqual([WEDNESDAY]);
+  });
+
+  test('is empty for somebody who has never played', async () => {
+    expect(await repo.listPlayerDates('EI-OLE')).toEqual([]);
+  });
+
+  test('leaves the directory query alone, sharing the index with it', async () => {
+    await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen' });
+
+    // The day rows now live in GSI1 too, under their own partition key.
+    const players = await repo.listPlayers();
+    expect(players.map((p) => p.displayName)).toEqual(['Jukka Rantanen']);
+  });
+});
+
 describe('unregister', () => {
   test('removes the row and decrements both the total and the year count', async () => {
     const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' });
