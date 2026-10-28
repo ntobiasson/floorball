@@ -84,11 +84,22 @@ export const api = {
    */
   history: () => request<HistoryResponse>('/api/history'),
 
-  register: (name: string, gameDate: string, turnstileToken: string) =>
+  /**
+   * `isGoalkeeper` is sent only when the form's box was ticked: an empty box
+   * is the ordinary evening, and leaving the field out keeps that request
+   * identical to what this client sent before the box existed. The API reads
+   * an absent flag and a false one the same way.
+   */
+  register: (name: string, gameDate: string, turnstileToken: string, isGoalkeeper = false) =>
     request<{ playerId: string; displayName: string }>('/api/registrations', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, gameDate, [TURNSTILE_TOKEN_FIELD]: turnstileToken }),
+      body: JSON.stringify({
+        name,
+        gameDate,
+        ...(isGoalkeeper ? { isGoalkeeper: true } : {}),
+        [TURNSTILE_TOKEN_FIELD]: turnstileToken,
+      }),
     }),
 
   unregister: (playerId: string) =>

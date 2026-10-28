@@ -94,6 +94,42 @@ test('a registered player can be marked as goalkeeper, and unmarked', async ({ p
   await expect(page.getByText('Testi Maalivahti')).toBeHidden();
 });
 
+test('the form can register somebody as goalkeeper in one go', async ({ page }) => {
+  await page.goto('/');
+
+  // The box is answerable before the name is, and starts empty.
+  const box = page.getByRole('checkbox', { name: 'Ilmoittaudun maalivahdiksi' });
+  await expect(box).not.toBeChecked();
+
+  await page.getByLabel('Nimi').fill('Testi Alkuvahti');
+  await box.check();
+  await page.getByRole('button', { name: 'Ilmoittaudu' }).click();
+
+  const chip = page
+    .getByRole('list', { name: 'Ilmoittautuneet' })
+    .locator('li', { hasText: 'Testi Alkuvahti' });
+  await expect(chip).toHaveClass(/chip--goalkeeper/);
+  await expect(chip.getByText('MV')).toBeVisible();
+
+  // The mark rode along in the registration itself, so it is in DynamoDB
+  // without anybody having tapped the name on the list.
+  await page.reload();
+  const afterReload = page
+    .getByRole('list', { name: 'Ilmoittautuneet' })
+    .locator('li', { hasText: 'Testi Alkuvahti' });
+  await expect(afterReload.getByText('MV')).toBeVisible();
+
+  // And the box did not keep the answer for whoever registers next.
+  await expect(
+    page.getByRole('checkbox', { name: 'Ilmoittaudun maalivahdiksi' }),
+  ).not.toBeChecked();
+
+  // Tidy up, so the serial specs after this one see the list they expect.
+  await page.getByRole('button', { name: 'Poista Testi Alkuvahti' }).click();
+  await page.getByRole('button', { name: /Vahvista.*Testi Alkuvahti/ }).click();
+  await expect(page.getByText('Testi Alkuvahti')).toBeHidden();
+});
+
 test('cancelling the removal prompt keeps the name on the list', async ({ page }) => {
   await page.goto('/');
   const before = await countOf(page);

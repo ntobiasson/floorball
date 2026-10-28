@@ -94,6 +94,14 @@ export interface RegisterInput {
   gameDate: string;
   rawName: string;
   ipHash?: string;
+  /**
+   * Set when the form's goalkeeper box was ticked. Carried here rather than
+   * patched in afterwards, so the name never appears on the list unmarked for
+   * a moment. It is still only a fact about this one night — `setGoalkeeper`
+   * changes it later, since who is in goal is often settled after people have
+   * registered.
+   */
+  isGoalkeeper?: boolean;
 }
 
 export interface RegisterResult {
@@ -325,7 +333,7 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
   }
 
   return {
-    async register({ gameDate, rawName, ipHash }) {
+    async register({ gameDate, rawName, ipHash, isGoalkeeper }) {
       const player = await resolvePlayer(rawName);
       const at = now().toISOString();
 
@@ -345,6 +353,10 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
                     gameDate,
                     source: 'web',
                     createdAt: at,
+                    // Omitted rather than written false, exactly as
+                    // setGoalkeeper leaves it: an unmarked registration is
+                    // byte-for-byte what it was before goalkeepers existed.
+                    ...(isGoalkeeper === true ? { isGoalkeeper: true } : {}),
                   },
                   // Also the guard against registering the same person twice.
                   ConditionExpression: 'attribute_not_exists(PK)',

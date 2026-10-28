@@ -102,6 +102,41 @@ describe('register', () => {
       { year: '2025', count: 1 },
     ]);
   });
+
+  test('marks the goalkeeper in the same write that puts the name on the list', async () => {
+    await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen', isGoalkeeper: true });
+
+    const [entry] = await repo.listRegistrations(MONDAY);
+    expect(entry?.isGoalkeeper).toBe(true);
+  });
+
+  test('leaves no mark behind when nobody said goalkeeper', async () => {
+    await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen', isGoalkeeper: false });
+
+    const [entry] = await repo.listRegistrations(MONDAY);
+    expect(entry?.isGoalkeeper).toBeUndefined();
+  });
+
+  test('a goalkeeper still counts as a game played, like any other night', async () => {
+    const { playerId } = await repo.register({
+      gameDate: MONDAY,
+      rawName: 'Jukka Rantanen',
+      isGoalkeeper: true,
+    });
+
+    const player = await repo.getPlayer(playerId);
+    expect(player?.total).toBe(1);
+    expect(player?.years).toEqual([{ year: '2026', count: 1 }]);
+  });
+
+  test('registering as goalkeeper is still a fact about that one night', async () => {
+    await repo.register({ gameDate: MONDAY, rawName: 'Jukka Rantanen', isGoalkeeper: true });
+
+    await repo.register({ gameDate: WEDNESDAY, rawName: 'Jukka Rantanen' });
+
+    const [wednesday] = await repo.listRegistrations(WEDNESDAY);
+    expect(wednesday?.isGoalkeeper).toBeUndefined();
+  });
 });
 
 describe('unregister', () => {

@@ -20,7 +20,7 @@ export function Today({
 }: {
   today: TodayResponse;
   directory: PlayerSummary[];
-  onRegister: (name: string, turnstileToken: string) => Promise<void>;
+  onRegister: (name: string, turnstileToken: string, isGoalkeeper: boolean) => Promise<void>;
   onUnregister: (playerId: string) => Promise<void>;
   /** Marks or unmarks somebody already on tonight's list. */
   onSetGoalkeeper: (playerId: string, isGoalkeeper: boolean) => Promise<void>;
@@ -278,10 +278,10 @@ export function Today({
           setTurnstileToken(undefined);
           setReload((previous) => previous + 1);
         }}
-        onSubmit={async (name, token) => {
+        onSubmit={async (name, token, isGoalkeeper) => {
           setError(undefined);
           try {
-            await onRegister(name, token);
+            await onRegister(name, token, isGoalkeeper);
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Ilmoittautuminen ei onnistunut.');
           }

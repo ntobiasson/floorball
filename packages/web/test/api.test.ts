@@ -116,6 +116,41 @@ describe('marking a goalkeeper', () => {
   });
 });
 
+describe('registering as a goalkeeper', () => {
+  const sentBody = (): unknown => {
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    return JSON.parse(String(init.body ?? ''));
+  };
+
+  const created = (): void => {
+    respondWith(JSON.stringify({ playerId: 'p1', displayName: 'Jukka' }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  test('carries the mark in the same request that registers the name', async () => {
+    created();
+
+    await api.register('Jukka', '2026-10-19', 'a-token', true);
+
+    expect(sentBody()).toEqual({
+      name: 'Jukka',
+      gameDate: '2026-10-19',
+      isGoalkeeper: true,
+      [TURNSTILE_TOKEN_FIELD]: 'a-token',
+    });
+  });
+
+  test('says nothing at all when the box was empty', async () => {
+    created();
+
+    await api.register('Jukka', '2026-10-19', 'a-token', false);
+
+    expect(sentBody()).not.toHaveProperty('isGoalkeeper');
+  });
+});
+
 describe('the Turnstile token', () => {
   const sentWith = (): { body: string; headers: Record<string, string> } => {
     const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
