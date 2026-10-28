@@ -108,6 +108,19 @@ describe('loadHarvest', () => {
     ]);
   });
 
+  test('the imported dates read back per player, not only per day', async () => {
+    await load();
+    const repo = createRepo({ client, tableName });
+
+    const players = await repo.listPlayers();
+    const matti = players.find((p) => p.displayName === 'Matti Virtanen');
+
+    // Newest first, and as many dates as the player has games.
+    const dates = await repo.listPlayerDates(matti?.playerId ?? '');
+    expect(dates).toHaveLength(3);
+    expect([...dates].sort().reverse()).toEqual(dates);
+  });
+
   test("today's list reads back for a historical date", async () => {
     await load();
     const repo = createRepo({ client, tableName });

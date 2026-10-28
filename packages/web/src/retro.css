@@ -1,0 +1,372 @@
+/*
+ * The 2002 stylesheet, as the Domino database served it, scoped under .retro
+ * so none of it reaches the application it is hiding inside. The rules are
+ * kept in the original's own names — #topsection, .navigatorBackground,
+ * .gameToday — so this file can be read beside it.
+ *
+ * Only the parts that the old page actually used are here. Everything that
+ * came from IBM's xsp.css and the Dojo tundra theme is approximated by hand:
+ * those stylesheets belong to the server that is being switched off, and the
+ * page needs about fifteen lines of them.
+ */
+
+.retro {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background: #ffffff;
+  color: #000000;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  line-height: 1.5em;
+  -webkit-font-smoothing: auto;
+}
+
+.retro #maincontainer {
+  min-height: 100%;
+}
+
+.retro #topsection {
+  height: 31px;
+  background: #bb0804;
+}
+
+/* The banner image is the way out, so it is a real button — but it has to
+   look like the plain <img> the original was. */
+.retro__back {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.retro #contentwrapper {
+  float: left;
+  width: 100%;
+}
+
+.retro #contentcolumn {
+  margin-left: 200px;
+  padding-top: 0;
+  padding-left: 20px;
+}
+
+.retro .innertube {
+  margin: 0;
+}
+
+/* Inheritance, exactly as the original wrote it: the shared block first,
+   then the two states that differ only in colour and height. */
+.retro .gameToday,
+.retro .gameNotToday {
+  width: 95%;
+  padding: 20px 0 20px 20px;
+  border: 1px solid #fafafa;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #ffffff;
+  font-size: large;
+}
+
+.retro .gameToday {
+  height: 220px;
+  background: #80ff00;
+  color: #000000;
+}
+
+.retro .gameNotToday {
+  height: 25px;
+  background: #bb0804;
+}
+
+.retro .xspTextComputedField {
+  font-weight: inherit;
+}
+
+.retro .retro__names {
+  font-size: 12pt;
+}
+
+.retro .retro__nameLabel {
+  font-size: 12px;
+}
+
+.retro .retro__nameInput {
+  padding: 1px 2px;
+  border: 2px inset #cccccc;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+/*
+ * The type-ahead. Blue, underlined, one per line: a list of links is what a
+ * page of this vintage did instead of a dropdown that follows the caret.
+ */
+.retro .retro__matches {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.retro .retro__match {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0000cc;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.retro .retro__match:hover {
+  color: #cc0000;
+}
+
+/* The XPages submit button: a grey 3D control, because that is what the
+   browser of the day drew and the theme barely touched. */
+.retro .xspButtonSubmit {
+  padding: 2px 10px;
+  border: 2px outset #d4d0c8;
+  background: #d4d0c8;
+  color: #000000;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.retro .xspButtonSubmit:active {
+  border-style: inset;
+}
+
+.retro .xspButtonSubmit:disabled {
+  color: #808080;
+  cursor: not-allowed;
+}
+
+.retro .retro__waiting,
+.retro .retro__error {
+  padding-top: 6px;
+  font-size: 11px;
+}
+
+.retro .retro__error {
+  color: #bb0804;
+  font-weight: bold;
+}
+
+.retro .retro__noticesTitle {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.retro .retro__noticesBox {
+  padding-left: 10px;
+  padding-right: 10px;
+  border: thin solid #000000;
+  background-color: #ffffff;
+  font-size: 12px;
+}
+
+.retro .xspPagerContainer {
+  font-size: 8pt;
+}
+
+.retro .xspPagerRight {
+  text-align: right;
+}
+
+.retro .xspPagerNav {
+  padding: 0 4px;
+  color: #004080;
+}
+
+/*
+ * The navigator: a 270x693 JPEG with the links laid on top of it. The height
+ * is the image's, not the content's, which is why the original left a tall
+ * red column under three links.
+ */
+.retro .navigatorBackground {
+  float: left;
+  width: 180px;
+  height: 693px;
+  margin-left: -100%;
+  padding-left: 20px;
+  border: 1px solid black;
+  background-image: url('/retro/nav.jpg');
+}
+
+.retro .retro__navItem {
+  padding: 2px 0;
+}
+
+.retro .myLink {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.retro #footer {
+  clear: left;
+  width: 100%;
+  padding: 4px 0;
+  background: black;
+  color: #ffffff;
+  text-align: center;
+}
+
+.retro #footer a,
+.retro .xspLink {
+  color: #ffff80;
+  font-style: italic;
+}
+
+.retro .retro__turnstile {
+  padding-bottom: 16px;
+}
+
+/*
+ * Peliaktiivisuus: the XPages view panel, with the borders IBM's webstandard
+ * theme actually drew — taken from `xsp.css` on the server itself.
+ *
+ * There are no vertical rules anywhere in it. A row is separated from the one
+ * above by a single 1px #e8e8e9 line and by nothing else; the header carries
+ * no border at all, only blue bold text; and the pager sits on the same
+ * #f3f3f3 band, ruled above and below, that the view panel's header and
+ * footer strips used.
+ */
+.retro .xspDataTable {
+  /* Not the theme's width:100%: the Nimi column is capped at twice the
+     longest name, and a stretched table would hand every spare pixel to Kpl
+     and put the counts a hand's width from the names. */
+  width: auto;
+  max-width: 95%;
+  padding: 0;
+  margin: 0 4px;
+  border: 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.retro .xspDataTable thead tr {
+  font-weight: normal;
+  vertical-align: baseline;
+}
+
+/* The only rule in the whole grid. */
+.retro .xspDataTable tbody tr td {
+  border-top: 1px solid #e8e8e9;
+  font-weight: normal;
+  vertical-align: baseline;
+}
+
+.retro .xspPanelViewColumnHeader {
+  display: block;
+  padding: 4px 2px 2px;
+  color: #105cb6;
+  font-weight: bold;
+  text-align: left;
+}
+
+.retro .xspDataTable th {
+  padding: 0;
+  border: 0;
+}
+
+.retro .xspPanelViewColumnHeader:hover {
+  background-color: #f8f8f8;
+}
+
+.retro .xspColumnViewStart,
+.retro .xspColumnViewMiddle,
+.retro .xspColumnViewEnd {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.retro .xspColumnViewEnd {
+  text-align: right;
+}
+
+/* The twisty: a 12px gif in a 20px borderless button, as the original was. */
+.retro .retro__twisty {
+  width: 20px;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+/* The name in the view, dressed as the hrefless link it used to be. */
+.retro .retro__viewName {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #000000;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.retro .retro__viewName:hover {
+  text-decoration: underline;
+}
+
+.retro .xspDataTable tfoot td {
+  padding: 0;
+  border: 0;
+}
+
+.retro .xspDataTable .xspPagerContainer {
+  border-top: 1px solid #e8e8e9;
+  border-bottom: 1px solid #e8e8e9;
+  background-color: #f3f3f3;
+}
+
+.retro .xspDataTable .xspPagerRight {
+  padding: 4px 4px 4px 0;
+  color: #848484;
+  font-size: 0.9em;
+  text-align: right;
+}
+
+.retro .xspPagerNav,
+.retro .xspCurrentItem {
+  padding: 0 7px;
+  color: #848484;
+}
+
+/* Bold blue, never underlined until the pointer is on it. */
+.retro .retro__pagerLink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #105cb6;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.retro .retro__pagerLink:hover {
+  text-decoration: underline;
+}
+
+.retro .retro__viewState {
+  padding: 20px 0;
+  font-size: 12px;
+}
+
+/* The two navigator items that still lead somewhere. White, 12px, and
+   indistinguishable from the one that does not. */
+.retro .retro__navLink {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+}

@@ -223,6 +223,26 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
   });
 
   /**
+   * The dates behind one player's counts. Separate from the route above, and
+   * fetched only when somebody asks for that player: the history page needs
+   * none of it, and a quarter of a century of dates for five hundred players
+   * has no business in the response every visit begins with.
+   *
+   * The profile is read first so an unknown id is a 404 rather than an empty
+   * list, which would otherwise be indistinguishable from somebody who has
+   * registered and never played.
+   */
+  app.get('/api/players/:playerId/dates', async (c) => {
+    const playerId = c.req.param('playerId');
+    const player = await repo.getPlayer(playerId);
+    if (player === null) return c.json({ error: 'pelaajaa ei löytynyt' }, 404);
+
+    const dates = await repo.listPlayerDates(playerId);
+    c.header('cache-control', `public, max-age=${HISTORY_CACHE_SECONDS}`);
+    return c.json({ dates });
+  });
+
+  /**
    * Announcements are managed from an unlisted page. There is still no secret
    * to present: the page's address is the only thing not widely known, and
    * that protects the page, not these endpoints. The writes below are gated

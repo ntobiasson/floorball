@@ -151,6 +151,20 @@ describe('registering as a goalkeeper', () => {
   });
 });
 
+describe('one player s dates', () => {
+  test('asks the route for that player, escaping the id', async () => {
+    respondWith(JSON.stringify({ dates: ['2026-10-19'] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+
+    await expect(api.playerDates('a/b')).resolves.toEqual({ dates: ['2026-10-19'] });
+
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string];
+    expect(String(url)).toBe('/api/players/a%2Fb/dates');
+  });
+});
+
 describe('the Turnstile token', () => {
   const sentWith = (): { body: string; headers: Record<string, string> } => {
     const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];

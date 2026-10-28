@@ -361,6 +361,34 @@ describe('GET /api/players/:playerId', () => {
   });
 });
 
+describe('GET /api/players/:playerId/dates', () => {
+  test('returns every date that player played, newest first', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+    await repo.register({ gameDate: '2026-10-21', rawName: 'Matti Virtanen' });
+
+    const res = await appAt(MONDAY_MORNING).request(`/api/players/${playerId}/dates`);
+
+    expect(res.status).toBe(200);
+    expect(await jsonBody<{ dates: string[] }>(res)).toEqual({
+      dates: ['2026-10-21', '2026-10-19'],
+    });
+  });
+
+  test('is a 404 for an unknown player, as the sibling route is', async () => {
+    const res = await appAt(MONDAY_MORNING).request('/api/players/nobody/dates');
+
+    expect(res.status).toBe(404);
+  });
+
+  test('is cacheable, the archive being what it is', async () => {
+    const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });
+
+    const res = await appAt(MONDAY_MORNING).request(`/api/players/${playerId}/dates`);
+
+    expect(res.headers.get('cache-control')).toMatch(/max-age=\d+/);
+  });
+});
+
 describe('GET /api/history', () => {
   test('returns every player with their per-year counts', async () => {
     await repo.register({ gameDate: '2026-10-19', rawName: 'Matti Virtanen' });

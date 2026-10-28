@@ -81,6 +81,17 @@ body {
 }
 
 /*
+ * The mark is a button on the pages where it is not already a link. It keeps
+ * the badge's shape and gives nothing away: no hover, no pointer, nothing in
+ * the corner of the eye that says there is anything here to press.
+ */
+.masthead__mark--tap {
+  padding: 0;
+  border: none;
+  font: inherit;
+}
+
+/*
  * The mark is 28px, well under a comfortable touch target, so the link around
  * it is padded out to 44px and pulled back by the same amount — a bigger
  * thing to hit without moving anything on screen.

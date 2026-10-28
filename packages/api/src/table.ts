@@ -10,9 +10,13 @@
  *   ANNOUNCEMENT       / <validFrom>#<id> an announcement
  *   AUDIT#<iso>        / <when>#<id>      one mutation, self-expiring
  *
- * GSI1 projects player profiles only: GSI1PK is the constant 'PLAYERS' and
- * GSI1SK is NAME#<normalized>, so the whole directory comes back from one
- * query, ordered by name.
+ * GSI1 carries two kinds of row, under partition keys that cannot collide.
+ * A player profile sits under the constant 'PLAYERS' with GSI1SK
+ * NAME#<normalized>, so the whole directory comes back from one query,
+ * ordered by name. A registration sits under PLAYER#<id> with GSI1SK
+ * DAY#<iso>, which is the only way to ask which dates one player played: the
+ * base table answers the opposite question, who played on one date. The date
+ * is the sort key itself, so the index needs to project nothing extra.
  *
  * The index is deliberately NOT ordered by total. A total-ordered sort key
  * changes on every registration, which means each write would have to read
@@ -40,3 +44,7 @@ export const auditPk = (isoDate: string): string => `AUDIT#${isoDate}`;
 export const announcementSk = (validFrom: string, id: string): string => `${validFrom}#${id}`;
 
 export const gsi1Sk = (normalizedName: string): string => `NAME#${normalizedName}`;
+
+/** A registration's own place in GSI1: one partition per player, by date. */
+export const dayGsi1Pk = (playerId: string): string => `PLAYER#${playerId}`;
+export const dayGsi1Sk = (isoDate: string): string => `DAY#${isoDate}`;
