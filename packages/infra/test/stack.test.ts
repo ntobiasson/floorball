@@ -258,9 +258,11 @@ describe('the distribution', () => {
     const template = synth();
     template.resourceCountIs('AWS::CloudFront::Function', 1);
     const config = distribution().DistributionConfig;
-    const functions = (config.DefaultCacheBehavior as {
-      FunctionAssociations?: Array<{ EventType: string }>;
-    }).FunctionAssociations;
+    const functions = (
+      config.DefaultCacheBehavior as {
+        FunctionAssociations?: Array<{ EventType: string }>;
+      }
+    ).FunctionAssociations;
     expect(functions?.map((f) => f.EventType)).toContain('viewer-request');
   });
 

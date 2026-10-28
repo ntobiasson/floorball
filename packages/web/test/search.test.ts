@@ -40,18 +40,14 @@ describe('filterPlayers', () => {
   });
 
   test('finds a name typed without its diacritics', () => {
-    expect(filterPlayers(DIRECTORY, 'makela').map((p) => p.displayName)).toEqual([
-      'Riikka Mäkelä',
-    ]);
+    expect(filterPlayers(DIRECTORY, 'makela').map((p) => p.displayName)).toEqual(['Riikka Mäkelä']);
     expect(filterPlayers(DIRECTORY, 'vaananen').map((p) => p.displayName)).toEqual([
       'Olli Väänänen',
     ]);
   });
 
   test('finds a name typed with its diacritics', () => {
-    expect(filterPlayers(DIRECTORY, 'Mäkelä').map((p) => p.displayName)).toEqual([
-      'Riikka Mäkelä',
-    ]);
+    expect(filterPlayers(DIRECTORY, 'Mäkelä').map((p) => p.displayName)).toEqual(['Riikka Mäkelä']);
   });
 
   test('matches a token prefix, so a partial surname works', () => {
@@ -62,7 +58,9 @@ describe('filterPlayers', () => {
   });
 
   test('matches on the surname alone', () => {
-    expect(filterPlayers(DIRECTORY, 'korhonen').map((p) => p.displayName)).toEqual(['Liisa Korhonen']);
+    expect(filterPlayers(DIRECTORY, 'korhonen').map((p) => p.displayName)).toEqual([
+      'Liisa Korhonen',
+    ]);
   });
 
   test('matches a partial word from its start', () => {
@@ -108,4 +106,3 @@ describe('filterPlayers', () => {
     ]);
   });
 });
-

@@ -38,7 +38,16 @@ export function SearchGlyph(): React.ReactElement {
 export function ClosedGlyph(): React.ReactElement {
   return (
     <svg width="26" height="26" viewBox="0 0 26 26" role="img" aria-label="Ei pelipäivä">
-      <rect x="3.5" y="5.5" width="19" height="17" rx="3" fill="none" stroke="#5a6b63" strokeWidth="1.8" />
+      <rect
+        x="3.5"
+        y="5.5"
+        width="19"
+        height="17"
+        rx="3"
+        fill="none"
+        stroke="#5a6b63"
+        strokeWidth="1.8"
+      />
       <path
         d="M3.5 10.5h19M9 3.5v4M17 3.5v4M10 15.5h6"
         stroke="#5a6b63"

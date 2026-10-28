@@ -31,14 +31,14 @@ running Hono for the API, DynamoDB for storage, and one CloudFront
 distribution in front of both so there is no CORS anywhere. All infrastructure
 is AWS CDK.
 
-| Package | What it is |
-| --- | --- |
-| `packages/shared` | Date rules, name normalization, Zod schemas. Consumed as TypeScript source. |
-| `packages/api` | Hono routes and the DynamoDB repository. `handler.ts` is the Lambda entry; `serve.ts` is for local use only. |
-| `packages/web` | The SPA: the day's list and an unlisted announcements page. All imagery is inline SVG — no raster assets. |
-| `packages/infra` | The CDK stack. |
-| `packages/import` | One-off extraction of the history out of Domino. |
-| `e2e` | Playwright smoke flow against a real API and DynamoDB. |
+| Package           | What it is                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `packages/shared` | Date rules, name normalization, Zod schemas. Consumed as TypeScript source.                                  |
+| `packages/api`    | Hono routes and the DynamoDB repository. `handler.ts` is the Lambda entry; `serve.ts` is for local use only. |
+| `packages/web`    | The SPA: the day's list and an unlisted announcements page. All imagery is inline SVG — no raster assets.    |
+| `packages/infra`  | The CDK stack.                                                                                               |
+| `packages/import` | One-off extraction of the history out of Domino.                                                             |
+| `e2e`             | Playwright smoke flow against a real API and DynamoDB.                                                       |
 
 ## Local development
 
@@ -150,8 +150,8 @@ Pushing to `main` deploys via GitHub Actions using OIDC — there are no AWS key
 in this repository. Until these are set the deploy job **skips** rather than
 failing, and says in the run summary which are missing:
 
-| Name | Kind | Example |
-| --- | --- | --- |
+| Name                  | Kind   | Example                                           |
+| --------------------- | ------ | ------------------------------------------------- |
 | `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
 
 There is **no custom domain**: the app answers on the address CloudFront gives

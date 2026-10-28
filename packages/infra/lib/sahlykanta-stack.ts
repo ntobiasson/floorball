@@ -1,12 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import {
-  CfnOutput,
-  Duration,
-  RemovalPolicy,
-  Stack,
-  type StackProps,
-} from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import { AttributeType, BillingMode, Table, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
 import { Architecture, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -77,11 +71,7 @@ export class SahlykantaStack extends Stack {
      * deploy. If it does not, cold starts still succeed — only the first
      * gated write fails, when the function tries to read it.
      */
-    const turnstileSecret = Secret.fromSecretNameV2(
-      this,
-      'TurnstileSecret',
-      TURNSTILE_SECRET_NAME,
-    );
+    const turnstileSecret = Secret.fromSecretNameV2(this, 'TurnstileSecret', TURNSTILE_SECRET_NAME);
 
     // ---- API --------------------------------------------------------------
     const apiLogs = new LogGroup(this, 'ApiLogs', {

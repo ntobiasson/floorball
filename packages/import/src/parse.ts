@@ -59,8 +59,7 @@ export interface ViewNode {
 
 const ROW = /<tr>([\s\S]*?)<\/tr>/g;
 const CELL = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g;
-const NODE =
-  /id="(view:[^"]*?viewPanel1:(\d+):viewColumn(\d+)__(expand|shrink):([\d.]+))button"/;
+const NODE = /id="(view:[^"]*?viewPanel1:(\d+):viewColumn(\d+)__(expand|shrink):([\d.]+))button"/;
 const VIEW_ID = /name="\$\$viewid"[^>]*value="([^"]+)"/;
 const PAGER_LINK = /id="[^"]*pager1__Group__lnk__(\d+)"/g;
 /** The anchor's own text is the page number, which no locale can change. */

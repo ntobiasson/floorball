@@ -40,4 +40,3 @@ export const auditPk = (isoDate: string): string => `AUDIT#${isoDate}`;
 export const announcementSk = (validFrom: string, id: string): string => `${validFrom}#${id}`;
 
 export const gsi1Sk = (normalizedName: string): string => `NAME#${normalizedName}`;
-

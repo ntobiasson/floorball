@@ -157,12 +157,22 @@ export function renderView({
   ].join('\n');
 }
 
-export const player = (name: string, total: number, position: string, expanded = false): MarkupRow => ({
+export const player = (
+  name: string,
+  total: number,
+  position: string,
+  expanded = false,
+): MarkupRow => ({
   cells: [name, '', '', String(total)],
   node: { position, column: 1, expanded },
 });
 
-export const year = (value: string, count: number, position: string, expanded = false): MarkupRow => ({
+export const year = (
+  value: string,
+  count: number,
+  position: string,
+  expanded = false,
+): MarkupRow => ({
   cells: ['', value, '', String(count)],
   node: { position, column: 2, expanded },
 });

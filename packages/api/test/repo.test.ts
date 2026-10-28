@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import { PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  PutCommand,
+  QueryCommand,
+  TransactWriteCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
@@ -281,7 +286,12 @@ describe('a table left in a corrupted state', () => {
     await client.send(
       new PutCommand({
         TableName: tableName,
-        Item: { PK: 'NAME#matti virtanen', SK: 'NAME', playerId: 'ORPHAN01', normalizedName: 'matti virtanen' },
+        Item: {
+          PK: 'NAME#matti virtanen',
+          SK: 'NAME',
+          playerId: 'ORPHAN01',
+          normalizedName: 'matti virtanen',
+        },
       }),
     );
 
@@ -294,7 +304,12 @@ describe('a table left in a corrupted state', () => {
     await client.send(
       new PutCommand({
         TableName: tableName,
-        Item: { PK: 'NAME#matti virtanen', SK: 'NAME', playerId: 'ORPHAN01', normalizedName: 'matti virtanen' },
+        Item: {
+          PK: 'NAME#matti virtanen',
+          SK: 'NAME',
+          playerId: 'ORPHAN01',
+          normalizedName: 'matti virtanen',
+        },
       }),
     );
 
@@ -343,7 +358,9 @@ describe('a table left in a corrupted state', () => {
     const { playerId } = await repo.register({ gameDate: MONDAY, rawName: 'Matti Virtanen' });
     await repo.unregister({ gameDate: MONDAY, playerId });
 
-    await expect(repo.unregister({ gameDate: MONDAY, playerId })).rejects.toThrow(/not registered/i);
+    await expect(repo.unregister({ gameDate: MONDAY, playerId })).rejects.toThrow(
+      /not registered/i,
+    );
 
     expect((await repo.getPlayer(playerId))?.total).toBe(0);
   });
@@ -427,7 +444,9 @@ describe('a merged player', () => {
       );
     }
 
-    await expect(repo.register({ gameDate: WEDNESDAY, rawName: 'A Pelaaja' })).resolves.toBeDefined();
+    await expect(
+      repo.register({ gameDate: WEDNESDAY, rawName: 'A Pelaaja' }),
+    ).resolves.toBeDefined();
   });
 });
 

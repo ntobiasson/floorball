@@ -1,12 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
-import {
-  CorruptedPlayerError,
-  PlayerRaceError,
-  createRepo,
-  type Repo,
-} from '../src/repo.js';
+import { CorruptedPlayerError, PlayerRaceError, createRepo, type Repo } from '../src/repo.js';
 import { createApp } from '../src/app.js';
 import type { VerifyTurnstile } from '../src/turnstile.js';
 import {
@@ -220,14 +215,11 @@ describe('PATCH /api/registrations/:playerId/goalkeeper', () => {
   test('refuses a body that is not a boolean', async () => {
     const { playerId } = await repo.register({ gameDate: '2026-10-19', rawName: 'Jukka Rantanen' });
 
-    const res = await appAt(MONDAY_MORNING).request(
-      `/api/registrations/${playerId}/goalkeeper`,
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ isGoalkeeper: 'kyllä' }),
-      },
-    );
+    const res = await appAt(MONDAY_MORNING).request(`/api/registrations/${playerId}/goalkeeper`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isGoalkeeper: 'kyllä' }),
+    });
 
     expect(res.status).toBe(400);
   });
@@ -492,10 +484,7 @@ describe('managing announcements', () => {
       repo,
       now: () => TUESDAY_MORNING,
       verifyTurnstile: accept,
-    }).request(
-      `/api/announcements/${created.id}`,
-      { method: 'DELETE' },
-    );
+    }).request(`/api/announcements/${created.id}`, { method: 'DELETE' });
 
     expect(res.status).toBe(204);
   });

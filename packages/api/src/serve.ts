@@ -26,7 +26,11 @@ const client = DynamoDBDocumentClient.from(
   new DynamoDBClient(
     endpoint === undefined
       ? {}
-      : { endpoint, region: 'eu-north-1', credentials: { accessKeyId: 'local', secretAccessKey: 'local' } },
+      : {
+          endpoint,
+          region: 'eu-north-1',
+          credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
+        },
   ),
   { marshallOptions: { removeUndefinedValues: true } },
 );
@@ -58,13 +62,13 @@ const app = createApp({
   now,
   verifyTurnstile: createTurnstile({
     secret: async () => process.env.TURNSTILE_SECRET ?? TESTING_SECRET,
-    hostnames: parseHostnames(
-      process.env.TURNSTILE_HOSTNAMES ?? 'example.com,127.0.0.1,localhost',
-    ),
+    hostnames: parseHostnames(process.env.TURNSTILE_HOSTNAMES ?? 'example.com,127.0.0.1,localhost'),
   }),
 });
 
 const port = Number(process.env.PORT ?? '3000');
 
 serve({ fetch: app.fetch, port });
-console.log(`api listening on http://127.0.0.1:${port} (table ${tableName}, today ${now().toISOString().slice(0, 10)})`);
+console.log(
+  `api listening on http://127.0.0.1:${port} (table ${tableName}, today ${now().toISOString().slice(0, 10)})`,
+);

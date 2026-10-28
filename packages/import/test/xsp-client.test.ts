@@ -37,7 +37,10 @@ function stubFetch(pages: string[]) {
     index += 1;
     return new Response(page, {
       status: 200,
-      headers: { 'content-type': 'text/html;charset=UTF-8', 'set-cookie': 'SessionID=ABC123; path=/' },
+      headers: {
+        'content-type': 'text/html;charset=UTF-8',
+        'set-cookie': 'SessionID=ABC123; path=/',
+      },
     });
   };
   return { calls, impl };
@@ -114,9 +117,7 @@ describe('submit', () => {
     expect(body?.get('$$xspsubmitid')).toBe(
       'view:_id1:_id2:callback2:viewPanel1:2:viewColumn1__expand:3',
     );
-    expect(body?.get('$$xspexecid')).toBe(
-      'view:_id1:_id2:callback2:viewPanel1_OUTER_TABLE',
-    );
+    expect(body?.get('$$xspexecid')).toBe('view:_id1:_id2:callback2:viewPanel1_OUTER_TABLE');
     expect(body?.get('view:_id1')).toBe('view:_id1');
   });
 
@@ -215,7 +216,8 @@ describe('politeness', () => {
 });
 
 describe('redirects', () => {
-  const redirectTo = (location: string, status = 307) =>
+  const redirectTo =
+    (location: string, status = 307) =>
     async (): Promise<Response> =>
       new Response(null, { status, headers: { location } });
 
@@ -282,7 +284,10 @@ describe('cookies', () => {
         first = false;
         return new Response(level1, { status: 200, headers });
       }
-      return new Response(playerExpanded, { status: 200, headers: { 'content-type': 'text/html' } });
+      return new Response(playerExpanded, {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
     };
 
     const client = createXspClient({

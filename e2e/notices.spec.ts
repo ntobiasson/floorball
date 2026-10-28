@@ -22,9 +22,9 @@ test('nothing on the app links to the page', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
 
-  const hrefs = await page.getByRole('link').evaluateAll((links) =>
-    links.map((l) => l.getAttribute('href')),
-  );
+  const hrefs = await page
+    .getByRole('link')
+    .evaluateAll((links) => links.map((l) => l.getAttribute('href')));
   expect(hrefs).not.toContain(NOTICES);
 
   // The tab bar is the only navigation there is, and it offers the day and
@@ -63,10 +63,7 @@ test('the page asks not to be indexed', async ({ page }) => {
   await page.goto(NOTICES);
   await expect(page.getByRole('heading', { name: 'Tiedote', exact: true })).toBeVisible();
 
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-    'content',
-    /noindex/,
-  );
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
 });
 
 test('an announcement added here shows up on the landing page', async ({ page }) => {

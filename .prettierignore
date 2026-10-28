@@ -1,0 +1,15 @@
+# Vendored from cloudflare/skills. Kept byte-identical to upstream so it can
+# be diffed against it; reformatting would make that impossible.
+.claude/skills/
+
+# Not ours to format.
+node_modules/
+package-lock.json
+
+# Build and run output.
+dist/
+cdk.out/
+coverage/
+test-results/
+playwright-report/
+packages/import/out/

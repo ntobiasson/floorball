@@ -141,11 +141,10 @@ test('a player already on the list is not suggested again', async ({ page }) => 
   // Matti Virtanen is already registered for this day; the (EHKÄ) duplicate is not.
   const suggestions = page.getByRole('list', { name: 'Ehdotukset' });
   await expect(suggestions.getByRole('button', { name: 'Matti Virtanen (EHKÄ)' })).toBeVisible();
-  await expect(suggestions.getByRole('button', { name: 'Matti Virtanen', exact: true })).toHaveCount(0);
+  await expect(
+    suggestions.getByRole('button', { name: 'Matti Virtanen', exact: true }),
+  ).toHaveCount(0);
 });
-
-
-
 
 test('the day shows no history of its own', async ({ page }) => {
   await page.goto('/');

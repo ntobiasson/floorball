@@ -39,4 +39,3 @@ export function filterPlayers<T extends PlayerSummary>(players: T[], query: stri
     return terms.every((term) => words.some((word) => word.startsWith(term)));
   });
 }
-
