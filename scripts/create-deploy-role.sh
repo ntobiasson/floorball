@@ -5,7 +5,7 @@
 # Run once, locally, with credentials that can create IAM roles. Everything it
 # makes is idempotent: running it twice updates rather than duplicates.
 #
-#   ./scripts/create-deploy-role.sh
+#   REPO=yourname/yourrepo ./scripts/create-deploy-role.sh
 #
 # Prerequisite: the account and region must be CDK-bootstrapped first, because
 # this role works by assuming the roles that bootstrap creates:
@@ -14,7 +14,21 @@
 #
 set -euo pipefail
 
-REPO="${REPO:-ntobiasson/floorball}"
+# Required, and deliberately without a default. This value is the whole of the
+# trust policy: whatever repository it names may assume the role and deploy
+# into this account. A default would quietly point a fork's role at the
+# upstream repository, so it has to be stated.
+REPO="${REPO:-}"
+if [ -z "$REPO" ]; then
+  echo "set REPO to the owner/name of the repository that deploys, e.g." >&2
+  echo "  REPO=yourname/yourrepo ./scripts/create-deploy-role.sh" >&2
+  exit 1
+fi
+if [ "${REPO#*/}" = "$REPO" ]; then
+  echo "REPO must be owner/name, got '$REPO'" >&2
+  exit 1
+fi
+
 ROLE_NAME="${ROLE_NAME:-floorball-deploy}"
 REGION="${AWS_REGION:-eu-north-1}"
 # The CDK's default bootstrap qualifier. Change only if you bootstrapped with

@@ -140,11 +140,7 @@ describe('a game day', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
 
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith(
-        'Uusi Pelaaja',
-        '2026-10-19',
-        TEST_TURNSTILE_TOKEN,
-      ),
+      expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19', TEST_TURNSTILE_TOKEN),
     );
   });
 
@@ -172,9 +168,7 @@ describe('a game day', () => {
 
     await userEvent.type(await screen.findByLabelText('Nimi'), 'makel');
     const suggestions = screen.getByRole('list', { name: 'Ehdotukset' });
-    await userEvent.click(
-      within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' }),
-    );
+    await userEvent.click(within(suggestions).getByRole('button', { name: 'Riikka Mäkelä' }));
 
     await waitFor(() =>
       expect(api.register).toHaveBeenCalledWith(
@@ -265,7 +259,9 @@ describe('accessibility floor', () => {
 
 describe('when the API is unreachable', () => {
   test('says so instead of rendering an empty page', async () => {
-    const api = fakeApi(MONDAY, { today: vi.fn().mockRejectedValue(new Error('verkko ei vastaa')) });
+    const api = fakeApi(MONDAY, {
+      today: vi.fn().mockRejectedValue(new Error('verkko ei vastaa')),
+    });
     render(<App api={api} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('verkko ei vastaa');
@@ -291,9 +287,7 @@ describe('removing a name asks first', () => {
   test('the first tap asks for confirmation', async () => {
     await openConfirm('Mikko Laine');
 
-    expect(
-      screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Vahvista.*Mikko Laine/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Peruuta.*Mikko Laine/ })).toBeInTheDocument();
   });
 
@@ -540,11 +534,7 @@ describe('the bot check in front of registering', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ilmoittaudu' }));
 
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith(
-        'Uusi Pelaaja',
-        '2026-10-19',
-        TEST_TURNSTILE_TOKEN,
-      ),
+      expect(api.register).toHaveBeenCalledWith('Uusi Pelaaja', '2026-10-19', TEST_TURNSTILE_TOKEN),
     );
   });
 
@@ -841,7 +831,9 @@ describe('the history list', () => {
 
     const rows = screen.getByRole('list', { name: 'Matti Virtanen vuosittain' });
     expect(
-      within(rows).getAllByRole('listitem').map((li) => li.getAttribute('aria-label')),
+      within(rows)
+        .getAllByRole('listitem')
+        .map((li) => li.getAttribute('aria-label')),
     ).toEqual(['2026: 5 peliä', '2025: 25 peliä', '2024: 15 peliä']);
   });
 
@@ -852,7 +844,9 @@ describe('the history list', () => {
     await userEvent.click(toggle);
     await userEvent.click(toggle);
 
-    expect(screen.queryByRole('list', { name: 'Matti Virtanen vuosittain' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: 'Matti Virtanen vuosittain' }),
+    ).not.toBeInTheDocument();
   });
 
   test('the archive is fetched once, not per player', async () => {
@@ -881,13 +875,11 @@ describe('filtering the history by year', () => {
     await openHistory(fakeApi(MONDAY));
 
     const years = screen.getByRole('group', { name: 'Vuosi' });
-    expect(within(years).getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'Kaikki',
-      '2026',
-      '2025',
-      '2024',
-      '2009',
-    ]);
+    expect(
+      within(years)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Kaikki', '2026', '2025', '2024', '2009']);
   });
 
   test('ranks by that year count, not the lifetime total', async () => {

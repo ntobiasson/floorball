@@ -2,9 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
   "include": [
     "vitest.config.ts",
@@ -15,8 +13,5 @@
     "e2e/**/*",
     "packages/*/vitest.config.ts"
   ],
-  "exclude": [
-    "packages/infra",
-    "packages/web"
-  ]
+  "exclude": ["packages/infra", "packages/web"]
 }

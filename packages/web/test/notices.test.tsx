@@ -138,9 +138,7 @@ describe('the unlisted announcements page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Poista.*Joulutauko/ }));
 
     expect(screen.getByText('Poistetaanko?')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ })).toHaveTextContent(
-      'Kyllä',
-    );
+    expect(screen.getByRole('button', { name: /Vahvista.*Joulutauko/ })).toHaveTextContent('Kyllä');
   });
 
   test('only the row being removed is asked about', async () => {
@@ -215,15 +213,16 @@ describe('getting back to the registration page', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
-  test('this page is absent from the tab bar on the day\'s page', async () => {
+  test("this page is absent from the tab bar on the day's page", async () => {
     render(<App api={fakeApi()} />);
     await screen.findByRole('heading', { name: 'maanantai' });
 
     const tabs = screen.getByRole('navigation', { name: 'Sivut' });
-    expect(within(tabs).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
-      '/',
-      '/peliaktiivisuus',
-    ]);
+    expect(
+      within(tabs)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href')),
+    ).toEqual(['/', '/peliaktiivisuus']);
   });
 });
 

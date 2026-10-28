@@ -40,7 +40,10 @@ describe('verifyHarvest', () => {
   test('catches a total that disagrees with the collapsed index', () => {
     const problems = verifyHarvest({
       expected: INDEX,
-      players: [{ name: 'Matti Virtanen', total: 1, years: [{ year: '2026', count: 1 }] }, PLAYERS[1]!],
+      players: [
+        { name: 'Matti Virtanen', total: 1, years: [{ year: '2026', count: 1 }] },
+        PLAYERS[1]!,
+      ],
       registrations: [REGISTRATIONS[0]!, REGISTRATIONS[2]!],
     });
 

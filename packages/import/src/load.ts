@@ -160,7 +160,9 @@ async function writeAll(
     }
 
     if (pending.length > 0) {
-      throw new Error(`${pending.length} items could not be written after ${MAX_BATCH_ATTEMPTS} attempts`);
+      throw new Error(
+        `${pending.length} items could not be written after ${MAX_BATCH_ATTEMPTS} attempts`,
+      );
     }
   }
 
@@ -208,7 +210,9 @@ export async function loadHarvest({
         .reduce((acc, player) => acc + player.total, 0);
       const current = Number(existing.Item.total ?? 0);
       if (current > importTotal) {
-        liveUse.push(`${group.displayName} has ${current} in the table but ${importTotal} in the harvest`);
+        liveUse.push(
+          `${group.displayName} has ${current} in the table but ${importTotal} in the harvest`,
+        );
       }
     }
     if (liveUse.length > 0) {

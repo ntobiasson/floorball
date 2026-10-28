@@ -1,11 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  game,
-  player,
-  renderView,
-  year,
-  type MarkupRow,
-} from './domino-markup.js';
+import { game, player, renderView, year, type MarkupRow } from './domino-markup.js';
 import {
   harvestRows,
   parseDateCell,
@@ -333,10 +327,10 @@ describe('decodeEntities, via the row harvester', () => {
   });
 
   test('classifies each row by which cell carries the value', () => {
-    expect(harvestRows(YEAR_EXPANDED).slice(2, 5).map((r) => r.kind)).toEqual([
-      'player',
-      'year',
-      'date',
-    ]);
+    expect(
+      harvestRows(YEAR_EXPANDED)
+        .slice(2, 5)
+        .map((r) => r.kind),
+    ).toEqual(['player', 'year', 'date']);
   });
 });

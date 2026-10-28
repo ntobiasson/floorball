@@ -22,8 +22,7 @@ function viewFromPath(pathname: string): View {
   return 'today';
 }
 
-const currentPath = (): string =>
-  typeof window === 'undefined' ? '/' : window.location.pathname;
+const currentPath = (): string => (typeof window === 'undefined' ? '/' : window.location.pathname);
 
 export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
   const [view, setView] = useState<View>(() => viewFromPath(currentPath()));

@@ -132,7 +132,9 @@ const PLAYERS: LoadablePlayer[] = HISTORY.map(({ name, dates }) => {
   return {
     name,
     total: dates.length,
-    years: [...years].sort((a, b) => b[0].localeCompare(a[0])).map(([year, count]) => ({ year, count })),
+    years: [...years]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([year, count]) => ({ year, count })),
   };
 });
 

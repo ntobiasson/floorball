@@ -167,7 +167,10 @@ describe('resuming', () => {
   });
 
   test('skipping everything yields nothing but does not error', async () => {
-    const result = await walkActivityView({ client: createFakeDomino(DATA), startAfterPosition: 3 });
+    const result = await walkActivityView({
+      client: createFakeDomino(DATA),
+      startAfterPosition: 3,
+    });
 
     expect(result.players).toEqual([]);
     expect(result.registrations).toEqual([]);
@@ -181,7 +184,12 @@ describe('turning pages when the pager has no numbered links', () => {
   // per-player, so a player never reached is never checked.
   const SIX: FakePlayer[] = Array.from({ length: 6 }, (_, i) => ({
     name: `Pelaaja ${i + 1}`,
-    years: [dates('2026', [['01-12', 'Maanantai'], ['04-15', 'Keskiviikko']])],
+    years: [
+      dates('2026', [
+        ['01-12', 'Maanantai'],
+        ['04-15', 'Keskiviikko'],
+      ]),
+    ],
   }));
 
   test('harvests every player via the Next control', async () => {
@@ -218,7 +226,8 @@ describe('the expected-player guard', () => {
     // every harvested player is internally consistent and the walk returns
     // without error. The two players it never reached are invisible to the
     // per-player checksums, and visible only to this guard.
-    const stripPager = (html: string) => html.replace(/<div class="xspPagerContainer">.*?<\/div>/s, '');
+    const stripPager = (html: string) =>
+      html.replace(/<div class="xspPagerContainer">.*?<\/div>/s, '');
     const fake = createFakeDomino(DATA, { rowsPerPage: 6 });
     const original = fake.submit.bind(fake);
     const openOriginal = fake.open.bind(fake);
@@ -231,7 +240,8 @@ describe('the expected-player guard', () => {
   });
 
   test('that same truncation passes every per-player checksum, which is the point', async () => {
-    const stripPager = (html: string) => html.replace(/<div class="xspPagerContainer">.*?<\/div>/s, '');
+    const stripPager = (html: string) =>
+      html.replace(/<div class="xspPagerContainer">.*?<\/div>/s, '');
     const fake = createFakeDomino(DATA, { rowsPerPage: 6 });
     const original = fake.submit.bind(fake);
     const openOriginal = fake.open.bind(fake);
@@ -339,7 +349,6 @@ describe('incremental output', () => {
   });
 });
 
-
 describe('the source data changing under the walk', () => {
   test('the expected-player guard matches on name, not on position', async () => {
     // The old app stays in use while the import runs, and a brand-new name is
@@ -365,9 +374,9 @@ describe('the source data changing under the walk', () => {
       { position: '99', name: 'Kadonnut Pelaaja', total: 7 },
     ];
 
-    await expect(
-      walkActivityView({ client: createFakeDomino(DATA), expected }),
-    ).rejects.toThrow(/Kadonnut Pelaaja/);
+    await expect(walkActivityView({ client: createFakeDomino(DATA), expected })).rejects.toThrow(
+      /Kadonnut Pelaaja/,
+    );
   });
 });
 
@@ -398,7 +407,10 @@ describe('the Not Categorized bucket', () => {
   test('says it skipped it rather than passing over it silently', async () => {
     const warnings: string[] = [];
 
-    await walkActivityView({ client: createFakeDomino(withJunk), onWarning: (m) => warnings.push(m) });
+    await walkActivityView({
+      client: createFakeDomino(withJunk),
+      onWarning: (m) => warnings.push(m),
+    });
 
     expect(warnings.join(' ')).toMatch(/Not Categorized/);
   });
@@ -416,7 +428,10 @@ describe('the Not Categorized bucket', () => {
   test('a genuinely unparseable date on a real player still fails loudly', async () => {
     // Tolerance is scoped to the bucket, not to bad data in general.
     const corrupt: FakePlayer[] = [
-      { name: 'Matti Virtanen', years: [{ year: '2026', dates: [{ date: 'rubbish', weekday: '' }] }] },
+      {
+        name: 'Matti Virtanen',
+        years: [{ year: '2026', dates: [{ date: 'rubbish', weekday: '' }] }],
+      },
     ];
 
     await expect(walkActivityView({ client: createFakeDomino(corrupt) })).rejects.toThrow(

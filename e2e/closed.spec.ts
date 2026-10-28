@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test';
 
 /** The same app against an API whose date is pinned to Tuesday 20.10.2026. */
 
-
 test('a day that is not a game day offers no form at all', async ({ page }) => {
   await page.goto('/');
 

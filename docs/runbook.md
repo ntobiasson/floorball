@@ -7,8 +7,8 @@ first and **skips** the deploy job when any is missing, so an unconfigured
 repository gets a clean skip rather than a failed run; the skip names what is
 absent in the run summary.
 
-| Name | Kind | Example |
-| --- | --- | --- |
+| Name                  | Kind   | Example                                           |
+| --------------------- | ------ | ------------------------------------------------- |
 | `AWS_DEPLOY_ROLE_ARN` | secret | `arn:aws:iam::123456789012:role/floorball-deploy` |
 
 ```sh
@@ -28,7 +28,7 @@ Run these once, locally, with credentials that can create IAM roles:
 
 ```sh
 npx cdk bootstrap aws://<account>/eu-north-1   # once per account and region
-./scripts/create-deploy-role.sh                 # prints the ARN to set
+REPO=<owner>/<repo> ./scripts/create-deploy-role.sh    # prints the ARN
 ```
 
 The order matters: the role works by assuming the roles `cdk bootstrap`
@@ -46,7 +46,7 @@ parameter.
 **Nothing long-lived is created.** GitHub mints a short OIDC token per run and
 AWS trades it for temporary credentials, so there is no access key to leak or
 rotate. Trust is scoped to `repo:<owner>/<repo>:environment:production` — one
-repository *and* one environment. A workflow on a branch, a pull request from
+repository _and_ one environment. A workflow on a branch, a pull request from
 a fork, or any other repository in your account cannot assume it.
 
 **The subject claim is read from GitHub, not assembled from the names.**
@@ -68,8 +68,9 @@ aws cloudtrail lookup-events \
   --query 'Events[].CloudTrailEvent' --output text | grep -o 'repo:[^"]*'
 ```
 
-Re-running `./scripts/create-deploy-role.sh` refreshes the trust policy to
-whatever GitHub currently sends.
+Re-running the script refreshes the trust policy to whatever GitHub currently
+sends. `REPO` is required and has no default, so it cannot quietly point a
+fork's role back at the upstream repository.
 
 That scoping needs the environment to exist:
 
@@ -100,7 +101,7 @@ does not go in this repository.
 ### Putting the secret in
 
 The secret lives in Secrets Manager as **`prod/floorball/turnstile`**, in
-`eu-north-1`. The stack *imports* it and grants the Lambda
+`eu-north-1`. The stack _imports_ it and grants the Lambda
 `GetSecretValue`/`DescribeSecret` on that one entry and nothing else.
 
 It is deliberately not created by the stack. The value cannot come from
@@ -143,7 +144,7 @@ unset s
 
 **Only when replacing a value that already worked** does the function need a
 cold start: a successful read is cached for the life of an execution
-environment. A read that *failed* is not cached — `createSecretReader` clears
+environment. A read that _failed_ is not cached — `createSecretReader` clears
 it so one throttled response cannot disable every write until the next cold
 start — so a secret created after a `ResourceNotFoundException` is picked up
 by the very next write, with nothing to restart.
@@ -176,14 +177,14 @@ Cloudflare's testing keys instead.
 
 ### When writes start failing
 
-| What you see | What it means |
-| --- | --- |
-| Every write is 403, the widget renders | The secret is the wrong value — Cloudflare answered `invalid-input-secret`. Put the real one in; no cold start needed. |
+| What you see                                                | What it means                                                                                                                                                        |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every write is 403, the widget renders                      | The secret is the wrong value — Cloudflare answered `invalid-input-secret`. Put the real one in; no cold start needed.                                               |
 | Every write is 500, `ResourceNotFoundException` in the logs | `prod/floorball/turnstile` does not exist, or is in another region. The read in `secret.ts` throws before siteverify is ever called, so this is a 500 and not a 403. |
-| The widget does not render at all | The distribution's hostname is missing from the widget's domain list. |
-| Cold starts fail, the whole API 500s | `TURNSTILE_SECRET_ARN` or `TURNSTILE_HOSTNAMES` is unset, or the allowlist contains a local hostname. The function says which in its first log line. |
-| `invalid-input-secret` in the logs | The value in Secrets Manager is not this widget's secret. |
-| Writes work for one person and not another | A token is single-use and expires in a few minutes. A page left open overnight mints a fresh one on its own; a replay does not. |
+| The widget does not render at all                           | The distribution's hostname is missing from the widget's domain list.                                                                                                |
+| Cold starts fail, the whole API 500s                        | `TURNSTILE_SECRET_ARN` or `TURNSTILE_HOSTNAMES` is unset, or the allowlist contains a local hostname. The function says which in its first log line.                 |
+| `invalid-input-secret` in the logs                          | The value in Secrets Manager is not this widget's secret.                                                                                                            |
+| Writes work for one person and not another                  | A token is single-use and expires in a few minutes. A page left open overnight mints a fresh one on its own; a replay does not.                                      |
 
 ## There is no custom domain
 
@@ -225,11 +226,10 @@ regardless of the page, and anyone can already add or remove any name on the
 day's list. Nobody is identified anywhere in this system.
 
 Turnstile changes who can write only in the sense of keeping scripts out: it
-proves a person is there, not which person. If *that* stops being acceptable
+proves a person is there, not which person. If _that_ stops being acceptable
 — if some people should manage announcements and others should not — the
 realistic options are still a shared secret on the write endpoints, or
 CloudFront with a signed cookie. Neither is in place.
-
 
 ## Importing the history out of Domino
 
@@ -249,6 +249,9 @@ crept up by then; that is the application working, not a fault.
 
 ```sh
 cd packages/import
+# Required, no default: the activity view this walk reads.
+export DOMINO_URL=http://<domino-host>/<db>.nsf/peliaktiivisuus.xsp
+
 npx tsx src/cli-scrape.ts --limit 5 --out ./out-dryrun
 ```
 
@@ -323,7 +326,7 @@ player's stored total is already higher than the import's, the load aborts and
 names them. `--force` overrides it, and should only be used by someone who
 means to discard those games.
 
-Re-running after a *failed or partial* load is fine and expected. Player ids
+Re-running after a _failed or partial_ load is fine and expected. Player ids
 are read back from the existing `NAME#` lookup, so a second load neither
 duplicates players nor orphans history, and totals are recomputed from the rows
 being written so they always agree with the number of day rows.

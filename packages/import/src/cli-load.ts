@@ -39,15 +39,11 @@ async function main(): Promise<void> {
   );
 
   const players = readJsonl<HarvestedPlayer>(path.join(outDir, 'players.jsonl'));
-  const registrations = readJsonl<HarvestedRegistration>(
-    path.join(outDir, 'registrations.jsonl'),
-  );
+  const registrations = readJsonl<HarvestedRegistration>(path.join(outDir, 'registrations.jsonl'));
 
   console.log(`loading ${players.length} players and ${registrations.length} registrations`);
   if (force) {
-    console.warn(
-      'force: any registrations made since the import will be dropped from the counts',
-    );
+    console.warn('force: any registrations made since the import will be dropped from the counts');
   }
 
   const result = await loadHarvest({ client, tableName, players, registrations, force });

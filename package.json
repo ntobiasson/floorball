@@ -1,5 +1,8 @@
 {
   "name": "sahlykanta",
+  "version": "0.0.0",
+  "license": "MIT",
+  "description": "Peleille — floorball session registration, replacing a Lotus Domino application",
   "private": true,
   "type": "module",
   "engines": {

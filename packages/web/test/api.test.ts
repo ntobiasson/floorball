@@ -54,7 +54,10 @@ describe('a response that is not JSON at all', () => {
   });
 
   test('truncated JSON is an ApiError too', async () => {
-    respondWith('{"date":"2026-10-1', { status: 200, headers: { 'content-type': 'application/json' } });
+    respondWith('{"date":"2026-10-1', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
 
     await expect(api.today()).rejects.toBeInstanceOf(ApiError);
   });
@@ -175,7 +178,12 @@ describe('the Turnstile token', () => {
 describe('the history call', () => {
   test('asks the archive endpoint and returns the players', async () => {
     const players = [
-      { playerId: 'p1', displayName: 'Matti Virtanen', total: 2, years: [{ year: '2026', count: 2 }] },
+      {
+        playerId: 'p1',
+        displayName: 'Matti Virtanen',
+        total: 2,
+        years: [{ year: '2026', count: 2 }],
+      },
     ];
     respondWith(JSON.stringify({ players }), {
       status: 200,

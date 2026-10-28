@@ -11,8 +11,6 @@ import { ACTIVITY_PAGE } from './xsp-client.js';
  * forever, which is exactly that failure.
  */
 
-export const DEFAULT_URL = `http://sofordmz1.sofor.fi/sofor/fun/sahlykanta.nsf/${ACTIVITY_PAGE}`;
-
 export const DEFAULT_DELAY_MS = 400;
 
 /** Below this the walk stops being a polite guest on someone else's server. */
@@ -54,7 +52,17 @@ export function parseArgs(argv: string[]): ScrapeArgs {
     throw new Error(`--delay must be at least ${MIN_DELAY_MS}ms, got ${JSON.stringify(rawDelay)}`);
   }
 
-  const url = valueOf(argv, '--url') ?? process.env.DOMINO_URL ?? DEFAULT_URL;
+  // Deliberately no built-in default. This tool walks a live third-party
+  // Domino server for hours, and a default target makes a bare invocation
+  // enough to do that to whoever the default happens to name. The operator
+  // names the server, every run.
+  const url = valueOf(argv, '--url') ?? process.env.DOMINO_URL;
+  if (url === undefined) {
+    throw new Error(
+      `--url is required: the activity view to walk, ending in /${ACTIVITY_PAGE} ` +
+        '(or set DOMINO_URL)',
+    );
+  }
   if (!new URL(url).pathname.toLowerCase().endsWith(`/${ACTIVITY_PAGE}`)) {
     throw new Error(`--url must point at ${ACTIVITY_PAGE}, got ${url}`);
   }

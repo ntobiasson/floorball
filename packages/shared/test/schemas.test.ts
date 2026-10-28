@@ -10,7 +10,10 @@ import {
 
 describe('RegistrationInputSchema', () => {
   test('accepts a plain name with the game date', () => {
-    const parsed = RegistrationInputSchema.parse({ name: 'Matti Virtanen', gameDate: '2026-10-19' });
+    const parsed = RegistrationInputSchema.parse({
+      name: 'Matti Virtanen',
+      gameDate: '2026-10-19',
+    });
     expect(parsed).toEqual({ name: 'Matti Virtanen', gameDate: '2026-10-19' });
   });
 
@@ -21,15 +24,15 @@ describe('RegistrationInputSchema', () => {
   });
 
   test('rejects an empty name', () => {
-    expect(
-      RegistrationInputSchema.safeParse({ name: '', gameDate: '2026-10-19' }).success,
-    ).toBe(false);
+    expect(RegistrationInputSchema.safeParse({ name: '', gameDate: '2026-10-19' }).success).toBe(
+      false,
+    );
   });
 
   test('rejects a whitespace-only name', () => {
-    expect(
-      RegistrationInputSchema.safeParse({ name: '   ', gameDate: '2026-10-19' }).success,
-    ).toBe(false);
+    expect(RegistrationInputSchema.safeParse({ name: '   ', gameDate: '2026-10-19' }).success).toBe(
+      false,
+    );
   });
 
   test('accepts a name of exactly 60 characters', () => {
@@ -45,9 +48,9 @@ describe('RegistrationInputSchema', () => {
   });
 
   test('rejects a malformed game date', () => {
-    expect(RegistrationInputSchema.safeParse({ name: 'Matti', gameDate: '19.10.2026' }).success).toBe(
-      false,
-    );
+    expect(
+      RegistrationInputSchema.safeParse({ name: 'Matti', gameDate: '19.10.2026' }).success,
+    ).toBe(false);
   });
 
   test('rejects a missing game date', () => {
@@ -61,7 +64,9 @@ describe('response schemas', () => {
       date: '2026-10-19',
       weekday: 1,
       isGameDay: true,
-      registrations: [{ playerId: 'p1', displayName: 'Matti Virtanen', createdAt: '2026-10-19T06:00:00Z' }],
+      registrations: [
+        { playerId: 'p1', displayName: 'Matti Virtanen', createdAt: '2026-10-19T06:00:00Z' },
+      ],
       announcements: [],
     };
     expect(TodayResponseSchema.parse(value)).toEqual(value);

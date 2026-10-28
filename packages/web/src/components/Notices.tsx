@@ -1,6 +1,10 @@
 import type { Announcement } from '@sahlykanta/shared';
 
-export function Notices({ announcements }: { announcements: Announcement[] }): React.ReactElement | null {
+export function Notices({
+  announcements,
+}: {
+  announcements: Announcement[];
+}): React.ReactElement | null {
   if (announcements.length === 0) return null;
 
   return (
