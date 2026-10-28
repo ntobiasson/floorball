@@ -91,6 +91,13 @@ accepts anything. To watch the refusal path instead, start the API with
 `TURNSTILE_SECRET=2x0000000000000000000000000000000AA`, the always-fails
 dummy, and every write comes back 403.
 
+**Deploying your own copy.** `packages/web/.env.production` holds this
+project's Turnstile sitekey. A sitekey is public — it is in the page source on
+every visit — but it is registered for this deployment's hostname only, so on
+your own distribution the widget will not render and every write will fail the
+check. Create a widget for your hostname, put its sitekey there, and put its
+secret in Secrets Manager; `docs/runbook.md` has the steps.
+
 **On ports.** DynamoDB Local is published on **8001** and these examples use
 **3400** and **5273** rather than 8000/3000/5173, which are routinely occupied
 on a development machine — and a clash there is quiet and confusing, because
@@ -116,6 +123,9 @@ See [docs/runbook.md](docs/runbook.md). In short:
 
 ```sh
 cd packages/import
+# --url is required and has no default: the activity view to walk.
+export DOMINO_URL=http://<domino-host>/<db>.nsf/peliaktiivisuus.xsp
+
 npx tsx src/cli-scrape.ts --limit 5          # always dry-run first
 npx tsx src/cli-scrape.ts                    # the full walk, ~2.5 hours
 npx tsx src/cli-scrape.ts --resume           # after an interruption
@@ -157,9 +167,25 @@ Before the first deploy, bootstrap the account and create the OIDC deploy role:
 
 ```sh
 npx cdk bootstrap aws://<account>/eu-north-1
-./scripts/create-deploy-role.sh
+REPO=<owner>/<repo> ./scripts/create-deploy-role.sh
 BUDGET_EMAIL=you@example.fi ./scripts/create-budget.sh
 ```
 
 No AWS access key is ever created; GitHub's OIDC token is traded for temporary
 credentials per run. See the runbook for what the role may and may not do.
+
+## Privacy, security, contributing
+
+The deployed app holds real people's names and the dates they played, going
+back to 2001. **None of that data is in this repository.** The import output is
+gitignored and a CI job fails the build if it is ever committed; every name in
+the tests and the local seed is invented.
+
+There is no authentication anywhere in this application, by design — see
+[SECURITY.md](SECURITY.md) for the full threat model and how to report
+something privately. [CONTRIBUTING.md](CONTRIBUTING.md) covers running the
+suite and what gets declined.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

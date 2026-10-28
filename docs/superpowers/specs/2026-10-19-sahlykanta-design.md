@@ -8,8 +8,8 @@ which is still the name of the package scope and the AWS resources.
 
 ## Intent and why
 
-The team's floorball registration app runs on a Lotus Domino server
-(`sofordmz1.sofor.fi`) that is old and no longer maintained, and will be switched off.
+The team's floorball registration app runs on an internal Lotus Domino server
+that is old and no longer maintained, and will be switched off.
 The app is small, but it holds **25 years of registration history** (2001–2026, ~500
 distinct names, roughly 20k registrations) that exists nowhere else. The history must be
 extracted through the public XPages UI before the server disappears, because nobody has

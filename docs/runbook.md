@@ -28,7 +28,7 @@ Run these once, locally, with credentials that can create IAM roles:
 
 ```sh
 npx cdk bootstrap aws://<account>/eu-north-1   # once per account and region
-./scripts/create-deploy-role.sh                 # prints the ARN to set
+REPO=<owner>/<repo> ./scripts/create-deploy-role.sh    # prints the ARN
 ```
 
 The order matters: the role works by assuming the roles `cdk bootstrap`
@@ -68,8 +68,9 @@ aws cloudtrail lookup-events \
   --query 'Events[].CloudTrailEvent' --output text | grep -o 'repo:[^"]*'
 ```
 
-Re-running `./scripts/create-deploy-role.sh` refreshes the trust policy to
-whatever GitHub currently sends.
+Re-running the script refreshes the trust policy to whatever GitHub currently
+sends. `REPO` is required and has no default, so it cannot quietly point a
+fork's role back at the upstream repository.
 
 That scoping needs the environment to exist:
 
@@ -249,6 +250,9 @@ crept up by then; that is the application working, not a fault.
 
 ```sh
 cd packages/import
+# Required, no default: the activity view this walk reads.
+export DOMINO_URL=http://<domino-host>/<db>.nsf/peliaktiivisuus.xsp
+
 npx tsx src/cli-scrape.ts --limit 5 --out ./out-dryrun
 ```
 

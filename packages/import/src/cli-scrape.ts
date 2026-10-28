@@ -14,9 +14,13 @@ import {
 /**
  * Walks the live Domino view and writes the harvest to JSONL.
  *
- *   npx tsx src/cli-scrape.ts --limit 5          always dry-run first
- *   npx tsx src/cli-scrape.ts                    the full walk, ~2.5 hours
- *   npx tsx src/cli-scrape.ts --resume           after an interruption
+ * `--url` is required and has no default: it names the activity view on the
+ * Domino server to walk. Export it once as DOMINO_URL to keep the commands
+ * below short.
+ *
+ *   npx tsx src/cli-scrape.ts --url <view> --limit 5   always dry-run first
+ *   npx tsx src/cli-scrape.ts --url <view>             the full walk, ~2.5 hours
+ *   npx tsx src/cli-scrape.ts --url <view> --resume    after an interruption
  *
  * Both output files are appended as each player completes, so an interruption
  * keeps everything already proved and `--resume` has something to build on.

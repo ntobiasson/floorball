@@ -1,16 +1,39 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { parseArgs, resumePosition } from '../src/cli-args.js';
 
+const ACTIVITY_URL = 'http://example.test/db.nsf/peliaktiivisuus.xsp';
+
+afterEach(() => {
+  delete process.env.DOMINO_URL;
+});
+
 describe('parseArgs', () => {
+  test('refuses to run without a url instead of reaching for a built-in host', () => {
+    // The scraper used to default to one specific third-party Domino server.
+    // A built-in target means a bare `npx tsx cli-scrape.ts` walks somebody
+    // else's production box for hours; the operator must name it every time.
+    expect(() => parseArgs([])).toThrow(/--url/);
+  });
+
+  test('takes the url from DOMINO_URL when no flag is given', () => {
+    process.env.DOMINO_URL = ACTIVITY_URL;
+    expect(parseArgs([]).url).toBe(ACTIVITY_URL);
+  });
+
+  test('prefers an explicit --url over DOMINO_URL', () => {
+    process.env.DOMINO_URL = 'http://ignored.test/db.nsf/peliaktiivisuus.xsp';
+    expect(parseArgs(['--url', ACTIVITY_URL]).url).toBe(ACTIVITY_URL);
+  });
+
   test('defaults to a full run with the standard spacing', () => {
-    const args = parseArgs([]);
+    const args = parseArgs(['--url', ACTIVITY_URL]);
     expect(args.limit).toBeUndefined();
     expect(args.delayMs).toBe(400);
     expect(args.resume).toBe(false);
   });
 
   test('accepts a positive limit', () => {
-    expect(parseArgs(['--limit', '5']).limit).toBe(5);
+    expect(parseArgs(['--url', ACTIVITY_URL, '--limit', '5']).limit).toBe(5);
   });
 
   test('rejects a limit with no value, rather than running the full walk', () => {
@@ -43,7 +66,7 @@ describe('parseArgs', () => {
   });
 
   test('accepts a longer delay', () => {
-    expect(parseArgs(['--delay', '1000']).delayMs).toBe(1000);
+    expect(parseArgs(['--url', ACTIVITY_URL, '--delay', '1000']).delayMs).toBe(1000);
   });
 
   test('refuses a url that is not the activity page', () => {
@@ -53,11 +76,11 @@ describe('parseArgs', () => {
   });
 
   test('takes an explicit output directory', () => {
-    expect(parseArgs(['--out', '/tmp/harvest']).outDir).toBe('/tmp/harvest');
+    expect(parseArgs(['--url', ACTIVITY_URL, '--out', '/tmp/harvest']).outDir).toBe('/tmp/harvest');
   });
 
   test('rejects --out with no value', () => {
-    expect(() => parseArgs(['--out'])).toThrow(/--out/);
+    expect(() => parseArgs(['--url', ACTIVITY_URL, '--out'])).toThrow(/--out/);
   });
 });
 

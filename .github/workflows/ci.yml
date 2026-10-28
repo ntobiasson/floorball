@@ -6,6 +6,26 @@ on:
   pull_request:
 
 jobs:
+  # The archive this app was built to rescue is ~500 real people's names and
+  # 25 years of who turned up when. It lives in packages/import/out/, which is
+  # gitignored — but this repository is public and one `git add -f` would
+  # publish it irrevocably. So the ignore rule is not the only thing standing
+  # between that data and the world.
+  privacy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No harvested player data may be committed
+        run: |
+          set -euo pipefail
+          found=$(git ls-files -- 'packages/import/out' '*.jsonl' 'packages/import/.checkpoint.json')
+          if [ -n "$found" ]; then
+            echo "::error::real-player data is tracked in git:"
+            echo "$found"
+            exit 1
+          fi
+          echo "clean: no harvest output tracked"
+
   check:
     runs-on: ubuntu-latest
     services:
