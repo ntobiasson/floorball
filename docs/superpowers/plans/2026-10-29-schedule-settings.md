@@ -887,7 +887,7 @@ git commit -m "feat(web): say what time we play, wherever the day is shown"
 
 **Files:**
 - Create: `e2e/settings.spec.ts`
-- Modify: `e2e/seed.ts`, `e2e/smoke.spec.ts`, `e2e/closed.spec.ts`
+- Modify: `e2e/playwright.config.ts` (the `monday` project's `testMatch`), `e2e/seed.ts`, `e2e/smoke.spec.ts`, `e2e/closed.spec.ts`
 - Test: the specs themselves
 
 **Interfaces:**
@@ -897,7 +897,11 @@ git commit -m "feat(web): say what time we play, wherever the day is shown"
 
 Three slots through `repo.createSlot`, so the seeded table is initialised and carries times: Monday `20:00–21:30`, Wednesday `20:00–21:30`, Saturday `18:00–19:30`. Say in the comment that this replaces the Mon/Wed/Sat fallback with the same three days, now with times, so the existing specs still find their game day.
 
-- [ ] **Step 2: Write the failing spec** in `e2e/settings.spec.ts`
+- [ ] **Step 2: Let the runner see the new spec**
+
+`e2e/playwright.config.ts`'s `monday` project carries `testMatch: /(smoke|notices|history)\.spec\.ts/`, and the `tuesday` project matches `closed.spec.ts` only. A spec matching neither project is never executed — it does not fail, it simply does not run. Add `settings` to the `monday` project's pattern, since the page is driven against the Monday-pinned server like the announcements page is.
+
+- [ ] **Step 3: Write the failing spec** in `e2e/settings.spec.ts`
 
 Mirror `e2e/notices.spec.ts`, serial, cleaning up what it creates.
 
@@ -914,21 +918,21 @@ test('a slot removed on the page is gone from the front page', async ({ page }) 
 test('removing a slot asks first', async ({ page }) => { /* Poista -> Poistetaanko? -> Peru, still there */ });
 ```
 
-- [ ] **Step 3: Add the time to the two existing assertions**
+- [ ] **Step 4: Add the time to the two existing assertions**
 
 `e2e/smoke.spec.ts` asserts the day's card; `e2e/closed.spec.ts:11` asserts `21.10.2026` as the next playing day. Both now carry a time from the seed.
 
-- [ ] **Step 4: Run the end-to-end suite**
+- [ ] **Step 5: Run the end-to-end suite**
 
 Run: `docker compose up -d && npm run e2e`
 Expected: PASS, all specs.
 
-- [ ] **Step 5: Run everything**
+- [ ] **Step 6: Run everything**
 
 Run: `npm test && npm run typecheck && npm run lint && npm run e2e`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add e2e
