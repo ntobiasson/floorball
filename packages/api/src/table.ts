@@ -9,6 +9,10 @@
  *   NAME#<normalized>  / NAME             the name -> player lookup
  *   ANNOUNCEMENT       / <validFrom>#<id> an announcement
  *   AUDIT#<iso>        / <when>#<id>      one mutation, self-expiring
+ *   SETTINGS           / SLOT#<id>        a playing slot
+ *   SETTINGS           / INITIALISED      marks the partition as written
+ *   SETTINGS           / VALUE#<key>      reserved for a future scalar setting;
+ *                                         nothing writes this key yet
  *
  * GSI1 carries two kinds of row, under partition keys that cannot collide.
  * A player profile sits under the constant 'PLAYERS' with GSI1SK
@@ -34,6 +38,8 @@ export const GSI1_PK = 'PLAYERS';
 export const PROFILE_SK = 'PROFILE';
 export const NAME_SK = 'NAME';
 export const ANNOUNCEMENT_PK = 'ANNOUNCEMENT';
+export const SETTINGS_PK = 'SETTINGS';
+export const INITIALISED_SK = 'INITIALISED';
 
 export const dayPk = (isoDate: string): string => `DAY#${isoDate}`;
 export const playerPk = (playerId: string): string => `PLAYER#${playerId}`;
@@ -42,6 +48,7 @@ export const yearSk = (year: string): string => `YEAR#${year}`;
 export const namePk = (normalizedName: string): string => `NAME#${normalizedName}`;
 export const auditPk = (isoDate: string): string => `AUDIT#${isoDate}`;
 export const announcementSk = (validFrom: string, id: string): string => `${validFrom}#${id}`;
+export const slotSk = (id: string): string => `SLOT#${id}`;
 
 export const gsi1Sk = (normalizedName: string): string => `NAME#${normalizedName}`;
 

@@ -2,6 +2,8 @@ import {
   TURNSTILE_TOKEN_FIELD,
   type Announcement,
   type AnnouncementInput,
+  type GameSlot,
+  type GameSlotInput,
   type HistoryResponse,
   type PlayerSummary,
   type TodayResponse,
@@ -11,7 +13,7 @@ import {
  * The SPA and the API share one origin, so these are plain relative paths and
  * there is no CORS anywhere in this application.
  *
- * The three write calls carry a Turnstile token. The browser never verifies
+ * The five write calls carry a Turnstile token. The browser never verifies
  * it — it only collects it from the widget and passes it on, and the API
  * redeems it with Cloudflare. A token is spent by one call, so the caller
  * resets its widget afterwards.
@@ -138,6 +140,28 @@ export const api = {
   // A DELETE has no body to put the token in, so it travels as a header.
   removeAnnouncement: (id: string, turnstileToken: string) =>
     request<void>(`/api/announcements/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { [TURNSTILE_TOKEN_FIELD]: turnstileToken },
+    }),
+
+  /**
+   * The playing schedule, already in Monday-first display order: the API
+   * owns that ordering, so this never sorts what it returns. `initialised`
+   * tells the settings page whether an empty list means the fallback rule is
+   * still standing in, or whether every slot was deliberately removed.
+   */
+  schedule: () => request<{ slots: GameSlot[]; initialised: boolean }>('/api/schedule'),
+
+  addSlot: (input: GameSlotInput, turnstileToken: string) =>
+    request<GameSlot>('/api/schedule', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...input, [TURNSTILE_TOKEN_FIELD]: turnstileToken }),
+    }),
+
+  // A DELETE has no body to put the token in, so it travels as a header.
+  removeSlot: (id: string, turnstileToken: string) =>
+    request<void>(`/api/schedule/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: { [TURNSTILE_TOKEN_FIELD]: turnstileToken },
     }),

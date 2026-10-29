@@ -20,6 +20,8 @@ import {
   yearOf,
   type Announcement,
   type AnnouncementInput,
+  type GameSlot,
+  type GameSlotInput,
   type PlayerDetail,
   type PlayerSummary,
   type PlayerYear,
@@ -29,8 +31,10 @@ import {
   ANNOUNCEMENT_PK,
   GSI1,
   GSI1_PK,
+  INITIALISED_SK,
   NAME_SK,
   PROFILE_SK,
+  SETTINGS_PK,
   announcementSk,
   auditPk,
   dayGsi1Pk,
@@ -40,6 +44,7 @@ import {
   namePk,
   playerPk,
   playerSk,
+  slotSk,
   yearSk,
 } from './table.js';
 
@@ -57,6 +62,13 @@ export class AnnouncementNotFoundError extends Error {
   constructor(id: string) {
     super(`announcement ${id} not found`);
     this.name = 'AnnouncementNotFoundError';
+  }
+}
+
+export class SlotNotFoundError extends Error {
+  constructor(id: string) {
+    super(`slot ${id} not found`);
+    this.name = 'SlotNotFoundError';
   }
 }
 
@@ -151,6 +163,14 @@ export interface Repo {
   listAllAnnouncements(): Promise<Announcement[]>;
   createAnnouncement(input: AnnouncementInput): Promise<Announcement>;
   deleteAnnouncement(id: string): Promise<void>;
+  /**
+   * The slots and whether the partition has ever been written, together:
+   * every caller needs both to answer "what is the schedule", and the two
+   * come back from the one query over the SETTINGS partition.
+   */
+  listSlots(): Promise<{ slots: GameSlot[]; initialised: boolean }>;
+  createSlot(input: GameSlotInput): Promise<GameSlot>;
+  deleteSlot(id: string): Promise<void>;
 }
 
 export interface RepoConfig {
@@ -178,6 +198,15 @@ function toAnnouncement(item: Record<string, unknown>): Announcement {
     body: String(item.body),
     ...(item.validFrom === undefined ? {} : { validFrom: String(item.validFrom) }),
     ...(item.validTo === undefined ? {} : { validTo: String(item.validTo) }),
+  };
+}
+
+function toSlot(item: Record<string, unknown>): GameSlot {
+  return {
+    id: String(item.id),
+    weekday: Number(item.weekday),
+    ...(item.startTime === undefined ? {} : { startTime: String(item.startTime) }),
+    ...(item.endTime === undefined ? {} : { endTime: String(item.endTime) }),
   };
 }
 
@@ -779,6 +808,89 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
         validFrom,
         ...(input.validTo === undefined ? {} : { validTo: input.validTo }),
       };
+    },
+
+    async listSlots() {
+      const out = await client.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': SETTINGS_PK },
+        }),
+      );
+      const items = out.Items ?? [];
+      // The marker travels in the same query as the slots, so this is the
+      // only place the two are split apart again.
+      const slots = items.filter((item) => String(item.SK).startsWith('SLOT#')).map(toSlot);
+      // Monotone in the data, not in write order: a slot row by itself
+      // already means the partition is initialised, whether or not the
+      // marker made it in. `createSlot` below writes the slot and the marker
+      // as two separate PutCommands, so a throttle or a timeout between the
+      // two awaits — or just an eventually-consistent read that caught one
+      // write but not the other — would otherwise produce a partition with a
+      // slot and no marker, which this function would then report as
+      // uninitialised: the settings page would list the slot as stored while
+      // `effectiveSchedule` ignored it and kept playing Mon/Wed/Sat, a split
+      // between "saved" and "live" the design does not allow.
+      //
+      // This must stay `|| slots.length > 0` and never collapse to
+      // `items.length > 0`: the reserved `SETTINGS / VALUE#<key>` key space
+      // (see table.ts) would then flip `initialised` true the first time
+      // some future scalar setting is stored, with no slot involved at all —
+      // instantly emptying the schedule and closing registration for
+      // everybody.
+      const initialised = items.some((item) => item.SK === INITIALISED_SK) || slots.length > 0;
+      return { slots, initialised };
+    },
+
+    async createSlot(input) {
+      const id = newId();
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: SETTINGS_PK,
+            SK: slotSk(id),
+            id,
+            weekday: input.weekday,
+            startTime: input.startTime,
+            endTime: input.endTime,
+          },
+        }),
+      );
+      // Written on every createSlot, not just the first: a re-write of an
+      // already-true marker is harmless, and this way the partition is
+      // guaranteed to carry one the moment any slot does.
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: { PK: SETTINGS_PK, SK: INITIALISED_SK },
+        }),
+      );
+      return {
+        id,
+        weekday: input.weekday,
+        startTime: input.startTime,
+        ...(input.endTime === undefined ? {} : { endTime: input.endTime }),
+      };
+    },
+
+    async deleteSlot(id) {
+      try {
+        await client.send(
+          new DeleteCommand({
+            TableName: tableName,
+            Key: { PK: SETTINGS_PK, SK: slotSk(id) },
+            // The sort key is the id itself, so unlike an announcement no
+            // lookup is needed first: the condition alone tells a missing
+            // row apart from a successful delete.
+            ConditionExpression: 'attribute_exists(PK)',
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ConditionalCheckFailedException) throw new SlotNotFoundError(id);
+        throw error;
+      }
     },
   };
 }

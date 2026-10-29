@@ -25,7 +25,9 @@ test('the landing page shows the game day and the imported announcement', async 
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
-  await expect(page.getByText('19.10.2026')).toBeVisible();
+  // The time comes from the seeded schedule, not just the date, so this also
+  // proves the day's card is reading the stored slot rather than a fallback.
+  await expect(page.getByText('19.10.2026 klo 20–21.30')).toBeVisible();
   await expect(page.getByText('Kenttä varattu 21.10. klo 18-19.')).toBeVisible();
 });
 

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'vitest';
 import {
   PutCommand,
   QueryCommand,
@@ -8,8 +8,8 @@ import {
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
-import { createRepo, NotRegisteredError, type Repo } from '../src/repo.js';
-import { auditPk } from '../src/table.js';
+import { createRepo, NotRegisteredError, SlotNotFoundError, type Repo } from '../src/repo.js';
+import { auditPk, SETTINGS_PK, slotSk } from '../src/table.js';
 
 const MONDAY = '2026-10-19';
 const WEDNESDAY = '2026-10-21';
@@ -693,5 +693,102 @@ describe('setGoalkeeper', () => {
     await expect(
       repo.setGoalkeeper({ gameDate: WEDNESDAY, playerId, isGoalkeeper: true }),
     ).rejects.toThrow(NotRegisteredError);
+  });
+});
+
+describe('slots', () => {
+  it('reports an untouched table as uninitialised, with no slots', async () => {
+    expect(await repo.listSlots()).toEqual({ slots: [], initialised: false });
+  });
+
+  it('stores a slot and hands back its id', async () => {
+    const slot = await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
+    expect(slot.id).toMatch(/\S/);
+    expect(await repo.listSlots()).toEqual({ slots: [{ ...slot }], initialised: true });
+  });
+
+  it('reads back a slot stored before an end time was asked for', async () => {
+    // Written straight to the table rather than through `createSlot`, whose
+    // input now requires an end: this is the shape of a row saved by an
+    // earlier version, and it still has to load rather than break the page.
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: SETTINGS_PK,
+          SK: slotSk('legacy'),
+          id: 'legacy',
+          weekday: 3,
+          startTime: '20:00',
+        },
+      }),
+    );
+
+    const { slots } = await repo.listSlots();
+    expect(slots).toEqual([{ id: 'legacy', weekday: 3, startTime: '20:00' }]);
+    expect(slots[0]).not.toHaveProperty('endTime');
+  });
+
+  it('keeps two slots on the same weekday apart', async () => {
+    await repo.createSlot({ weekday: 1, startTime: '18:00', endTime: '19:30' });
+    await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
+    expect((await repo.listSlots()).slots).toHaveLength(2);
+  });
+
+  it('never returns the marker as a slot', async () => {
+    await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
+    // One slot written, two rows in the partition.
+    const { slots } = await repo.listSlots();
+    expect(slots).toHaveLength(1);
+    expect(slots[0]?.weekday).toBe(1);
+  });
+
+  it('removes a slot and leaves the table initialised', async () => {
+    const slot = await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
+    await repo.deleteSlot(slot.id);
+    expect(await repo.listSlots()).toEqual({ slots: [], initialised: true });
+  });
+
+  it('refuses to remove a slot that is not there', async () => {
+    await expect(repo.deleteSlot('ei-ole')).rejects.toThrow(SlotNotFoundError);
+  });
+
+  it('reports a partition initialised from a slot row alone, with no marker', async () => {
+    // Simulates `createSlot`'s half-written failure mode directly with the
+    // document client, bypassing `createSlot` entirely: the slot row is
+    // written without the marker that normally follows it, the way it would
+    // be left if the marker's own write throttled, timed out, or simply
+    // hadn't shown up yet in an eventually-consistent read.
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: SETTINGS_PK,
+          SK: slotSk('half-written'),
+          id: 'half-written',
+          weekday: 1,
+          startTime: '20:00',
+        },
+      }),
+    );
+
+    expect(await repo.listSlots()).toEqual({
+      slots: [{ id: 'half-written', weekday: 1, startTime: '20:00' }],
+      initialised: true,
+    });
+  });
+
+  it('does not treat a reserved VALUE# row as initialising the partition', async () => {
+    // Guards against `initialised` collapsing to `items.length > 0`: a
+    // future scalar setting stored under `VALUE#<key>`, with no slot
+    // involved, must not silently empty the schedule.
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: { PK: SETTINGS_PK, SK: 'VALUE#some-future-setting', value: 'x' },
+      }),
+    );
+
+    expect(await repo.listSlots()).toEqual({ slots: [], initialised: false });
   });
 });

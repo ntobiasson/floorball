@@ -20,6 +20,11 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
       isGameDay: true,
       registrations: [],
       announcements: [ANNOUNCEMENTS[0]],
+      schedule: [
+        { id: 'default-monday', weekday: 1 },
+        { id: 'default-wednesday', weekday: 3 },
+        { id: 'default-saturday', weekday: 6 },
+      ],
     }),
     players: vi.fn().mockResolvedValue({ players: [] }),
     register: vi.fn(),

@@ -6,8 +6,9 @@ import { Tabs, type Tab } from './components/Tabs.js';
 import { Today } from './pages/Today.js';
 import { History } from './pages/History.js';
 import { Notices } from './pages/Notices.js';
+import { Settings } from './pages/Settings.js';
 import { Retro } from './pages/Retro.js';
-import { HISTORY_PATH, NOTICES_PATH } from './lib/routes.js';
+import { HISTORY_PATH, NOTICES_PATH, SETTINGS_PATH } from './lib/routes.js';
 import './retro.css';
 
 /**
@@ -18,15 +19,26 @@ import './retro.css';
 const TAPS_TO_2002 = 7;
 
 /**
- * Three pages: the day's list, the history, and the unlisted announcements
- * page. The first two are the tab bar; announcements is reached only by
- * typing its address and shows no tab bar at all. Any other address falls
- * back to the day's list.
+ * Four pages: the day's list, the history, and two unlisted ones —
+ * announcements and the schedule settings. The first two are the tab bar;
+ * the unlisted pair is reached only by typing its address and shows no tab
+ * bar at all. Any other address falls back to the day's list.
  */
-type View = Tab | 'notices';
+type View = Tab | 'notices' | 'settings';
+
+/**
+ * Both unlisted pages want the day's fetch skipped, the home link instead
+ * of the easter-egg tap target, and no tab bar — the same treatment, for
+ * the same reason. A type predicate, so that `!isBare(view)` narrows `view`
+ * back to `Tab` for the tab bar below.
+ */
+function isBare(view: View): view is 'notices' | 'settings' {
+  return view === 'notices' || view === 'settings';
+}
 
 function viewFromPath(pathname: string): View {
   if (pathname.startsWith(NOTICES_PATH)) return 'notices';
+  if (pathname.startsWith(SETTINGS_PATH)) return 'settings';
   if (pathname.startsWith(HISTORY_PATH)) return 'history';
   return 'today';
 }
@@ -55,11 +67,11 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
   /**
    * The day's data is fetched once, on mount, and survives a trip to the
    * history and back — switching tabs is not a reason to ask again. It is
-   * skipped entirely when the announcements page is the one that opened,
-   * since that page needs none of it.
+   * skipped entirely when one of the unlisted pages is the one that opened,
+   * since neither needs any of it.
    */
   useEffect(() => {
-    if (viewFromPath(currentPath()) === 'notices') return;
+    if (isBare(viewFromPath(currentPath()))) return;
     void (async () => {
       try {
         const [todayResult, directoryResult] = await Promise.all([api.today(), api.players()]);
@@ -164,10 +176,10 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
   return (
     <div className="app">
       <header className="masthead">
-        {view === 'notices' ? (
-          // The announcements page is reached by typing its address, so it
-          // needs a way back that does not depend on the browser's history.
-          // A plain href, since the two pages share no state worth keeping.
+        {isBare(view) ? (
+          // Both unlisted pages are reached by typing their address, so they
+          // need a way back that does not depend on the browser's history.
+          // A plain href, since neither shares state worth keeping with it.
           <a className="masthead__home" href="/" aria-label="Takaisin ilmoittautumiseen">
             <span className="masthead__mark">
               <BallMark />
@@ -195,6 +207,8 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
             add={api.addAnnouncement}
             remove={api.removeAnnouncement}
           />
+        ) : view === 'settings' ? (
+          <Settings load={api.schedule} add={api.addSlot} remove={api.removeSlot} />
         ) : view === 'history' ? (
           historyError !== undefined ? (
             <p className="state" role="alert">
@@ -231,7 +245,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
         )}
       </main>
 
-      {view !== 'notices' && <Tabs active={view} onNavigate={navigate} />}
+      {!isBare(view) && <Tabs active={view} onNavigate={navigate} />}
     </div>
   );
 }

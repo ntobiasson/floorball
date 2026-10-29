@@ -2,14 +2,19 @@ import { createHash } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import {
   AnnouncementInputSchema,
+  GameSlotInputSchema,
   GoalkeeperInputSchema,
   RegistrationInputSchema,
   TURNSTILE_ACTIONS,
   TURNSTILE_TOKEN_FIELD,
+  effectiveSchedule,
+  hasSameSlot,
   isGameDay,
   nextGameDay,
+  orderSlots,
   todayInHelsinki,
   weekdayOf,
+  type GameSlot,
   type TodayResponse,
   type TurnstileAction,
 } from '@sahlykanta/shared';
@@ -19,6 +24,7 @@ import {
   CorruptedPlayerError,
   NotRegisteredError,
   PlayerRaceError,
+  SlotNotFoundError,
   type Repo,
 } from './repo.js';
 import { EmptyNameError } from '@sahlykanta/shared';
@@ -28,9 +34,10 @@ export interface AppConfig {
   repo: Repo;
   now?: () => Date;
   /**
-   * Bot verification for the three write routes. Required, not optional, so
-   * that a new entry point cannot forget it and silently serve an unprotected
-   * form — the compiler asks for one.
+   * Bot verification for the three write surfaces — registration,
+   * announcements and the schedule — across five gated routes. Required, not
+   * optional, so that a new entry point cannot forget it and silently serve
+   * an unprotected form — the compiler asks for one.
    */
   verifyTurnstile: VerifyTurnstile;
 }
@@ -72,21 +79,32 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
    */
   const today = () => todayInHelsinki(now());
 
+  /**
+   * What the app actually plays by: the stored schedule once one has been
+   * written, the Monday/Wednesday/Saturday fallback until then. Every call
+   * site that used to ask `isGameDay`/`nextGameDay` about the hardcoded rule
+   * now asks them about this instead.
+   */
+  const schedule = async (): Promise<readonly GameSlot[]> => {
+    const { slots, initialised } = await repo.listSlots();
+    return effectiveSchedule(slots, initialised);
+  };
+
   app.get('/api/today', async (c) => {
     const date = today();
-    const gameDay = isGameDay(date);
-    const [registrations, announcements] = await Promise.all([
-      gameDay ? repo.listRegistrations(date) : Promise.resolve([]),
-      repo.listAnnouncements(date),
-    ]);
+    const [slots, announcements] = await Promise.all([schedule(), repo.listAnnouncements(date)]);
+    const gameDay = isGameDay(slots, date);
+    const registrations = gameDay ? await repo.listRegistrations(date) : [];
 
+    const nextGameDate = gameDay ? undefined : nextGameDay(slots, date);
     const body: TodayResponse = {
       date,
       weekday: weekdayOf(date),
       isGameDay: gameDay,
-      ...(gameDay ? {} : { nextGameDate: nextGameDay(date) }),
+      ...(nextGameDate === undefined ? {} : { nextGameDate }),
       registrations,
       announcements,
+      schedule: orderSlots(slots),
     };
     return c.json(body);
   });
@@ -107,8 +125,16 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     }
 
     const date = today();
-    if (!isGameDay(date)) {
-      return c.json({ error: 'tänään ei ole pelipäivä', nextGameDate: nextGameDay(date) }, 409);
+    const slots = await schedule();
+    if (!isGameDay(slots, date)) {
+      const nextGameDate = nextGameDay(slots, date);
+      return c.json(
+        {
+          error: 'tänään ei ole pelipäivä',
+          ...(nextGameDate === undefined ? {} : { nextGameDate }),
+        },
+        409,
+      );
     }
     if (parsed.data.gameDate !== date) {
       // Not 400: the request is well formed, it is just aimed at another day.
@@ -140,7 +166,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
 
   app.delete('/api/registrations/:playerId', async (c) => {
     const date = today();
-    if (!isGameDay(date)) {
+    if (!isGameDay(await schedule(), date)) {
       return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
     }
 
@@ -178,7 +204,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     if (!parsed.success) return c.json({ error: 'virheellinen pyyntö' }, 400);
 
     const date = today();
-    if (!isGameDay(date)) {
+    if (!isGameDay(await schedule(), date)) {
       return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
     }
 
@@ -287,6 +313,58 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     } catch (error) {
       if (error instanceof AnnouncementNotFoundError) {
         return c.json({ error: 'tiedotetta ei löytynyt' }, 404);
+      }
+      throw error;
+    }
+  });
+
+  /**
+   * The playing schedule, edited from the same kind of unlisted page as the
+   * announcements above, under the same trust model: no account and no
+   * password anywhere in this application, a Turnstile token only proves the
+   * caller is a person, and it identifies nobody. Reading is open because the
+   * landing page's own schedule comes from here too, not just the
+   * management page.
+   */
+  app.get('/api/schedule', async (c) => {
+    const { slots, initialised } = await repo.listSlots();
+    return c.json({ slots: orderSlots(slots), initialised });
+  });
+
+  app.post('/api/schedule', async (c) => {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: 'virheellinen pyyntö' }, 400);
+    }
+
+    if (!(await verified(c, TURNSTILE_ACTIONS.settings, raw))) return refused(c);
+
+    const parsed = GameSlotInputSchema.safeParse(raw);
+    if (!parsed.success) return c.json({ error: 'pelivuoro on virheellinen' }, 400);
+
+    // Read before write: the partition holds a handful of rows, and a wrong
+    // duplicate is worse than the extra round trip.
+    const { slots: existing } = await repo.listSlots();
+    if (hasSameSlot(existing, parsed.data)) {
+      return c.json({ error: 'pelivuoro on jo listalla' }, 409);
+    }
+
+    const created = await repo.createSlot(parsed.data);
+    return c.json(created, 201);
+  });
+
+  app.delete('/api/schedule/:id', async (c) => {
+    // A DELETE carries no body, so its token arrives in a header instead.
+    if (!(await verified(c, TURNSTILE_ACTIONS.settings, undefined))) return refused(c);
+
+    try {
+      await repo.deleteSlot(c.req.param('id'));
+      return c.body(null, 204);
+    } catch (error) {
+      if (error instanceof SlotNotFoundError) {
+        return c.json({ error: 'pelivuoroa ei löytynyt' }, 404);
       }
       throw error;
     }

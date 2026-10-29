@@ -8,8 +8,8 @@
 /**
  * The field Cloudflare's widget writes its token into, and the field the
  * canonical siteverify call reads back out. The POST routes carry it in the
- * JSON body; the announcement delete, which has no body, carries it in a
- * header of the same name.
+ * JSON body; the announcement delete and the schedule delete, neither of
+ * which has a body, carry it in a header of the same name.
  */
 export const TURNSTILE_TOKEN_FIELD = 'cf-turnstile-response';
 
@@ -21,10 +21,15 @@ export const TURNSTILE_TOKEN_FIELD = 'cf-turnstile-response';
  *
  * Both announcement writes share a single widget on the unlisted page — one
  * widget cannot render with two actions — so they share one action.
+ *
+ * The schedule editor is a third surface with its own widget, so it gets a
+ * third action: a token minted there is no more usable against `register` or
+ * `announce` than theirs are against each other.
  */
 export const TURNSTILE_ACTIONS = {
   register: 'register',
   announce: 'announce',
+  settings: 'settings',
 } as const;
 
 export type TurnstileAction = (typeof TURNSTILE_ACTIONS)[keyof typeof TURNSTILE_ACTIONS];

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_NAME_LENGTH } from './names.js';
+import { GameSlotSchema } from './schedule.js';
 
 /** Shared by every boundary: `YYYY-MM-DD` in the Helsinki calendar. */
 export const IsoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
@@ -62,6 +63,13 @@ export const TodayResponseSchema = z.object({
   nextGameDate: IsoDateSchema.optional(),
   registrations: z.array(RegistrationSchema),
   announcements: z.array(AnnouncementSchema),
+  /**
+   * The whole schedule, every weekday, in display order — not just today's
+   * slots. No slot carries a validity window, so today's times and the next
+   * playing day's times are both just a weekday filter (`slotsOn`) away on
+   * this one list; the "Pelivuorot" card on the landing page draws all of it.
+   */
+  schedule: z.array(GameSlotSchema),
 });
 
 export const PlayerSummarySchema = z.object({

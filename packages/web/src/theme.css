@@ -153,6 +153,16 @@ body {
   font-size: 17px;
 }
 
+/*
+ * Inline, inside .today__date: it inherits that line's size and weight,
+ * which is not bold — the date above it is not bold either, and the card
+ * already has its shout in the weekday heading. Only the colour marks it
+ * out so it is findable in the line.
+ */
+.today__time {
+  color: var(--accent-ink);
+}
+
 .today__count {
   display: flex;
   align-items: baseline;
@@ -338,7 +348,10 @@ body {
   opacity: 0.6;
 }
 
-/* The unlisted announcements page. */
+/* The row shared by both unlisted management pages' lists — announcements
+   and playing slots — plus text, a confirm-before-remove sequence, and
+   nothing else. It is the same row on both pages; a second copy under
+   another name would only drift from this one. */
 .notice-row {
   display: flex;
   align-items: flex-start;
@@ -454,6 +467,39 @@ body {
 }
 
 .field__date {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+/*
+ * The start and end pickers. Same box as the weekday select beside them —
+ * they are dropdowns too, because only a list of the allowed values can keep
+ * a slot on the hour or the half hour, and seventeen of them scroll
+ * comfortably inside the menu the browser opens.
+ */
+.field__time {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 1px solid #d6ded9;
+  border-radius: var(--radius-control);
+  background: #f7f9f7;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+/* The weekday picker on the settings page. */
+.field__select {
   width: 100%;
   height: 44px;
   margin-top: 6px;
@@ -708,6 +754,17 @@ body {
   text-transform: capitalize;
 }
 
+/*
+ * The time, under the date it belongs to. It keeps the date's weight — this
+ * card has no louder line to compete with — but deliberately not its
+ * `capitalize`, which renders "klo" as "Klo".
+ */
+.closed__next-time {
+  margin: 2px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
 .weekstrip {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -729,6 +786,29 @@ body {
   background: var(--accent-wash);
   color: var(--accent-ink);
   font-weight: 700;
+}
+
+/*
+ * Under the strip: one quiet two-column line per slot, weekday left, time
+ * right. The strip stays because it is the only thing on this card that
+ * reads at a glance, but seven columns cannot hold a time.
+ */
+.weekslots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.weekslots__row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.weekslots__row span:first-child {
+  text-transform: capitalize;
 }
 
 .state {

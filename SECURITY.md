@@ -21,12 +21,16 @@ who already know each other and share a gym booking.
 - **Anyone can register anyone.** You pick a previous player or type a name.
   There is no proof that you are that person.
 - **Anyone can remove any name.** A single confirmation, no undo.
-- **The announcements page is unlisted, not protected.** `/tiedotteet` is
-  linked from nowhere, but the address is guessable and anyone who visits it
-  can write and delete announcements. "Unlisted" is the only barrier and is
+- **The announcements and schedule pages are unlisted, not protected.**
+  `/tiedotteet` and `/asetukset` are linked from nowhere, but the addresses
+  are guessable: anyone who visits `/tiedotteet` can write and delete
+  announcements, and anyone who visits `/asetukset` can change which days and
+  times the group plays, including removing every slot, which closes
+  registration entirely. "Unlisted" is the only barrier on either page and is
   not treated as a security control.
-- **Cloudflare Turnstile gates writes, not people.** The three write endpoints
-  redeem a Turnstile token before the handler runs. It keeps scripts out. It
+- **Cloudflare Turnstile gates writes, not people.** The three write
+  surfaces — registration, announcements and the schedule — redeem a
+  Turnstile token before the handler runs. It keeps scripts out. It
   identifies nobody, and it is not authorization.
 - **The Turnstile sitekey in `packages/web/.env.production` is public by
   design.** A sitekey appears in the page source on every visit. The secret it
@@ -42,7 +46,7 @@ Worth reporting:
 - A way to read or modify data that the UI does not already permit — for
   example reaching DynamoDB items outside the documented access patterns, or
   getting the API to return another table's contents.
-- Anything that bypasses the Turnstile check on the write endpoints.
+- Anything that bypasses the Turnstile check on the write surfaces.
 - A way to make the API or CloudFront serve something it should not: an API
   path answering with the SPA shell and a 200, cache poisoning, injection into
   a rendered announcement.

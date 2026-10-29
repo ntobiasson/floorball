@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import {
+  slotsOn,
   TURNSTILE_ACTIONS,
   type PlayerDetail,
   type PlayerSummary,
   type TodayResponse,
 } from '@sahlykanta/shared';
-import { finnishDate } from '../lib/finnish.js';
+import { finnishDate, slotTime } from '../lib/finnish.js';
 import { filterPlayers } from '../lib/search.js';
 import { Turnstile } from '../components/Turnstile.js';
 import { RetroHistory } from './RetroHistory.js';
@@ -81,6 +82,11 @@ export function Retro({
     .map((r) => (r.isGoalkeeper === true ? `${r.displayName} (MV)` : r.displayName))
     .join(',');
 
+  /** 2002 had no en dash problem worth solving — `slotTime` is reused as-is. */
+  const todayTimes = slotsOn(today.schedule, today.date)
+    .map((slot) => slotTime(slot))
+    .filter((time): time is string => time !== undefined);
+
   /**
    * Nobody who is already on tonight's list: the API would refuse them, and
    * the old page's own list is printed two lines above.
@@ -147,6 +153,12 @@ export function Retro({
                     Tänään&nbsp;
                     <span className="xspTextComputedField">{finnishDate(today.date)}</span>
                     &nbsp;{today.isGameDay ? 'on pelipäivä' : 'ei ole pelipäivää'}
+                    {today.isGameDay && todayTimes.length > 0 && (
+                      <>
+                        &nbsp;
+                        <span className="xspTextComputedField">{todayTimes.join(', ')}</span>
+                      </>
+                    )}
                     <br />
                     {today.isGameDay && (
                       <>
