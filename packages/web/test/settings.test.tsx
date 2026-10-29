@@ -134,14 +134,27 @@ describe('the unlisted settings page', () => {
   });
 
   test('shows the new slot in the list without a reload', async () => {
-    const api = fakeApi();
+    const NEW: GameSlot = { id: 's3', weekday: 2, startTime: '19:00' };
+    // Two distinct answers in sequence: the first is what the page opens
+    // with, the second is what it must re-render after the add. A mock that
+    // returned the same list forever would let this test pass against a
+    // page that re-fetches and throws the result away.
+    const api = fakeApi({
+      schedule: vi
+        .fn()
+        .mockResolvedValueOnce({ slots: SLOTS, initialised: true })
+        .mockResolvedValueOnce({ slots: [...SLOTS, NEW], initialised: true }),
+      addSlot: vi.fn().mockResolvedValue(NEW),
+    });
     openPage(api);
     await screen.findByText('Maanantai klo 20–21.30');
 
+    await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Tiistai');
     await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
-    await waitFor(() => expect(api.schedule).toHaveBeenCalledTimes(2));
+    const list = within(screen.getByRole('region', { name: 'Pelivuorot' }));
+    await waitFor(() => expect(list.getByText('Tiistai klo 19')).toBeInTheDocument());
   });
 
   test('asks before removing, and removes on the second tap', async () => {
