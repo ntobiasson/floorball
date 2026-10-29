@@ -91,6 +91,12 @@ const TUESDAY: TodayResponse = {
   schedule: SCHEDULE,
 };
 
+/** Monday carries a time, the way a schedule saved through settings would. */
+const MONDAY_WITH_TIME: TodayResponse = {
+  ...MONDAY,
+  schedule: [{ id: 's-monday', weekday: 1, startTime: '20:00' }],
+};
+
 function fakeApi(today: TodayResponse, overrides: Partial<Api> = {}): Api {
   return {
     today: vi.fn().mockResolvedValue(today),
@@ -159,6 +165,12 @@ describe('the old page', () => {
     await open(MONDAY);
 
     expect(screen.getByText(/Tänään/)).toHaveTextContent('Tänään 19.10.2026 on pelipäivä');
+  });
+
+  test('says the time after the date in 2002 too', async () => {
+    await open(MONDAY_WITH_TIME);
+
+    expect(screen.getByText(/Tänään/)).toHaveTextContent('Tänään 19.10.2026 on pelipäivä klo 20');
   });
 
   test('counts the registrations in kpl', async () => {

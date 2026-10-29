@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import {
-  DEFAULT_SCHEDULE,
+  slotsOn,
   TURNSTILE_ACTIONS,
   type PlayerSummary,
   type TodayResponse,
 } from '@sahlykanta/shared';
-import { finnishDate, finnishDateWithWeekday, weekdayName } from '../lib/finnish.js';
+import { finnishDate, finnishDateWithWeekday, slotTime, weekdayName } from '../lib/finnish.js';
 import { ClosedGlyph } from '../components/Graphics.js';
 import { Notices } from '../components/Notices.js';
 import { RegisterForm } from '../components/RegisterForm.js';
@@ -66,6 +66,16 @@ export function Today({
   const [reload, setReload] = useState(0);
 
   if (!today.isGameDay) {
+    // The schedule's own weekdays decide the strip and which days have a
+    // row, not the Mon/Wed/Sat fallback this screen used to assume.
+    const scheduleWeekdays = new Set(today.schedule.map((slot) => slot.weekday));
+    const nextTimes =
+      today.nextGameDate === undefined
+        ? []
+        : slotsOn(today.schedule, today.nextGameDate)
+            .map((slot) => slotTime(slot))
+            .filter((time): time is string => time !== undefined);
+
     return (
       <>
         <section className="card closed">
@@ -75,25 +85,33 @@ export function Today({
           <h1 className="closed__title">Tänään ei pelata</h1>
           <p className="closed__today">{finnishDateWithWeekday(today.date, today.weekday)}</p>
           <hr className="closed__rule" />
-          <h2 className="section__label" style={{ marginTop: '18px' }}>
-            Seuraava pelipäivä
-          </h2>
+          {/* An empty schedule has no next playing day at all, so the
+              heading and the hint beneath it would otherwise sit over
+              nothing — all three render together or not at all. */}
           {today.nextGameDate !== undefined && (
-            <p className="closed__next">{finnishDate(today.nextGameDate)}</p>
+            <>
+              <h2 className="section__label" style={{ marginTop: '18px' }}>
+                Seuraava pelipäivä
+              </h2>
+              <p className="closed__next">
+                {finnishDate(today.nextGameDate)}
+                {nextTimes.length > 0 && ` ${nextTimes.join(', ')}`}
+              </p>
+              <p className="field__hint" style={{ textAlign: 'center' }}>
+                Ilmoittautuminen avautuu pelipäivän aamuna
+              </p>
+            </>
           )}
-          <p className="field__hint" style={{ textAlign: 'center' }}>
-            Ilmoittautuminen avautuu pelipäivän aamuna
-          </p>
         </section>
 
         <section className="card" aria-labelledby="gamedays-title">
           <h2 className="section__label" id="gamedays-title">
-            Pelipäivät
+            Pelivuorot
           </h2>
           <div className="weekstrip">
             {WEEK_LABELS.map((label, index) => {
               const weekday = WEEK_NUMBERS[index] as number;
-              const isGame = DEFAULT_SCHEDULE.some((slot) => slot.weekday === weekday);
+              const isGame = scheduleWeekdays.has(weekday);
               return (
                 <span
                   className={isGame ? 'weekstrip__day weekstrip__day--game' : 'weekstrip__day'}
@@ -104,6 +122,25 @@ export function Today({
               );
             })}
           </div>
+          {today.schedule.length === 0 ? (
+            <p className="field__hint" style={{ textAlign: 'center' }}>
+              Pelivuoroja ei ole asetettu
+            </p>
+          ) : (
+            // Seven columns cannot hold a time, so each slot gets its own
+            // row here instead.
+            <div className="weekslots">
+              {today.schedule.map((slot) => {
+                const time = slotTime(slot);
+                return (
+                  <div className="weekslots__row" key={slot.id}>
+                    <span>{weekdayName(slot.weekday)}</span>
+                    {time !== undefined && <span>{` ${time}`}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <Notices announcements={today.announcements} />
@@ -112,6 +149,12 @@ export function Today({
   }
 
   const registeredIds = new Set(today.registrations.map((r) => r.playerId));
+
+  // Two slots on the same evening join on one line rather than stacking;
+  // a slot that carries no time is left out rather than inventing one.
+  const todayTimes = slotsOn(today.schedule, today.date)
+    .map((slot) => slotTime(slot))
+    .filter((time): time is string => time !== undefined);
 
   const setGoalkeeper = async (
     playerId: string,
@@ -156,7 +199,12 @@ export function Today({
         <h1 className="today__weekday" id="today-title">
           {weekdayName(today.weekday)}
         </h1>
-        <p className="today__date">{finnishDate(today.date)}</p>
+        <p className="today__date">
+          {finnishDate(today.date)}
+          {todayTimes.length > 0 && (
+            <span className="today__time">{` ${todayTimes.join(', ')}`}</span>
+          )}
+        </p>
 
         <p className="today__count">
           <span className="today__count-number">{today.registrations.length}</span>

@@ -153,6 +153,16 @@ body {
   font-size: 17px;
 }
 
+/*
+ * Inline, inside .today__date: it inherits that line's size and weight,
+ * which is not bold — the date above it is not bold either, and the card
+ * already has its shout in the weekday heading. Only the colour marks it
+ * out so it is findable in the line.
+ */
+.today__time {
+  color: var(--accent-ink);
+}
+
 .today__count {
   display: flex;
   align-items: baseline;
@@ -760,6 +770,29 @@ body {
   background: var(--accent-wash);
   color: var(--accent-ink);
   font-weight: 700;
+}
+
+/*
+ * Under the strip: one quiet two-column line per slot, weekday left, time
+ * right. The strip stays because it is the only thing on this card that
+ * reads at a glance, but seven columns cannot hold a time.
+ */
+.weekslots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.weekslots__row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.weekslots__row span:first-child {
+  text-transform: capitalize;
 }
 
 .state {

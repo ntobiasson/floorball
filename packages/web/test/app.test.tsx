@@ -74,6 +74,45 @@ const TUESDAY: TodayResponse = {
   schedule: SCHEDULE,
 };
 
+/** Monday carries a time, the way a schedule saved through settings would. */
+const MONDAY_WITH_TIME: TodayResponse = {
+  ...MONDAY,
+  schedule: [
+    { id: 's-monday', weekday: 1, startTime: '20:00', endTime: '21:30' },
+    { id: 's-wednesday', weekday: 3, startTime: '19:00' },
+    { id: 's-saturday', weekday: 6, startTime: '10:00' },
+  ],
+};
+
+/** Two slots on the same Monday evening, to check they join rather than stack. */
+const MONDAY_TWO_SLOTS: TodayResponse = {
+  ...MONDAY,
+  schedule: [
+    { id: 's-monday-early', weekday: 1, startTime: '18:00' },
+    { id: 's-monday-late', weekday: 1, startTime: '20:00' },
+  ],
+};
+
+/** Tuesday's next game day (Wednesday) carries a time. */
+const TUESDAY_NEXT_WITH_TIME: TodayResponse = {
+  ...TUESDAY,
+  schedule: MONDAY_WITH_TIME.schedule,
+};
+
+/** A schedule that plays only on Thursday — nothing like the Mon/Wed/Sat fallback. */
+const TUESDAY_THURSDAY_ONLY: TodayResponse = {
+  ...TUESDAY,
+  nextGameDate: '2026-10-22',
+  schedule: [{ id: 's-thursday', weekday: 4, startTime: '19:00' }],
+};
+
+/** The schedule was configured and then emptied: no slots at all. */
+const TUESDAY_EMPTY_SCHEDULE: TodayResponse = {
+  ...TUESDAY,
+  nextGameDate: undefined,
+  schedule: [],
+};
+
 // Navigating pushes history state, and jsdom keeps the URL for the whole
 // file, so every test starts from the root route explicitly.
 beforeEach(() => {
@@ -126,6 +165,33 @@ describe('a game day', () => {
     expect(screen.getByText('Mikko Laine')).toBeInTheDocument();
     expect(screen.getByText('Jukka Rantanen')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  test('shows tonight’s time after the date on the same line', async () => {
+    render(<App api={fakeApi(MONDAY_WITH_TIME)} />);
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    // The time is a nested span, so RTL's default text match (which looks
+    // only at an element's own text nodes) finds the date paragraph by its
+    // date alone; toHaveTextContent then reads the whole line, nested span
+    // included, to confirm the time really followed it on that same line.
+    expect(screen.getByText('19.10.2026')).toHaveTextContent('19.10.2026 klo 20–21.30');
+  });
+
+  test('shows both times when two slots fall on the same evening', async () => {
+    render(<App api={fakeApi(MONDAY_TWO_SLOTS)} />);
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    expect(screen.getByText('19.10.2026')).toHaveTextContent('19.10.2026 klo 18, klo 20');
+  });
+
+  test('shows no time for a slot that carries none', async () => {
+    render(<App api={fakeApi(MONDAY)} />);
+
+    await screen.findByRole('heading', { name: 'maanantai' });
+    const date = screen.getByText('19.10.2026');
+    expect(date).toBeInTheDocument();
+    expect(date).not.toHaveTextContent('klo');
   });
 
   test('offers the registration form', async () => {
@@ -330,6 +396,48 @@ describe('a day that is not a game day', () => {
     for (const day of ['Ti', 'To', 'Pe', 'Su']) {
       expect(screen.getByText(day)).not.toHaveClass('weekstrip__day--game');
     }
+  });
+
+  test('shows the next playing day’s time beside its date', async () => {
+    render(<App api={fakeApi(TUESDAY_NEXT_WITH_TIME)} />);
+
+    await screen.findByRole('heading', { name: 'Tänään ei pelata' });
+    expect(screen.getByText('21.10.2026 klo 19')).toBeInTheDocument();
+  });
+
+  test('draws the week strip from the schedule, not from Monday-Wednesday-Saturday', async () => {
+    render(<App api={fakeApi(TUESDAY_THURSDAY_ONLY)} />);
+
+    await screen.findByRole('heading', { name: 'Tänään ei pelata' });
+    expect(screen.getByText('To')).toHaveClass('weekstrip__day--game');
+    for (const day of ['Ma', 'Ti', 'Ke', 'Pe', 'La', 'Su']) {
+      expect(screen.getByText(day)).not.toHaveClass('weekstrip__day--game');
+    }
+  });
+
+  test('lists each slot under the strip with its weekday and time', async () => {
+    render(<App api={fakeApi(TUESDAY_NEXT_WITH_TIME)} />);
+
+    await screen.findByRole('heading', { name: 'Tänään ei pelata' });
+    // The weekday and the time are separate spans in the same row; find the
+    // row by its weekday, then confirm the time sits in that same row.
+    expect(screen.getByText('maanantai').closest('.weekslots__row')).toHaveTextContent(
+      'maanantai klo 20–21.30',
+    );
+    expect(screen.getByText('keskiviikko').closest('.weekslots__row')).toHaveTextContent(
+      'keskiviikko klo 19',
+    );
+    expect(screen.getByText('lauantai').closest('.weekslots__row')).toHaveTextContent(
+      'lauantai klo 10',
+    );
+  });
+
+  test('offers no next playing day when the schedule is empty', async () => {
+    render(<App api={fakeApi(TUESDAY_EMPTY_SCHEDULE)} />);
+
+    await screen.findByRole('heading', { name: 'Tänään ei pelata' });
+    expect(screen.queryByText('Seuraava pelipäivä')).not.toBeInTheDocument();
+    expect(screen.getByText('Pelivuoroja ei ole asetettu')).toBeInTheDocument();
   });
 });
 
