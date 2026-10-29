@@ -946,11 +946,20 @@ git commit -m "test(e2e): drive the settings page against the real API"
 **Files:**
 - Modify: `docs/runbook.md`, `README.md`
 
-- [ ] **Step 1: Write the entry**
+- [ ] **Step 1: Correct the two facts this feature made stale**
 
-In `docs/runbook.md`, how to change the schedule: open `/asetukset`, that a saved slot is in force immediately, that removing every slot closes registration entirely, and that an untouched installation plays Mon/Wed/Sat with no times until the first save. In `README.md`, add `/asetukset` wherever `/tiedotteet` is already named.
+Both predate the feature and are now wrong, which matters more than the new prose:
 
-- [ ] **Step 2: Commit**
+- `README.md:5-6` opens with "**Registration** is open on **Monday, Wednesday and Saturday**, and only for the current day." That is no longer a property of the application — it is whatever the schedule says. Rewrite it so Mon/Wed/Sat is named as what an unconfigured installation does, not as the rule.
+- `docs/runbook.md:92-93` enumerates what carries a Turnstile token: "registering a name, adding or removing an announcement". Adding or removing a playing slot is a third such write, on its own action.
+
+- [ ] **Step 2: Write the new entry**
+
+In `docs/runbook.md`, a section after `## Announcements` (which is the model for its voice, including its paragraph on what the trust model is and what the realistic alternatives would be): how to change the schedule at `/asetukset`, that a saved slot is in force immediately and visible on the next load of the landing page, that removing every slot closes registration entirely rather than reverting to Mon/Wed/Sat, and that an untouched installation plays Mon/Wed/Sat with no times until the first save.
+
+In `README.md`, add `/asetukset` to the bullet list beside the `/tiedotteet` one, in the same voice: an unlisted address, no password, anyone who visits the site can change the schedule.
+
+- [ ] **Step 3: Commit**
 
 ```bash
 git add docs/runbook.md README.md
