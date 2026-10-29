@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
   AnnouncementSchema,
   HistoryResponseSchema,
@@ -59,17 +59,19 @@ describe('RegistrationInputSchema', () => {
 });
 
 describe('response schemas', () => {
+  const gameDayResponse = {
+    date: '2026-10-19',
+    weekday: 1,
+    isGameDay: true,
+    registrations: [
+      { playerId: 'p1', displayName: 'Matti Virtanen', createdAt: '2026-10-19T06:00:00Z' },
+    ],
+    announcements: [],
+    schedule: [{ id: 'default-monday', weekday: 1 }],
+  };
+
   test('TodayResponse describes a game day with registrations', () => {
-    const value = {
-      date: '2026-10-19',
-      weekday: 1,
-      isGameDay: true,
-      registrations: [
-        { playerId: 'p1', displayName: 'Matti Virtanen', createdAt: '2026-10-19T06:00:00Z' },
-      ],
-      announcements: [],
-    };
-    expect(TodayResponseSchema.parse(value)).toEqual(value);
+    expect(TodayResponseSchema.parse(gameDayResponse)).toEqual(gameDayResponse);
   });
 
   test('TodayResponse describes a non-game day with the next game day', () => {
@@ -80,8 +82,20 @@ describe('response schemas', () => {
       nextGameDate: '2026-10-21',
       registrations: [],
       announcements: [],
+      schedule: [],
     };
     expect(TodayResponseSchema.parse(value)).toEqual(value);
+  });
+
+  it('requires the schedule on a day response', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- discarded on purpose, by rest
+    const { schedule, ...withoutSchedule } = gameDayResponse;
+    expect(TodayResponseSchema.safeParse(withoutSchedule).success).toBe(false);
+  });
+
+  it('accepts a day response whose slots carry no times', () => {
+    const body = { ...gameDayResponse, schedule: [{ id: 'a', weekday: 1 }] };
+    expect(TodayResponseSchema.safeParse(body).success).toBe(true);
   });
 
   test('PlayerSummary carries the total', () => {

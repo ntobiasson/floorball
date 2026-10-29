@@ -45,6 +45,13 @@ const ARCHIVE: PlayerDetail[] = [
   },
 ];
 
+/** The fallback rule, unchanged since nothing in these tests stores a schedule. */
+const SCHEDULE = [
+  { id: 'default-monday', weekday: 1 },
+  { id: 'default-wednesday', weekday: 3 },
+  { id: 'default-saturday', weekday: 6 },
+];
+
 const MONDAY: TodayResponse = {
   date: '2026-10-19',
   weekday: 1,
@@ -54,6 +61,7 @@ const MONDAY: TodayResponse = {
     { playerId: 'p-jukka', displayName: 'Jukka Rantanen', createdAt: '2026-10-19T06:05:00Z' },
   ],
   announcements: [{ id: 'a1', body: 'Kenttä varattu 21.10. klo 18–19.' }],
+  schedule: SCHEDULE,
 };
 
 const TUESDAY: TodayResponse = {
@@ -63,6 +71,7 @@ const TUESDAY: TodayResponse = {
   nextGameDate: '2026-10-21',
   registrations: [],
   announcements: [],
+  schedule: SCHEDULE,
 };
 
 // Navigating pushes history state, and jsdom keeps the URL for the whole

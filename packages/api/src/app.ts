@@ -2,18 +2,19 @@ import { createHash } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import {
   AnnouncementInputSchema,
-  DEFAULT_SCHEDULE,
   GameSlotInputSchema,
   GoalkeeperInputSchema,
   RegistrationInputSchema,
   TURNSTILE_ACTIONS,
   TURNSTILE_TOKEN_FIELD,
+  effectiveSchedule,
   hasSameSlot,
   isGameDay,
   nextGameDay,
   orderSlots,
   todayInHelsinki,
   weekdayOf,
+  type GameSlot,
   type TodayResponse,
   type TurnstileAction,
 } from '@sahlykanta/shared';
@@ -77,15 +78,24 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
    */
   const today = () => todayInHelsinki(now());
 
+  /**
+   * What the app actually plays by: the stored schedule once one has been
+   * written, the Monday/Wednesday/Saturday fallback until then. Every call
+   * site that used to ask `isGameDay`/`nextGameDay` about the hardcoded rule
+   * now asks them about this instead.
+   */
+  const schedule = async (): Promise<readonly GameSlot[]> => {
+    const { slots, initialised } = await repo.listSlots();
+    return effectiveSchedule(slots, initialised);
+  };
+
   app.get('/api/today', async (c) => {
     const date = today();
-    const gameDay = isGameDay(DEFAULT_SCHEDULE, date);
-    const [registrations, announcements] = await Promise.all([
-      gameDay ? repo.listRegistrations(date) : Promise.resolve([]),
-      repo.listAnnouncements(date),
-    ]);
+    const [slots, announcements] = await Promise.all([schedule(), repo.listAnnouncements(date)]);
+    const gameDay = isGameDay(slots, date);
+    const registrations = gameDay ? await repo.listRegistrations(date) : [];
 
-    const nextGameDate = gameDay ? undefined : nextGameDay(DEFAULT_SCHEDULE, date);
+    const nextGameDate = gameDay ? undefined : nextGameDay(slots, date);
     const body: TodayResponse = {
       date,
       weekday: weekdayOf(date),
@@ -93,6 +103,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       ...(nextGameDate === undefined ? {} : { nextGameDate }),
       registrations,
       announcements,
+      schedule: orderSlots(slots),
     };
     return c.json(body);
   });
@@ -113,8 +124,9 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     }
 
     const date = today();
-    if (!isGameDay(DEFAULT_SCHEDULE, date)) {
-      const nextGameDate = nextGameDay(DEFAULT_SCHEDULE, date);
+    const slots = await schedule();
+    if (!isGameDay(slots, date)) {
+      const nextGameDate = nextGameDay(slots, date);
       return c.json(
         {
           error: 'tänään ei ole pelipäivä',
@@ -153,7 +165,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
 
   app.delete('/api/registrations/:playerId', async (c) => {
     const date = today();
-    if (!isGameDay(DEFAULT_SCHEDULE, date)) {
+    if (!isGameDay(await schedule(), date)) {
       return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
     }
 
@@ -191,7 +203,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     if (!parsed.success) return c.json({ error: 'virheellinen pyyntö' }, 400);
 
     const date = today();
-    if (!isGameDay(DEFAULT_SCHEDULE, date)) {
+    if (!isGameDay(await schedule(), date)) {
       return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
     }
 
