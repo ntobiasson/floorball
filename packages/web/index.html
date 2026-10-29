@@ -1,4 +1,15 @@
 <!doctype html>
+<!--
+  `lang` is Finnish here and changed at runtime once the app knows which
+  language it is speaking. Finnish is the right thing to serve: it is what
+  this page is, and a crawler reads this shell rather than anything React
+  renders over it.
+
+  The title and the description stay Finnish for the same reason, and the
+  title would anyway — "Peleille" is the thing's name, not a word to
+  translate. Varying the description per visitor would change nothing for
+  the only readers it has.
+-->
 <html lang="fi">
   <head>
     <meta charset="utf-8" />

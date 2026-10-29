@@ -35,12 +35,16 @@ export default defineConfig({
   use: {
     // The phone viewport layout A was designed for.
     ...devices['Pixel 7'],
+    // Pinned, not left to whatever the runner reports: the app now picks
+    // its language from the browser, and every spec here asserts Finnish
+    // copy. Without this the suite's language depends on the machine.
+    locale: 'fi-FI',
     baseURL: `http://127.0.0.1:${WEB_MONDAY_PORT}`,
   },
   projects: [
     {
       name: 'monday',
-      testMatch: /(smoke|notices|history|settings)\.spec\.ts/,
+      testMatch: /(smoke|notices|history|settings|languages)\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${WEB_MONDAY_PORT}` },
     },
     {
