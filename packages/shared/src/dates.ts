@@ -7,9 +7,6 @@
 
 export const GAME_TIME_ZONE = 'Europe/Helsinki';
 
-/** Monday, Wednesday, Saturday — expressed as `Date#getUTCDay` numbers. */
-const GAME_WEEKDAYS: readonly number[] = [1, 3, 6];
-
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -53,23 +50,6 @@ export function todayInHelsinki(now: Date = new Date()): string {
 export function weekdayOf(iso: string): number {
   assertIsoDate(iso);
   return toUtcNoon(iso).getUTCDay();
-}
-
-/** Registration is only ever accepted on a Monday, Wednesday or Saturday. */
-export function isGameDay(iso: string): boolean {
-  return GAME_WEEKDAYS.includes(weekdayOf(iso));
-}
-
-/** The first game day strictly after `iso`. */
-export function nextGameDay(iso: string): string {
-  assertIsoDate(iso);
-  const cursor = toUtcNoon(iso);
-  for (let step = 1; step <= 7; step += 1) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-    if (GAME_WEEKDAYS.includes(cursor.getUTCDay())) return cursor.toISOString().slice(0, 10);
-  }
-  // Unreachable: every 7-day window contains a Monday.
-  throw new Error(`no game day found within a week of ${iso}`);
 }
 
 /** The year component, used as the `YEAR#` sort key in DynamoDB. */

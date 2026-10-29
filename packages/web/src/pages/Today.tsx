@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { TURNSTILE_ACTIONS, type PlayerSummary, type TodayResponse } from '@sahlykanta/shared';
+import {
+  DEFAULT_SCHEDULE,
+  TURNSTILE_ACTIONS,
+  type PlayerSummary,
+  type TodayResponse,
+} from '@sahlykanta/shared';
 import { finnishDate, finnishDateWithWeekday, weekdayName } from '../lib/finnish.js';
 import { ClosedGlyph } from '../components/Graphics.js';
 import { Notices } from '../components/Notices.js';
 import { RegisterForm } from '../components/RegisterForm.js';
 import { Turnstile } from '../components/Turnstile.js';
 
-const GAME_WEEKDAYS = [1, 3, 6];
 const WEEK_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 /** WEEK_LABELS is Monday-first; weekday numbers are Sunday-first. */
 const WEEK_NUMBERS = [1, 2, 3, 4, 5, 6, 0];
@@ -89,7 +93,7 @@ export function Today({
           <div className="weekstrip">
             {WEEK_LABELS.map((label, index) => {
               const weekday = WEEK_NUMBERS[index] as number;
-              const isGame = GAME_WEEKDAYS.includes(weekday);
+              const isGame = DEFAULT_SCHEDULE.some((slot) => slot.weekday === weekday);
               return (
                 <span
                   className={isGame ? 'weekstrip__day weekstrip__day--game' : 'weekstrip__day'}

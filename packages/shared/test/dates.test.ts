@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, afterEach } from 'vitest';
-import { addDays, InvalidDateError, isGameDay, nextGameDay, todayInHelsinki, weekdayOf } from '../src/dates.js';
+import { addDays, InvalidDateError, todayInHelsinki, weekdayOf } from '../src/dates.js';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,24 +20,6 @@ describe('weekdayOf', () => {
   for (const [iso, day] of week) {
     test(`${iso} is weekday ${day}`, () => {
       expect(weekdayOf(iso)).toBe(day);
-    });
-  }
-});
-
-describe('isGameDay', () => {
-  const expected: Array<[string, boolean]> = [
-    ['2026-10-19', true], // Monday
-    ['2026-10-20', false], // Tuesday
-    ['2026-10-21', true], // Wednesday
-    ['2026-10-22', false], // Thursday
-    ['2026-10-23', false], // Friday
-    ['2026-10-24', true], // Saturday
-    ['2026-10-25', false], // Sunday
-  ];
-
-  for (const [iso, isGame] of expected) {
-    test(`${iso} -> ${isGame}`, () => {
-      expect(isGameDay(iso)).toBe(isGame);
     });
   }
 });
@@ -82,29 +64,6 @@ describe('todayInHelsinki', () => {
 
   test('midnight rolls into the autumn DST transition day while still UTC+3', () => {
     expect(at('2026-10-24T21:30:00Z')).toBe('2026-10-25');
-  });
-});
-
-describe('nextGameDay', () => {
-  test('from a Tuesday the next game day is Wednesday', () => {
-    expect(nextGameDay('2026-10-20')).toBe('2026-10-21');
-  });
-
-  test('from a Thursday the next game day is Saturday', () => {
-    expect(nextGameDay('2026-10-22')).toBe('2026-10-24');
-  });
-
-  test('from a Sunday the next game day is Monday', () => {
-    expect(nextGameDay('2026-10-25')).toBe('2026-10-26');
-  });
-
-  test('from a game day the next game day is strictly later', () => {
-    expect(nextGameDay('2026-10-19')).toBe('2026-10-21');
-  });
-
-  test('crosses a month boundary', () => {
-    // 2026-10-31 is a Saturday; the next game day is Monday 2026-11-02.
-    expect(nextGameDay('2026-10-31')).toBe('2026-11-02');
   });
 });
 

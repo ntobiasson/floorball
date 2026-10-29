@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import {
   AnnouncementInputSchema,
+  DEFAULT_SCHEDULE,
   GoalkeeperInputSchema,
   RegistrationInputSchema,
   TURNSTILE_ACTIONS,
@@ -74,17 +75,18 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
 
   app.get('/api/today', async (c) => {
     const date = today();
-    const gameDay = isGameDay(date);
+    const gameDay = isGameDay(DEFAULT_SCHEDULE, date);
     const [registrations, announcements] = await Promise.all([
       gameDay ? repo.listRegistrations(date) : Promise.resolve([]),
       repo.listAnnouncements(date),
     ]);
 
+    const nextGameDate = gameDay ? undefined : nextGameDay(DEFAULT_SCHEDULE, date);
     const body: TodayResponse = {
       date,
       weekday: weekdayOf(date),
       isGameDay: gameDay,
-      ...(gameDay ? {} : { nextGameDate: nextGameDay(date) }),
+      ...(nextGameDate === undefined ? {} : { nextGameDate }),
       registrations,
       announcements,
     };
@@ -107,8 +109,12 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     }
 
     const date = today();
-    if (!isGameDay(date)) {
-      return c.json({ error: 'tänään ei ole pelipäivä', nextGameDate: nextGameDay(date) }, 409);
+    if (!isGameDay(DEFAULT_SCHEDULE, date)) {
+      const nextGameDate = nextGameDay(DEFAULT_SCHEDULE, date);
+      return c.json(
+        { error: 'tänään ei ole pelipäivä', ...(nextGameDate === undefined ? {} : { nextGameDate }) },
+        409,
+      );
     }
     if (parsed.data.gameDate !== date) {
       // Not 400: the request is well formed, it is just aimed at another day.
@@ -140,7 +146,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
 
   app.delete('/api/registrations/:playerId', async (c) => {
     const date = today();
-    if (!isGameDay(date)) {
+    if (!isGameDay(DEFAULT_SCHEDULE, date)) {
       return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
     }
 
@@ -178,7 +184,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     if (!parsed.success) return c.json({ error: 'virheellinen pyyntö' }, 400);
 
     const date = today();
-    if (!isGameDay(date)) {
+    if (!isGameDay(DEFAULT_SCHEDULE, date)) {
       return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
     }
 
