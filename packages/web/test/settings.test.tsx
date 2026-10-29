@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 
 describe('the unlisted settings page', () => {
-  test('offers the start and the end on the hour and the half hour only', async () => {
+  test('offers the half hours between noon and eight, and nothing else', async () => {
     openPage(fakeApi());
 
     // A string name is a full match, so this is the form card's heading and
@@ -45,18 +45,23 @@ describe('the unlisted settings page', () => {
     await screen.findByRole('heading', { name: 'Pelivuoro' });
 
     for (const label of ['Alkaa', 'Päättyy']) {
-      const values = within(screen.getByLabelText(label))
+      const field = screen.getByLabelText(label);
+      // Three rows of a scrolling list rather than a dropdown: short enough
+      // to sit in the form, long enough to show where you are in the day.
+      expect(field).toHaveAttribute('size', '3');
+
+      const values = within(field)
         .getAllByRole('option')
         .map((option) => (option as HTMLOptionElement).value)
         .filter((value) => value !== '');
 
-      // 24 hours, twice each — and nothing else. An `<input type="time">`
+      // 12.00 to 20.00 inclusive, every half hour. An `<input type="time">`
       // with `step` cannot promise this: the native picker honours the step
       // unevenly, and a typed time ignores it altogether.
-      expect(values).toHaveLength(48);
-      expect(values.filter((value) => !/:(00|30)$/.test(value))).toEqual([]);
-      expect(values[0]).toBe('00:00');
-      expect(values.at(-1)).toBe('23:30');
+      expect(values[0]).toBe('12:00');
+      expect(values.at(-1)).toBe('20:00');
+      expect(values).toHaveLength(17);
+      expect(values.filter((value) => !/^(1[2-9]|20):(00|30)$/.test(value))).toEqual([]);
     }
   });
 
@@ -123,12 +128,12 @@ describe('the unlisted settings page', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Tiistai');
     await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
-    await userEvent.selectOptions(screen.getByLabelText('Päättyy'), '20:30');
+    await userEvent.selectOptions(screen.getByLabelText('Päättyy'), '20:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     await waitFor(() =>
       expect(api.addSlot).toHaveBeenCalledWith(
-        { weekday: 2, startTime: '19:00', endTime: '20:30' },
+        { weekday: 2, startTime: '19:00', endTime: '20:00' },
         TEST_TURNSTILE_TOKEN,
       ),
     );

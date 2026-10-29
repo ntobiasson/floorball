@@ -109,11 +109,11 @@ test('a slot added on the page is live on the front page at once', async ({ page
   await page.goto(SETTINGS);
   // Weekday is left on its default, Monday, so this slot lands on the
   // seeded Monday evening slot's own day.
-  await page.getByLabel('Alkaa').selectOption('07:30');
-  await page.getByLabel('Päättyy').selectOption('08:30');
+  await page.getByLabel('Alkaa').selectOption('12:30');
+  await page.getByLabel('Päättyy').selectOption('14:00');
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
-  const label = 'Maanantai klo 7.30–8.30';
+  const label = 'Maanantai klo 12.30–14';
   // Recorded before the assertions below, so `afterEach` still has it to
   // remove if one of them fails.
   createdLabel = label;
@@ -123,24 +123,24 @@ test('a slot added on the page is live on the front page at once', async ({ page
   // One line holds both slots for the day — the new one beside the seeded
   // one — rather than only the first or the last write winning.
   const todayLine = page.locator('.today__date');
-  await expect(todayLine).toContainText('klo 7.30–8.30');
+  await expect(todayLine).toContainText('klo 12.30–14');
   await expect(todayLine).toContainText('klo 20–21.30');
 });
 
 test('a slot removed on the page is gone from the front page', async ({ page }) => {
   await page.goto(SETTINGS);
-  await page.getByLabel('Alkaa').selectOption('06:00');
-  await page.getByLabel('Päättyy').selectOption('07:00');
+  await page.getByLabel('Alkaa').selectOption('13:00');
+  await page.getByLabel('Päättyy').selectOption('14:00');
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
-  const label = 'Maanantai klo 6–7';
+  const label = 'Maanantai klo 13–14';
   // Recorded before the assertions below, so `afterEach` still has it to
   // remove if one of them fails.
   createdLabel = label;
   await expect(pelivuorot(page).getByText(label)).toBeVisible();
 
   await page.goto('/');
-  await expect(page.locator('.today__date')).toContainText('klo 6–7');
+  await expect(page.locator('.today__date')).toContainText('klo 13–14');
 
   // The removal itself is the thing under test here, not cleanup — it is
   // what the final assertion below depends on.
@@ -150,16 +150,16 @@ test('a slot removed on the page is gone from the front page', async ({ page }) 
   await expect(pelivuorot(page).getByText(label)).toBeHidden();
 
   await page.goto('/');
-  await expect(page.locator('.today__date')).not.toContainText('klo 6–7');
+  await expect(page.locator('.today__date')).not.toContainText('klo 13–14');
 });
 
 test('removing a slot asks first', async ({ page }) => {
   await page.goto(SETTINGS);
-  await page.getByLabel('Alkaa').selectOption('05:00');
-  await page.getByLabel('Päättyy').selectOption('05:30');
+  await page.getByLabel('Alkaa').selectOption('15:00');
+  await page.getByLabel('Päättyy').selectOption('15:30');
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
-  const label = 'Maanantai klo 5–5.30';
+  const label = 'Maanantai klo 15–15.30';
   // Recorded before the assertions below, so `afterEach` removes this slot
   // either way — cancelling here is not supposed to be permanent.
   createdLabel = label;

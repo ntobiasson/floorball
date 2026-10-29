@@ -480,21 +480,40 @@ body {
 }
 
 /*
- * The start and end pickers. Same box as the weekday select beside them —
- * they are selects too, because only a list of the allowed values can keep
- * a slot on the hour or the half hour.
+ * The start and end pickers: a select rendered as a short scrolling list
+ * rather than a menu, because only a list of the allowed values can keep a
+ * slot on the hour or the half hour, and seventeen of them is too many to
+ * drop over the form.
+ *
+ * No `height` — `size` on the element decides it, so the box is exactly the
+ * rows it shows and does not have to be kept in step with a number in CSS.
  */
 .field__time {
   width: 100%;
-  height: 44px;
   margin-top: 6px;
-  padding: 0 12px;
+  padding: 4px;
   border: 1px solid #d6ded9;
   border-radius: var(--radius-control);
   background: #f7f9f7;
   color: var(--ink);
   font-family: inherit;
   font-size: 15px;
+}
+
+/*
+ * Browsers differ on how much of an option they let a page style; padding and
+ * the chosen row's colours are the parts that hold up widely enough to rely
+ * on, and nothing here is load-bearing if they are ignored.
+ */
+.field__time option {
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+.field__time option:checked {
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
 /* The weekday picker on the settings page. */

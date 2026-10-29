@@ -39,19 +39,34 @@ const WEEK_NUMBERS = [1, 2, 3, 4, 5, 6, 0];
 /** `maanantai, keskiviikko, lauantai` — the fallback rule, named in order. */
 const FALLBACK_DAYS = DEFAULT_SCHEDULE.map((slot) => weekdayName(slot.weekday)).join(', ');
 
+/** The hall's hours: games run between noon and eight, never outside them. */
+const FIRST_HOUR = 12;
+const LAST_HOUR = 20;
+
+/** How many rows of the list are on screen at once. */
+const VISIBLE_TIMES = 3;
+
 /**
- * Every half hour of the day, and the only starts and ends the form offers.
+ * Every half hour the hall is open, and the only starts and ends the form
+ * offers.
  *
- * A games slot has never begun at 20:07, and this is the one place that can
- * actually promise it: `<input type="time" step="1800">` only asks nicely —
- * the native picker honours the step unevenly between browsers, and a time
- * typed into the field ignores it completely. A list of the allowed values
- * cannot produce anything else.
+ * A games slot has never begun at 20:07, and a list of the allowed values is
+ * the one thing that can actually promise it: `<input type="time"
+ * step="1800">` only asks nicely — the native picker honours the step
+ * unevenly between browsers, and a time typed into the field ignores it
+ * completely.
+ *
+ * Seventeen values is short enough to scroll and too long to drop down over
+ * the form, which is why these render as list boxes rather than menus.
  */
-const HALF_HOURS: readonly string[] = Array.from({ length: 48 }, (_, index) => {
-  const hour = String(Math.floor(index / 2)).padStart(2, '0');
-  return `${hour}:${index % 2 === 0 ? '00' : '30'}`;
-});
+const HALF_HOURS: readonly string[] = Array.from(
+  { length: (LAST_HOUR - FIRST_HOUR) * 2 + 1 },
+  (_, index) => {
+    const minutes = FIRST_HOUR * 60 + index * 30;
+    const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
+    return `${hour}:${minutes % 60 === 0 ? '00' : '30'}`;
+  },
+);
 
 export function Settings({
   load,
@@ -203,10 +218,10 @@ export function Settings({
               <select
                 className="field__time"
                 id={startId}
+                size={VISIBLE_TIMES}
                 value={startTime}
                 onChange={(event) => setStartTime(event.target.value)}
               >
-                <option value="">—</option>
                 {HALF_HOURS.map((time) => (
                   <option key={time} value={time}>
                     {finnishTime(time)}
@@ -219,11 +234,14 @@ export function Settings({
               <select
                 className="field__time"
                 id={endId}
+                size={VISIBLE_TIMES}
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
               >
-                {/* The dash is the end time's "none": it is optional, and a
-                    slot with no end is the ordinary case. */}
+                {/* The dash is the end time's "none", and stays a row of the
+                    list: an end is optional, and a slot without one is the
+                    ordinary case. The start has no such row — it is required,
+                    and the form simply opens with nothing chosen. */}
                 <option value="">—</option>
                 {HALF_HOURS.map((time) => (
                   <option key={time} value={time}>
