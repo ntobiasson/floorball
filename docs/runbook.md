@@ -229,7 +229,7 @@ day's list. Nobody is identified anywhere in this system.
 Turnstile changes who can write only in the sense of keeping scripts out: it
 proves a person is there, not which person. If _that_ stops being acceptable
 — if some people should manage announcements and others should not — the
-realistic options are still a shared secret on the write endpoints, or
+realistic options are still a shared secret on the write surfaces, or
 CloudFront with a signed cookie. Neither is in place.
 
 ## The playing schedule
@@ -262,7 +262,7 @@ system.
 Turnstile changes who can write only in the sense of keeping scripts out: it
 proves a person is there, not which person. If _that_ stops being acceptable
 — if some people should set the schedule and others should not — the
-realistic options are still a shared secret on the write endpoints, or
+realistic options are still a shared secret on the write surfaces, or
 CloudFront with a signed cookie. Neither is in place.
 
 ## Importing the history out of Domino

@@ -38,7 +38,7 @@ export function finnishTime(hhmm: string): string {
   if (hour === undefined || minutes === undefined) return hhmm;
   const hourNum = Number(hour);
   const minutesNum = Number(minutes);
-  if (isNaN(hourNum) || isNaN(minutesNum)) return hhmm;
+  if (Number.isNaN(hourNum) || Number.isNaN(minutesNum)) return hhmm;
   if (minutesNum === 0) return `${hourNum}`;
   return `${hourNum}.${minutes}`;
 }

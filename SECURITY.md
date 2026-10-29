@@ -46,7 +46,7 @@ Worth reporting:
 - A way to read or modify data that the UI does not already permit — for
   example reaching DynamoDB items outside the documented access patterns, or
   getting the API to return another table's contents.
-- Anything that bypasses the Turnstile check on the write endpoints.
+- Anything that bypasses the Turnstile check on the write surfaces.
 - A way to make the API or CloudFront serve something it should not: an API
   path answering with the SPA shell and a 200, cache poisoning, injection into
   a rendered announcement.

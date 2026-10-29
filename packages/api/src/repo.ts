@@ -821,10 +821,25 @@ export function createRepo({ client, tableName, now = () => new Date() }: RepoCo
       const items = out.Items ?? [];
       // The marker travels in the same query as the slots, so this is the
       // only place the two are split apart again.
-      const initialised = items.some((item) => item.SK === INITIALISED_SK);
-      const slots = items
-        .filter((item) => String(item.SK).startsWith('SLOT#'))
-        .map(toSlot);
+      const slots = items.filter((item) => String(item.SK).startsWith('SLOT#')).map(toSlot);
+      // Monotone in the data, not in write order: a slot row by itself
+      // already means the partition is initialised, whether or not the
+      // marker made it in. `createSlot` below writes the slot and the marker
+      // as two separate PutCommands, so a throttle or a timeout between the
+      // two awaits — or just an eventually-consistent read that caught one
+      // write but not the other — would otherwise produce a partition with a
+      // slot and no marker, which this function would then report as
+      // uninitialised: the settings page would list the slot as stored while
+      // `effectiveSchedule` ignored it and kept playing Mon/Wed/Sat, a split
+      // between "saved" and "live" the design does not allow.
+      //
+      // This must stay `|| slots.length > 0` and never collapse to
+      // `items.length > 0`: the reserved `SETTINGS / VALUE#<key>` key space
+      // (see table.ts) would then flip `initialised` true the first time
+      // some future scalar setting is stored, with no slot involved at all —
+      // instantly emptying the schedule and closing registration for
+      // everybody.
+      const initialised = items.some((item) => item.SK === INITIALISED_SK) || slots.length > 0;
       return { slots, initialised };
     },
 

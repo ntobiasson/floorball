@@ -9,7 +9,7 @@ import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { createTestTable, dropTestTable, localClient } from './harness.js';
 import { createRepo, NotRegisteredError, SlotNotFoundError, type Repo } from '../src/repo.js';
-import { auditPk } from '../src/table.js';
+import { auditPk, SETTINGS_PK, slotSk } from '../src/table.js';
 
 const MONDAY = '2026-10-19';
 const WEDNESDAY = '2026-10-21';
@@ -734,5 +734,44 @@ describe('slots', () => {
 
   it('refuses to remove a slot that is not there', async () => {
     await expect(repo.deleteSlot('ei-ole')).rejects.toThrow(SlotNotFoundError);
+  });
+
+  it('reports a partition initialised from a slot row alone, with no marker', async () => {
+    // Simulates `createSlot`'s half-written failure mode directly with the
+    // document client, bypassing `createSlot` entirely: the slot row is
+    // written without the marker that normally follows it, the way it would
+    // be left if the marker's own write throttled, timed out, or simply
+    // hadn't shown up yet in an eventually-consistent read.
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: SETTINGS_PK,
+          SK: slotSk('half-written'),
+          id: 'half-written',
+          weekday: 1,
+          startTime: '20:00',
+        },
+      }),
+    );
+
+    expect(await repo.listSlots()).toEqual({
+      slots: [{ id: 'half-written', weekday: 1, startTime: '20:00' }],
+      initialised: true,
+    });
+  });
+
+  it('does not treat a reserved VALUE# row as initialising the partition', async () => {
+    // Guards against `initialised` collapsing to `items.length > 0`: a
+    // future scalar setting stored under `VALUE#<key>`, with no slot
+    // involved, must not silently empty the schedule.
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: { PK: SETTINGS_PK, SK: 'VALUE#some-future-setting', value: 'x' },
+      }),
+    );
+
+    expect(await repo.listSlots()).toEqual({ slots: [], initialised: false });
   });
 });

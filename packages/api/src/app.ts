@@ -34,9 +34,10 @@ export interface AppConfig {
   repo: Repo;
   now?: () => Date;
   /**
-   * Bot verification for the three write routes. Required, not optional, so
-   * that a new entry point cannot forget it and silently serve an unprotected
-   * form — the compiler asks for one.
+   * Bot verification for the three write surfaces — registration,
+   * announcements and the schedule — across five gated routes. Required, not
+   * optional, so that a new entry point cannot forget it and silently serve
+   * an unprotected form — the compiler asks for one.
    */
   verifyTurnstile: VerifyTurnstile;
 }
@@ -322,8 +323,8 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
    * announcements above, under the same trust model: no account and no
    * password anywhere in this application, a Turnstile token only proves the
    * caller is a person, and it identifies nobody. Reading is open because the
-   * landing page's own schedule — once Task 5 wires it up — comes from here
-   * too, not just the management page.
+   * landing page's own schedule comes from here too, not just the
+   * management page.
    */
   app.get('/api/schedule', async (c) => {
     const { slots, initialised } = await repo.listSlots();

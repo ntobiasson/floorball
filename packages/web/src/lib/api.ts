@@ -13,7 +13,7 @@ import {
  * The SPA and the API share one origin, so these are plain relative paths and
  * there is no CORS anywhere in this application.
  *
- * The three write calls carry a Turnstile token. The browser never verifies
+ * The five write calls carry a Turnstile token. The browser never verifies
  * it — it only collects it from the widget and passes it on, and the API
  * redeems it with Cloudflare. A token is spent by one call, so the caller
  * resets its widget afterwards.

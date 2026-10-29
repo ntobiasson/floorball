@@ -8,8 +8,8 @@
 /**
  * The field Cloudflare's widget writes its token into, and the field the
  * canonical siteverify call reads back out. The POST routes carry it in the
- * JSON body; the announcement delete, which has no body, carries it in a
- * header of the same name.
+ * JSON body; the announcement delete and the schedule delete, neither of
+ * which has a body, carry it in a header of the same name.
  */
 export const TURNSTILE_TOKEN_FIELD = 'cf-turnstile-response';
 

@@ -4,8 +4,8 @@ import { addDays, weekdayOf } from './dates.js';
 /**
  * The schedule is which weekdays this group plays, and at what time — a
  * value the calendar functions below are asked about, rather than a
- * constant they close over, so a later task can hand them whatever is
- * stored in the database without touching this module's logic.
+ * constant they close over, so the API can hand them whatever is stored in
+ * the database without touching this module's logic.
  *
  * A slot's time, like every date in this codebase, is never a `Date`: it is
  * an `HH:MM` string in the Helsinki wall clock, and nothing here converts it
