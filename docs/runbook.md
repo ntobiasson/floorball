@@ -89,8 +89,9 @@ region, and moving it later is a migration rather than a setting.
 
 ## Turnstile
 
-Writing — registering a name, adding or removing an announcement — carries a
-Cloudflare Turnstile token that the API redeems before the handler runs. The
+Writing — registering a name, adding or removing an announcement, or changing
+the playing schedule — carries a Cloudflare Turnstile token that the API
+redeems before the handler runs. The
 widget solves itself for an ordinary visitor; nobody is asked to click
 anything, and nobody is identified. Reading is not gated, and neither is
 removing a name from the day's list.
@@ -228,6 +229,39 @@ day's list. Nobody is identified anywhere in this system.
 Turnstile changes who can write only in the sense of keeping scripts out: it
 proves a person is there, not which person. If _that_ stops being acceptable
 — if some people should manage announcements and others should not — the
+realistic options are still a shared secret on the write endpoints, or
+CloudFront with a signed cookie. Neither is in place.
+
+## The playing schedule
+
+The schedule — which weekdays the group plays, and at what time — is changed
+at `/asetukset`. A saved slot is in force immediately: there is no validity
+window and no pending state, and the next load of the landing page reflects
+it.
+
+Removing every slot does not revert to any default; it closes registration
+entirely. Every day shows the "not a game day" screen and the API refuses
+registrations, because an empty schedule means the group is not currently
+playing, not that nobody has said otherwise.
+
+An installation that has never had its schedule touched plays **Monday,
+Wednesday and Saturday**, with no times, until the first save. That default
+lives in the code, not in the table, and it stops applying the moment
+anything is saved — including a save that leaves no slots at all.
+
+Nothing in the application links to `/asetukset`, and the page asks not to be
+indexed, but the address is an obvious one: treat the page as reachable by
+anyone who visits the site, the same as `/tiedotteet`.
+
+That is deliberate and consistent with the rest of the app — the API accepts
+schedule writes from any caller who can solve a Turnstile challenge,
+regardless of the page, and anyone can already add or remove any name on the
+day's list or manage announcements. Nobody is identified anywhere in this
+system.
+
+Turnstile changes who can write only in the sense of keeping scripts out: it
+proves a person is there, not which person. If _that_ stops being acceptable
+— if some people should set the schedule and others should not — the
 realistic options are still a shared secret on the write endpoints, or
 CloudFront with a signed cookie. Neither is in place.
 

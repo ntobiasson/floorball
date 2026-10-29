@@ -4,8 +4,11 @@ Online registration for the team's floorball sessions, plus 25 years of play
 history. Replaces an application that ran on an unmaintained Lotus Domino
 server.
 
-- **Registration** is open on **Monday, Wednesday and Saturday**, and only for
-  the current day. Any other day shows a "not a game day" screen.
+- **Registration** is open only for the current day, on whichever weekdays
+  the stored schedule names. An unconfigured installation plays **Monday,
+  Wednesday and Saturday**, but that is just the default before anyone has
+  saved a schedule, not a rule of the application. Any other day shows a "not
+  a game day" screen.
 - **No accounts.** Anyone can register anyone, by picking a previous player or
   typing a new name, and anyone can remove a name.
 - **The 25-year history** is at `/peliaktiivisuus`, the second of the two
@@ -18,11 +21,15 @@ server.
   there, but the address is an obvious one and there is no password: anyone
   who visits the site can manage them, as anyone can already add or remove any
   name.
-- **Writing needs a Cloudflare Turnstile check.** Registering a name and
-  managing announcements each carry a token the API redeems with Cloudflare
-  before the handler runs. It identifies nobody and asks nothing of the
-  visitor — the widget solves itself — it only keeps scripts off the three
-  write endpoints. Reading is untouched, and removing a name is not gated.
+- **The playing schedule** is changed at `/asetukset`. Same story: an unlisted
+  address, no password, so anyone who visits the site can change which days
+  and times the group plays.
+- **Writing needs a Cloudflare Turnstile check.** Registering a name,
+  managing announcements and changing the playing schedule each carry a
+  token the API redeems with Cloudflare before the handler runs. It
+  identifies nobody and asks nothing of the visitor — the widget solves
+  itself — it only keeps scripts off those three write surfaces. Reading is
+  untouched, and removing a name is not gated.
 
 ## Stack
 
