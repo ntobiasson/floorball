@@ -1,0 +1,172 @@
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { GameSlot } from '@sahlykanta/shared';
+import { App } from '../src/App.js';
+import type { Api } from '../src/lib/api.js';
+import { SETTINGS_PATH } from '../src/lib/routes.js';
+import { TEST_TURNSTILE_TOKEN } from './setup.js';
+
+const SLOTS: GameSlot[] = [
+  { id: 's1', weekday: 1, startTime: '20:00', endTime: '21:30' },
+  { id: 's2', weekday: 6, startTime: '18:00' },
+];
+
+function fakeApi(overrides: Partial<Api> = {}): Api {
+  return {
+    today: vi.fn(),
+    players: vi.fn().mockResolvedValue({ players: [] }),
+    register: vi.fn(),
+    unregister: vi.fn(),
+    allAnnouncements: vi.fn().mockResolvedValue({ announcements: [] }),
+    addAnnouncement: vi.fn(),
+    removeAnnouncement: vi.fn(),
+    schedule: vi.fn().mockResolvedValue({ slots: SLOTS, initialised: true }),
+    addSlot: vi.fn().mockResolvedValue({ id: 's3', weekday: 2, startTime: '19:00' }),
+    removeSlot: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as Api;
+}
+
+const openPage = (api: Api) => {
+  window.history.pushState({}, '', SETTINGS_PATH);
+  return render(<App api={api} />);
+};
+
+beforeEach(() => {
+  window.history.pushState({}, '', '/');
+});
+
+describe('the unlisted settings page', () => {
+  test('lists the stored slots, Monday first, with their times', async () => {
+    openPage(fakeApi());
+
+    expect(await screen.findByText('Maanantai klo 20–21.30')).toBeInTheDocument();
+    expect(screen.getByText('Lauantai klo 18')).toBeInTheDocument();
+  });
+
+  test('says the fallback is in use when no slot has been stored', async () => {
+    openPage(fakeApi({ schedule: vi.fn().mockResolvedValue({ slots: [], initialised: false }) }));
+
+    expect(
+      await screen.findByText(
+        'Pelivuoroja ei ole vielä asetettu. Käytössä: maanantai, keskiviikko, lauantai.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('says so when every slot has been removed', async () => {
+    openPage(fakeApi({ schedule: vi.fn().mockResolvedValue({ slots: [], initialised: true }) }));
+
+    expect(
+      await screen.findByText('Yhtään pelivuoroa ei ole — tällä hetkellä ei pelata.'),
+    ).toBeInTheDocument();
+  });
+
+  test('adds a slot from the form', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Tiistai');
+    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.type(screen.getByLabelText('Päättyy'), '20:30');
+    await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
+
+    await waitFor(() =>
+      expect(api.addSlot).toHaveBeenCalledWith(
+        { weekday: 2, startTime: '19:00', endTime: '20:30' },
+        TEST_TURNSTILE_TOKEN,
+      ),
+    );
+  });
+
+  test('leaves out an end time that was not filled in', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
+
+    await waitFor(() => expect(api.addSlot).toHaveBeenCalled());
+    const [input] = vi.mocked(api.addSlot).mock.calls[0] as [unknown, string];
+    expect(input).not.toHaveProperty('endTime');
+  });
+
+  test('will not submit without a start time', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    expect(screen.getByRole('button', { name: 'Lisää pelivuoro' })).toBeDisabled();
+    expect(api.addSlot).not.toHaveBeenCalled();
+  });
+
+  test('shows the new slot in the list without a reload', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
+
+    await waitFor(() => expect(api.schedule).toHaveBeenCalledTimes(2));
+  });
+
+  test('asks before removing, and removes on the second tap', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Lauantai klo 18');
+
+    await userEvent.click(screen.getByRole('button', { name: /Poista.*Lauantai/ }));
+    expect(api.removeSlot).not.toHaveBeenCalled();
+    expect(screen.getByText('Poistetaanko?')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Vahvista.*Lauantai/ }));
+    await waitFor(() => expect(api.removeSlot).toHaveBeenCalledWith('s2', TEST_TURNSTILE_TOKEN));
+  });
+
+  test('leaves the slot alone when the question is cancelled', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Lauantai klo 18');
+
+    await userEvent.click(screen.getByRole('button', { name: /Poista.*Lauantai/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Peruuta.*Lauantai/ }));
+
+    expect(api.removeSlot).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Poista.*Lauantai/ })).toBeInTheDocument();
+  });
+
+  test('waits for the bot check before enabling the form', async () => {
+    window.turnstile = {
+      render: vi.fn(() => 'never-solved'),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    openPage(fakeApi());
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    expect(screen.getByText('Odotetaan varmistusta…')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    expect(screen.getByRole('button', { name: 'Lisää pelivuoro' })).toBeDisabled();
+  });
+
+  test('reports a refused duplicate without losing what was typed', async () => {
+    const api = fakeApi({
+      addSlot: vi.fn().mockRejectedValue(new Error('pelivuoro on jo listalla')),
+    });
+    openPage(api);
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Keskiviikko');
+    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('pelivuoro on jo listalla');
+    expect(screen.getByLabelText('Viikonpäivä')).toHaveValue('3');
+    expect(screen.getByLabelText('Alkaa')).toHaveValue('19:00');
+  });
+});

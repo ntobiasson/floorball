@@ -224,6 +224,49 @@ describe('the Turnstile token', () => {
   });
 });
 
+describe('the schedule calls', () => {
+  const sentWith = (): { body: string; headers: Record<string, string> } => {
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    return {
+      body: String(init.body ?? ''),
+      headers: init.headers as Record<string, string>,
+    };
+  };
+
+  test('sends the Turnstile token in the body when adding a slot', async () => {
+    respondWith(JSON.stringify({ id: 's1', weekday: 1, startTime: '20:00' }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+
+    await api.addSlot({ weekday: 1, startTime: '20:00' }, 'a-token');
+
+    expect(JSON.parse(sentWith().body)).toEqual({
+      weekday: 1,
+      startTime: '20:00',
+      [TURNSTILE_TOKEN_FIELD]: 'a-token',
+    });
+  });
+
+  test('sends the Turnstile token in a header when removing a slot', async () => {
+    respondWith('', { status: 204 });
+
+    await api.removeSlot('s1', 'a-token');
+
+    const { body, headers } = sentWith();
+    expect(headers[TURNSTILE_TOKEN_FIELD]).toBe('a-token');
+    expect(body).toBe('');
+  });
+
+  test('escapes a slot id in the path', async () => {
+    respondWith('', { status: 204 });
+
+    await api.removeSlot('a/b', 'a-token');
+
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe('/api/schedule/a%2Fb');
+  });
+});
+
 describe('the history call', () => {
   test('asks the archive endpoint and returns the players', async () => {
     const players = [

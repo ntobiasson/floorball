@@ -15,3 +15,14 @@ export const HISTORY_PATH = '/peliaktiivisuus';
  * already add or remove any name.
  */
 export const NOTICES_PATH = '/tiedotteet';
+
+/**
+ * Where the schedule settings page lives.
+ *
+ * An unlisted, speakable address, protecting the page from being stumbled
+ * into and nothing more — the same arrangement as the announcements address
+ * above, and for the same reason: the API accepts schedule writes from any
+ * caller who passes the bot check, exactly as it already accepts
+ * announcement writes and as the day's list already accepts any name.
+ */
+export const SETTINGS_PATH = '/asetukset';
