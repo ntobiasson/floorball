@@ -479,7 +479,11 @@ body {
   font-size: 15px;
 }
 
-/* Same box as .field__date, same width: a time just has fewer digits to show. */
+/*
+ * The start and end pickers. Same box as the weekday select beside them —
+ * they are selects too, because only a list of the allowed values can keep
+ * a slot on the hour or the half hour.
+ */
 .field__time {
   width: 100%;
   height: 44px;

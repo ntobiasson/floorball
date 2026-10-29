@@ -5,7 +5,7 @@ import {
   type GameSlot,
   type GameSlotInput,
 } from '@sahlykanta/shared';
-import { slotTime, weekdayName } from '../lib/finnish.js';
+import { finnishTime, slotTime, weekdayName } from '../lib/finnish.js';
 import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
 
 /**
@@ -38,6 +38,20 @@ const WEEK_NUMBERS = [1, 2, 3, 4, 5, 6, 0];
 
 /** `maanantai, keskiviikko, lauantai` — the fallback rule, named in order. */
 const FALLBACK_DAYS = DEFAULT_SCHEDULE.map((slot) => weekdayName(slot.weekday)).join(', ');
+
+/**
+ * Every half hour of the day, and the only starts and ends the form offers.
+ *
+ * A games slot has never begun at 20:07, and this is the one place that can
+ * actually promise it: `<input type="time" step="1800">` only asks nicely —
+ * the native picker honours the step unevenly between browsers, and a time
+ * typed into the field ignores it completely. A list of the allowed values
+ * cannot produce anything else.
+ */
+const HALF_HOURS: readonly string[] = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, '0');
+  return `${hour}:${index % 2 === 0 ? '00' : '30'}`;
+});
 
 export function Settings({
   load,
@@ -186,28 +200,37 @@ export function Settings({
           <div className="field__row">
             <label htmlFor={startId}>
               Alkaa
-              <input
+              <select
                 className="field__time"
                 id={startId}
-                type="time"
-                /* Seconds, so half an hour. A slot here has never started at
-                   20:07, and the browser's own picker is the cheapest place
-                   to say so — it drops the minute wheel to :00 and :30. */
-                step={1800}
                 value={startTime}
                 onChange={(event) => setStartTime(event.target.value)}
-              />
+              >
+                <option value="">—</option>
+                {HALF_HOURS.map((time) => (
+                  <option key={time} value={time}>
+                    {finnishTime(time)}
+                  </option>
+                ))}
+              </select>
             </label>
             <label htmlFor={endId}>
               Päättyy
-              <input
+              <select
                 className="field__time"
                 id={endId}
-                type="time"
-                step={1800}
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
-              />
+              >
+                {/* The dash is the end time's "none": it is optional, and a
+                    slot with no end is the ordinary case. */}
+                <option value="">—</option>
+                {HALF_HOURS.map((time) => (
+                  <option key={time} value={time}>
+                    {finnishTime(time)}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

@@ -37,16 +37,27 @@ beforeEach(() => {
 });
 
 describe('the unlisted settings page', () => {
-  test('offers the start and the end in half hours', async () => {
+  test('offers the start and the end on the hour and the half hour only', async () => {
     openPage(fakeApi());
 
     // A string name is a full match, so this is the form card's heading and
     // not the "Pelivuorot" list card below it.
     await screen.findByRole('heading', { name: 'Pelivuoro' });
-    // A games slot starts on the hour or the half hour; the browser's own
-    // picker is what enforces it, and `step` in seconds is how it is told.
-    expect(screen.getByLabelText('Alkaa')).toHaveAttribute('step', '1800');
-    expect(screen.getByLabelText('Päättyy')).toHaveAttribute('step', '1800');
+
+    for (const label of ['Alkaa', 'Päättyy']) {
+      const values = within(screen.getByLabelText(label))
+        .getAllByRole('option')
+        .map((option) => (option as HTMLOptionElement).value)
+        .filter((value) => value !== '');
+
+      // 24 hours, twice each — and nothing else. An `<input type="time">`
+      // with `step` cannot promise this: the native picker honours the step
+      // unevenly, and a typed time ignores it altogether.
+      expect(values).toHaveLength(48);
+      expect(values.filter((value) => !/:(00|30)$/.test(value))).toEqual([]);
+      expect(values[0]).toBe('00:00');
+      expect(values.at(-1)).toBe('23:30');
+    }
   });
 
   test('lists the stored slots, Monday first, with their times', async () => {
@@ -111,8 +122,8 @@ describe('the unlisted settings page', () => {
     await screen.findByText('Maanantai klo 20–21.30');
 
     await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Tiistai');
-    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
-    await userEvent.type(screen.getByLabelText('Päättyy'), '20:30');
+    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Päättyy'), '20:30');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     await waitFor(() =>
@@ -128,7 +139,7 @@ describe('the unlisted settings page', () => {
     openPage(api);
     await screen.findByText('Maanantai klo 20–21.30');
 
-    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     await waitFor(() => expect(api.addSlot).toHaveBeenCalled());
@@ -162,7 +173,7 @@ describe('the unlisted settings page', () => {
     await screen.findByText('Maanantai klo 20–21.30');
 
     await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Tiistai');
-    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     const list = within(screen.getByRole('region', { name: 'Pelivuorot' }));
@@ -205,7 +216,7 @@ describe('the unlisted settings page', () => {
 
     expect(screen.getByText('Odotetaan varmistusta…')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
     expect(screen.getByRole('button', { name: 'Lisää pelivuoro' })).toBeDisabled();
   });
 
@@ -217,7 +228,7 @@ describe('the unlisted settings page', () => {
     await screen.findByText('Maanantai klo 20–21.30');
 
     await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Keskiviikko');
-    await userEvent.type(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('pelivuoro on jo listalla');

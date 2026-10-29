@@ -109,11 +109,11 @@ test('a slot added on the page is live on the front page at once', async ({ page
   await page.goto(SETTINGS);
   // Weekday is left on its default, Monday, so this slot lands on the
   // seeded Monday evening slot's own day.
-  await page.getByLabel('Alkaa').fill('07:15');
-  await page.getByLabel('Päättyy').fill('08:45');
+  await page.getByLabel('Alkaa').selectOption('07:30');
+  await page.getByLabel('Päättyy').selectOption('08:30');
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
-  const label = 'Maanantai klo 7.15–8.45';
+  const label = 'Maanantai klo 7.30–8.30';
   // Recorded before the assertions below, so `afterEach` still has it to
   // remove if one of them fails.
   createdLabel = label;
@@ -123,14 +123,14 @@ test('a slot added on the page is live on the front page at once', async ({ page
   // One line holds both slots for the day — the new one beside the seeded
   // one — rather than only the first or the last write winning.
   const todayLine = page.locator('.today__date');
-  await expect(todayLine).toContainText('klo 7.15–8.45');
+  await expect(todayLine).toContainText('klo 7.30–8.30');
   await expect(todayLine).toContainText('klo 20–21.30');
 });
 
 test('a slot removed on the page is gone from the front page', async ({ page }) => {
   await page.goto(SETTINGS);
-  await page.getByLabel('Alkaa').fill('06:00');
-  await page.getByLabel('Päättyy').fill('07:00');
+  await page.getByLabel('Alkaa').selectOption('06:00');
+  await page.getByLabel('Päättyy').selectOption('07:00');
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
   const label = 'Maanantai klo 6–7';
@@ -155,8 +155,8 @@ test('a slot removed on the page is gone from the front page', async ({ page }) 
 
 test('removing a slot asks first', async ({ page }) => {
   await page.goto(SETTINGS);
-  await page.getByLabel('Alkaa').fill('05:00');
-  await page.getByLabel('Päättyy').fill('05:30');
+  await page.getByLabel('Alkaa').selectOption('05:00');
+  await page.getByLabel('Päättyy').selectOption('05:30');
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
   const label = 'Maanantai klo 5–5.30';
