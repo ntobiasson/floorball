@@ -103,7 +103,11 @@ export function Settings({
         await refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Pelivuorojen haku ei onnistunut.');
-        setSchedule({ slots: [], initialised: true });
+        // `schedule` is deliberately left undefined here, not set to some
+        // stand-in value: a network blip is not a fact about the schedule,
+        // and the only claims the list card can make from `{ slots: [] }` —
+        // either the fallback or "we do not play" — would both be false.
+        // The role="alert" paragraph below already says what happened.
       }
     })();
     // Deliberately once, on mount: `load` is stable for the lifetime of the
@@ -239,7 +243,7 @@ export function Settings({
           <p className="field__hint">
             {schedule.initialised
               ? 'Yhtään pelivuoroa ei ole — tällä hetkellä ei pelata.'
-              : `Pelivuoroja ei ole vielä asetettu. Käytössä: ${FALLBACK_DAYS}.`}
+              : `Pelivuoroja ei ole vielä asetettu. Käytössä oletuksena: ${FALLBACK_DAYS} — ensimmäinen tallennettu pelivuoro korvaa ne.`}
           </p>
         ) : (
           schedule.slots.map((slot) => {

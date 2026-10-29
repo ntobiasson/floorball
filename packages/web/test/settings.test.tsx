@@ -63,12 +63,12 @@ describe('the unlisted settings page', () => {
     ]);
   });
 
-  test('says the fallback is in use when no slot has been stored', async () => {
+  test('says the fallback is in use when no slot has been stored, and that saving replaces it', async () => {
     openPage(fakeApi({ schedule: vi.fn().mockResolvedValue({ slots: [], initialised: false }) }));
 
     expect(
       await screen.findByText(
-        'Pelivuoroja ei ole vielä asetettu. Käytössä: maanantai, keskiviikko, lauantai.',
+        'Pelivuoroja ei ole vielä asetettu. Käytössä oletuksena: maanantai, keskiviikko, lauantai — ensimmäinen tallennettu pelivuoro korvaa ne.',
       ),
     ).toBeInTheDocument();
   });
@@ -79,6 +79,18 @@ describe('the unlisted settings page', () => {
     expect(
       await screen.findByText('Yhtään pelivuoroa ei ole — tällä hetkellä ei pelata.'),
     ).toBeInTheDocument();
+  });
+
+  test('makes no claim about the schedule when the load fails', async () => {
+    openPage(fakeApi({ schedule: vi.fn().mockRejectedValue(new Error('verkko katkesi')) }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('verkko katkesi');
+    // Neither of the two conclusive claims — the fallback is in force, or
+    // nobody plays — is true here: the load simply failed. The list card
+    // must assert neither.
+    const list = within(screen.getByRole('region', { name: 'Pelivuorot' }));
+    expect(list.queryByText(/ei pelata/)).not.toBeInTheDocument();
+    expect(list.queryByText(/ei ole vielä asetettu/)).not.toBeInTheDocument();
   });
 
   test('adds a slot from the form', async () => {
