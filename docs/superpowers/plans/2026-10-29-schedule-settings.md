@@ -313,7 +313,7 @@ git commit -m "feat(shared): ask a schedule which days are playing days"
 **Interfaces:**
 - Consumes: `GameSlot`, `GameSlotInput` (Task 2), `newId` (`ids.ts`)
 - Produces:
-  - `table.ts`: `SETTINGS_PK = 'SETTINGS'`, `INITIALISED_SK = 'INITIALISED'`, `slotSk(id: string): string`, `settingSk(key: string): string`
+  - `table.ts`: `SETTINGS_PK = 'SETTINGS'`, `INITIALISED_SK = 'INITIALISED'`, `slotSk(id: string): string`
   - `repo.ts`: `SlotNotFoundError`, and on `Repo` —
     `listSlots(): Promise<{ slots: GameSlot[]; initialised: boolean }>`,
     `createSlot(input: GameSlotInput): Promise<GameSlot>`,
@@ -326,11 +326,6 @@ git commit -m "feat(shared): ask a schedule which days are playing days"
 ```ts
 it('builds a slot sort key from its id', () => {
   expect(slotSk('abc')).toBe('SLOT#abc');
-});
-
-it('keeps a later scalar setting out of the slots', () => {
-  expect(settingSk('jotain')).toBe('VALUE#jotain');
-  expect(settingSk('jotain').startsWith('SLOT#')).toBe(false);
 });
 ```
 
@@ -386,7 +381,7 @@ Expected: FAIL — `slotSk` and `repo.listSlots` are not defined.
 
 - [ ] **Step 4: Implement the keys in `table.ts` and the three methods in `repo.ts`**
 
-Follow the announcement methods directly below them in the file: one `QueryCommand` on `PK = :pk` for the whole partition, a `PutCommand` per slot, and a `DeleteCommand` under a `ConditionExpression` of `attribute_exists(PK)` so a missing row raises rather than silently succeeding — unlike an announcement, a slot's sort key is its id, so no lookup is needed first. `createSlot` writes the marker row in the same call, a `PutCommand` with no condition, so a re-write is harmless. Add a `toSlot(item)` mapper beside `toAnnouncement`, spreading the optional `endTime` the way it does, and keep only items whose `SK` starts `SLOT#` so the marker is never fed to it. Extend `table.ts`'s header key map with the three `SETTINGS` rows.
+Follow the announcement methods directly below them in the file: one `QueryCommand` on `PK = :pk` for the whole partition, a `PutCommand` per slot, and a `DeleteCommand` under a `ConditionExpression` of `attribute_exists(PK)` so a missing row raises rather than silently succeeding — unlike an announcement, a slot's sort key is its id, so no lookup is needed first. `createSlot` writes the marker row in the same call, a `PutCommand` with no condition, so a re-write is harmless. Add a `toSlot(item)` mapper beside `toAnnouncement`, spreading the optional `endTime` the way it does, and keep only items whose `SK` starts `SLOT#` so the marker is never fed to it. `deleteSlot` must turn DynamoDB's `ConditionalCheckFailedException` into `SlotNotFoundError` — the condition expression only makes the write fail, and the caller needs the typed error to answer 404. Extend `table.ts`'s header key map with the three `SETTINGS` rows, the reserved `VALUE#<key>` among them: it is a note about the key space, not a helper to write, so no function is added for it until something stores a scalar setting.
 
 - [ ] **Step 5: Run both suites to verify they pass**
 
