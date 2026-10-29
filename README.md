@@ -42,7 +42,7 @@ is AWS CDK.
 | ----------------- | ------------------------------------------------------------------------------------------------------------ |
 | `packages/shared` | Date rules, name normalization, Zod schemas. Consumed as TypeScript source.                                  |
 | `packages/api`    | Hono routes and the DynamoDB repository. `handler.ts` is the Lambda entry; `serve.ts` is for local use only. |
-| `packages/web`    | The SPA: the day's list and an unlisted announcements page. All imagery is inline SVG — no raster assets.    |
+| `packages/web`    | The SPA: the day's list and its unlisted management pages. All imagery is inline SVG — no raster assets.     |
 | `packages/infra`  | The CDK stack.                                                                                               |
 | `packages/import` | One-off extraction of the history out of Domino.                                                             |
 | `e2e`             | Playwright smoke flow against a real API and DynamoDB.                                                       |
