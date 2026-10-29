@@ -145,26 +145,38 @@ describe('the unlisted settings page', () => {
     );
   });
 
-  test('leaves out an end time that was not filled in', async () => {
-    const api = fakeApi();
-    openPage(api);
-    await screen.findByText('Maanantai klo 20–21.30');
-
-    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
-    await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
-
-    await waitFor(() => expect(api.addSlot).toHaveBeenCalled());
-    const [input] = vi.mocked(api.addSlot).mock.calls[0] as [unknown, string];
-    expect(input).not.toHaveProperty('endTime');
-  });
-
   test('will not submit without a start time', async () => {
     const api = fakeApi();
     openPage(api);
     await screen.findByText('Maanantai klo 20–21.30');
 
+    await userEvent.selectOptions(screen.getByLabelText('Päättyy'), '20:00');
+
     expect(screen.getByRole('button', { name: 'Lisää pelivuoro' })).toBeDisabled();
     expect(api.addSlot).not.toHaveBeenCalled();
+  });
+
+  test('will not submit without an end time either', async () => {
+    const api = fakeApi();
+    openPage(api);
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
+
+    expect(screen.getByRole('button', { name: 'Lisää pelivuoro' })).toBeDisabled();
+    expect(api.addSlot).not.toHaveBeenCalled();
+  });
+
+  test('offers no way to leave the end time unset', async () => {
+    openPage(fakeApi());
+    await screen.findByText('Maanantai klo 20–21.30');
+
+    // The start has no blank row because it opens with nothing chosen; the
+    // end must not have one either, or an empty value could be chosen back.
+    const blanks = within(screen.getByLabelText('Päättyy'))
+      .getAllByRole('option')
+      .filter((option) => (option as HTMLOptionElement).value === '');
+    expect(blanks).toEqual([]);
   });
 
   test('shows the new slot in the list without a reload', async () => {
@@ -185,6 +197,7 @@ describe('the unlisted settings page', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Tiistai');
     await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Päättyy'), '20:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     const list = within(screen.getByRole('region', { name: 'Pelivuorot' }));
@@ -240,6 +253,7 @@ describe('the unlisted settings page', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Viikonpäivä'), 'Keskiviikko');
     await userEvent.selectOptions(screen.getByLabelText('Alkaa'), '19:00');
+    await userEvent.selectOptions(screen.getByLabelText('Päättyy'), '20:00');
     await userEvent.click(screen.getByRole('button', { name: 'Lisää pelivuoro' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('pelivuoro on jo listalla');

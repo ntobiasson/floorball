@@ -707,19 +707,36 @@ describe('slots', () => {
     expect(await repo.listSlots()).toEqual({ slots: [{ ...slot }], initialised: true });
   });
 
-  it('omits an end time that was not given', async () => {
-    const slot = await repo.createSlot({ weekday: 3, startTime: '20:00' });
-    expect(slot.endTime).toBeUndefined();
+  it('reads back a slot stored before an end time was asked for', async () => {
+    // Written straight to the table rather than through `createSlot`, whose
+    // input now requires an end: this is the shape of a row saved by an
+    // earlier version, and it still has to load rather than break the page.
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: SETTINGS_PK,
+          SK: slotSk('legacy'),
+          id: 'legacy',
+          weekday: 3,
+          startTime: '20:00',
+        },
+      }),
+    );
+
+    const { slots } = await repo.listSlots();
+    expect(slots).toEqual([{ id: 'legacy', weekday: 3, startTime: '20:00' }]);
+    expect(slots[0]).not.toHaveProperty('endTime');
   });
 
   it('keeps two slots on the same weekday apart', async () => {
-    await repo.createSlot({ weekday: 1, startTime: '18:00' });
-    await repo.createSlot({ weekday: 1, startTime: '20:00' });
+    await repo.createSlot({ weekday: 1, startTime: '18:00', endTime: '19:30' });
+    await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
     expect((await repo.listSlots()).slots).toHaveLength(2);
   });
 
   it('never returns the marker as a slot', async () => {
-    await repo.createSlot({ weekday: 1, startTime: '20:00' });
+    await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
     // One slot written, two rows in the partition.
     const { slots } = await repo.listSlots();
     expect(slots).toHaveLength(1);
@@ -727,7 +744,7 @@ describe('slots', () => {
   });
 
   it('removes a slot and leaves the table initialised', async () => {
-    const slot = await repo.createSlot({ weekday: 1, startTime: '20:00' });
+    const slot = await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' });
     await repo.deleteSlot(slot.id);
     expect(await repo.listSlots()).toEqual({ slots: [], initialised: true });
   });

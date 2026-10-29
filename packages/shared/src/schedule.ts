@@ -34,18 +34,20 @@ export const GameSlotSchema = z.object({
 export type GameSlot = z.infer<typeof GameSlotSchema>;
 
 /**
- * A slot as the settings form creates one. Unlike `GameSlotSchema`, a start
- * time is required: a slot with no time is a historical artefact of the
- * fallback schedule, never something a form submits. `id` is absent too —
- * the store assigns it.
+ * A slot as the settings form creates one. Unlike `GameSlotSchema`, both
+ * times are required: a slot with no time at all is a historical artefact of
+ * the fallback schedule, and one with no end was storable before the form
+ * asked for both — neither is something a form submits now. Reading stays
+ * forgiving so those older shapes still load. `id` is absent too: the store
+ * assigns it.
  */
 export const GameSlotInputSchema = z
   .object({
     weekday: z.number().int().min(0).max(6),
     startTime: IsoTimeSchema,
-    endTime: IsoTimeSchema.optional(),
+    endTime: IsoTimeSchema,
   })
-  .refine((slot) => slot.endTime === undefined || slot.endTime > slot.startTime, {
+  .refine((slot) => slot.endTime > slot.startTime, {
     message: 'endTime must be after startTime',
     path: ['endTime'],
   });

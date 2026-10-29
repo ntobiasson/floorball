@@ -44,10 +44,10 @@ schedule is one card on it; a later setting is another card.
   trust model as announcements and as the day's list, where anyone can already
   add or remove any name. (See the comment at the head of `pages/Notices.tsx`.)
 - **Venue, cost, pitch, or anything else about a slot.** A weekday, a start, an
-  optional end.
+  end.
 - **Times in the archive.** `/peliaktiivisuus` lists dates somebody registered
   on, going back a quarter of a century. What time those games started is not
-  recorded and inventing it would be a lie. Times appear where a *playing* date
+  recorded and inventing it would be a lie. Times appear where a _playing_ date
   is shown — today, the next playing day, the schedule itself — and nowhere
   else.
 
@@ -69,7 +69,7 @@ Failure, even if it technically works:
 
 That last one is the one real tension in the design, and it is settled with a
 stored marker: the fallback applies only while the partition has never been
-written. See *Fallback*, below.
+written. See _Fallback_, below.
 
 ## The decisions
 
@@ -79,7 +79,8 @@ written. See *Fallback*, below.
 weekday     0–6, Sunday = 0 (the numbering `weekdayOf` already returns)
 startTime   "HH:MM", 24-hour, Europe/Helsinki — optional in stored data,
             required on anything the form creates
-endTime     "HH:MM", optional; must be later than startTime
+endTime     "HH:MM", optional in stored data, required on anything the
+            form creates; must be later than startTime
 ```
 
 That is the whole record. Times are strings in the Helsinki wall clock, for
@@ -87,7 +88,7 @@ exactly the reason dates already are (`dates.ts`): a `Date` carries no answer
 to "what time is it here", and the answer must not depend on where the code
 runs. Nothing converts a slot time to a `Date` anywhere.
 
-`startTime` is optional in the schema that reads a slot and required in the
+Both times are optional in the schema that reads a slot and required in the
 schema that creates one. That asymmetry is the same one `isGoalkeeper` already
 has: the field is absent from data that predates it — here, the fallback
 schedule — and present on everything written since.
@@ -166,8 +167,12 @@ minutes, and no `.00` on a whole hour. `20:00` reads `klo 20`; `21:30` reads
 `/asetukset`, titled **Asetukset**, `noindex`, no tab bar, the masthead mark as
 the way back — the same treatment `/tiedotteet` gets, for the same reasons.
 
-- **Pelivuoro** — the add form: weekday, `Alkaa`, optional `Päättyy`. Three
-  controls, and a hint under the button saying the change is live at once.
+- **Pelivuoro** — the add form: weekday, `Alkaa`, `Päättyy`, all three
+  required. The times are dropdowns of the half hours the hall is open —
+  12:00 to 20:00 — because that is the only way to promise a slot lands on
+  the hour or the half hour; `<input type="time" step>` is advisory and a
+  typed time ignores it. A hint under the button says the change is live at
+  once.
 - **Pelivuorot** — the list, in display order, each row `Maanantai klo 20–21.30`
   with a `Poista` that asks before it removes. Every row is in force; there is
   no expired or pending row to mark, which is the point of dropping the window.

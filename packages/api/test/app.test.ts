@@ -691,8 +691,8 @@ describe('GET /api/schedule', () => {
   });
 
   it('answers in display order, Monday first', async () => {
-    await post('/api/schedule', { weekday: 6, startTime: '18:00' });
-    await post('/api/schedule', { weekday: 1, startTime: '20:00' });
+    await post('/api/schedule', { weekday: 6, startTime: '18:00', endTime: '19:30' });
+    await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' });
     const body = await jsonBody<{ slots: GameSlot[] }>(await app.request('/api/schedule'));
     expect(body.slots.map((s) => s.weekday)).toEqual([1, 6]);
   });
@@ -734,8 +734,10 @@ describe('POST /api/schedule', () => {
   });
 
   it('allows a second slot on the same weekday at another time', async () => {
-    await post('/api/schedule', { weekday: 1, startTime: '18:00' });
-    expect((await post('/api/schedule', { weekday: 1, startTime: '20:00' })).status).toBe(201);
+    await post('/api/schedule', { weekday: 1, startTime: '18:00', endTime: '19:30' });
+    expect(
+      (await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' })).status,
+    ).toBe(201);
   });
 
   it('rejects a body that is not a slot', async () => {
@@ -751,7 +753,7 @@ describe('POST /api/schedule', () => {
 describe('DELETE /api/schedule/:id', () => {
   it('removes a stored slot', async () => {
     const created = await jsonBody<GameSlot>(
-      await post('/api/schedule', { weekday: 1, startTime: '20:00' }),
+      await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' }),
     );
     expect((await del(`/api/schedule/${created.id}`)).status).toBe(204);
     const body = await jsonBody<{ slots: GameSlot[] }>(await app.request('/api/schedule'));
@@ -784,14 +786,14 @@ describe('GET /api/today, with a stored schedule', () => {
   });
 
   it('carries every stored slot, in Monday-first order', async () => {
-    await post('/api/schedule', { weekday: 4, startTime: '19:00' });
+    await post('/api/schedule', { weekday: 4, startTime: '19:00', endTime: '20:30' });
     await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' });
     const body = await jsonBody<TodayResponse>(await app.request('/api/today'));
     expect(body.schedule.map((s) => s.weekday)).toEqual([1, 4]);
   });
 
   it('follows the stored schedule rather than the old rule', async () => {
-    await post('/api/schedule', { weekday: 4, startTime: '19:00' });
+    await post('/api/schedule', { weekday: 4, startTime: '19:00', endTime: '20:30' });
     const body = await jsonBody<TodayResponse>(await app.request('/api/today'));
     // Monday, but Thursday is the only slot now.
     expect(body.isGameDay).toBe(false);
@@ -799,7 +801,7 @@ describe('GET /api/today, with a stored schedule', () => {
   });
 
   it('is a playing day the moment a slot for it is saved', async () => {
-    await post('/api/schedule', { weekday: 1, startTime: '20:00' });
+    await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' });
     const body = await jsonBody<TodayResponse>(await app.request('/api/today'));
     expect(body.isGameDay).toBe(true);
     expect(body.registrations).toEqual([]);
@@ -807,7 +809,7 @@ describe('GET /api/today, with a stored schedule', () => {
 
   it('offers no next playing day once every slot has been removed', async () => {
     const created = await jsonBody<GameSlot>(
-      await post('/api/schedule', { weekday: 1, startTime: '20:00' }),
+      await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' }),
     );
     await del(`/api/schedule/${created.id}`);
     const body = await jsonBody<TodayResponse>(await app.request('/api/today'));
@@ -819,14 +821,14 @@ describe('GET /api/today, with a stored schedule', () => {
 
 describe('the write routes under a stored schedule', () => {
   it('refuses a registration on a day the stored schedule does not play', async () => {
-    await post('/api/schedule', { weekday: 4, startTime: '19:00' });
+    await post('/api/schedule', { weekday: 4, startTime: '19:00', endTime: '20:30' });
     const res = await post('/api/registrations', { name: 'Testi', gameDate: '2026-10-19' });
     expect(res.status).toBe(409);
     expect((await jsonBody<{ nextGameDate?: string }>(res)).nextGameDate).toBe('2026-10-22');
   });
 
   it('accepts a registration on a day only the stored schedule plays', async () => {
-    await post('/api/schedule', { weekday: 1, startTime: '20:00' });
+    await post('/api/schedule', { weekday: 1, startTime: '20:00', endTime: '21:30' });
     expect(
       (await post('/api/registrations', { name: 'Testi', gameDate: '2026-10-19' })).status,
     ).toBe(201);
@@ -834,7 +836,7 @@ describe('the write routes under a stored schedule', () => {
 
   it('refuses a registration when the schedule is empty, with no day to offer', async () => {
     const created = await jsonBody<GameSlot>(
-      await post('/api/schedule', { weekday: 4, startTime: '19:00' }),
+      await post('/api/schedule', { weekday: 4, startTime: '19:00', endTime: '20:30' }),
     );
     await del(`/api/schedule/${created.id}`);
     const res = await post('/api/registrations', { name: 'Testi', gameDate: '2026-10-19' });

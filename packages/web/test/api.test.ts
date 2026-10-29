@@ -239,11 +239,12 @@ describe('the schedule calls', () => {
       headers: { 'content-type': 'application/json' },
     });
 
-    await api.addSlot({ weekday: 1, startTime: '20:00' }, 'a-token');
+    await api.addSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' }, 'a-token');
 
     expect(JSON.parse(sentWith().body)).toEqual({
       weekday: 1,
       startTime: '20:00',
+      endTime: '21:30',
       [TURNSTILE_TOKEN_FIELD]: 'a-token',
     });
   });

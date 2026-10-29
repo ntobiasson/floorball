@@ -143,7 +143,7 @@ export function Settings({
   }, []);
 
   const submit = async (): Promise<void> => {
-    if (startTime === '' || busy || token === undefined) return;
+    if (startTime === '' || endTime === '' || busy || token === undefined) return;
     setBusy(true);
     setError(undefined);
     try {
@@ -151,7 +151,7 @@ export function Settings({
         {
           weekday: Number(weekday),
           startTime,
-          ...(endTime.length > 0 ? { endTime } : {}),
+          endTime,
         },
         token,
       );
@@ -235,11 +235,6 @@ export function Settings({
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
               >
-                {/* The dash is the end time's "none", and stays a row of the
-                    list: an end is optional, and a slot without one is the
-                    ordinary case. The start has no such row — it is required,
-                    and the form simply opens with nothing chosen. */}
-                <option value="">—</option>
                 {HALF_HOURS.map((time) => (
                   <option key={time} value={time}>
                     {time}
@@ -253,7 +248,7 @@ export function Settings({
             className="button"
             type="submit"
             aria-busy={busy}
-            disabled={busy || startTime === '' || token === undefined}
+            disabled={busy || startTime === '' || endTime === '' || token === undefined}
           >
             Lisää pelivuoro
           </button>

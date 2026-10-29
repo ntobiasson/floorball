@@ -16,16 +16,27 @@ const WED = { id: 'b', weekday: 3, startTime: '20:00' };
 const SAT = { id: 'c', weekday: 6, startTime: '18:00' };
 
 describe('GameSlotInputSchema', () => {
-  it('accepts a weekday and a start time', () => {
-    expect(GameSlotInputSchema.safeParse({ weekday: 1, startTime: '20:00' }).success).toBe(true);
+  it('accepts a weekday, a start and an end', () => {
+    const slot = { weekday: 1, startTime: '20:00', endTime: '21:30' };
+    expect(GameSlotInputSchema.safeParse(slot).success).toBe(true);
   });
 
   it('requires a start time', () => {
-    expect(GameSlotInputSchema.safeParse({ weekday: 1 }).success).toBe(false);
+    expect(GameSlotInputSchema.safeParse({ weekday: 1, endTime: '21:30' }).success).toBe(false);
+  });
+
+  it('requires an end time', () => {
+    // Optional on GameSlotSchema, which still has to read the fallback
+    // schedule and anything stored before an end was asked for; required
+    // here, because everything written from now on names both.
+    expect(GameSlotInputSchema.safeParse({ weekday: 1, startTime: '20:00' }).success).toBe(false);
   });
 
   it.each(['24:00', '7:00', '20:60', '20.00', '', 'klo 20'])('rejects %s as a time', (time) => {
-    expect(GameSlotInputSchema.safeParse({ weekday: 1, startTime: time }).success).toBe(false);
+    const asStart = { weekday: 1, startTime: time, endTime: '21:30' };
+    expect(GameSlotInputSchema.safeParse(asStart).success).toBe(false);
+    const asEnd = { weekday: 1, startTime: '12:00', endTime: time };
+    expect(GameSlotInputSchema.safeParse(asEnd).success).toBe(false);
   });
 
   it('rejects an end that is not after the start', () => {
@@ -35,11 +46,17 @@ describe('GameSlotInputSchema', () => {
   });
 
   it.each([-1, 7, 1.5])('rejects %s as a weekday', (weekday) => {
-    expect(GameSlotInputSchema.safeParse({ weekday, startTime: '20:00' }).success).toBe(false);
+    const slot = { weekday, startTime: '20:00', endTime: '21:30' };
+    expect(GameSlotInputSchema.safeParse(slot).success).toBe(false);
   });
 
   it('has no place for a validity window', () => {
-    const windowed = { weekday: 1, startTime: '20:00', validFrom: '2026-12-01' };
+    const windowed = {
+      weekday: 1,
+      startTime: '20:00',
+      endTime: '21:30',
+      validFrom: '2026-12-01',
+    };
     expect(GameSlotInputSchema.parse(windowed)).not.toHaveProperty('validFrom');
   });
 });
@@ -147,8 +164,15 @@ describe('hasSameSlot', () => {
   });
 
   it('does not count a different end time as the same slot', () => {
-    expect(hasSameSlot([MON], { weekday: 1, startTime: '20:00' })).toBe(false);
     expect(hasSameSlot([MON], { weekday: 1, startTime: '20:00', endTime: '22:00' })).toBe(false);
+  });
+
+  it('does not match a stored slot that carries no end at all', () => {
+    // WED predates the form asking for an end. It shares a weekday and a
+    // start with this input, so only the missing end tells them apart — and
+    // it must, or saving the complete slot would be refused as a duplicate
+    // of the incomplete one.
+    expect(hasSameSlot([WED], { weekday: 3, startTime: '20:00', endTime: '21:30' })).toBe(false);
   });
 
   it('does not count another weekday or another start as the same slot', () => {
