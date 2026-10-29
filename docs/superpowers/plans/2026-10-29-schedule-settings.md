@@ -482,7 +482,23 @@ describe('DELETE /api/schedule/:id', () => {
 });
 ```
 
-Reuse whatever helpers the suite already has for a verified POST, a verified DELETE and the refusing-verifier app; `test/app.test.ts` sets these up for the announcement routes.
+The suite has no `app` / `post` / `del` helpers — it calls `appAt(now).request(...)` inline, where `appAt` closes over the per-test `repo` and is built with a verifier that always accepts. Add the three the test bodies above assume, beside the schedule describes, and leave the announcement tests as they are:
+
+```ts
+const app = { request: (path: string, init?: RequestInit) => appAt(MONDAY_MORNING).request(path, init) };
+
+const post = (path: string, body: unknown) =>
+  app.request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...(body as object), [TURNSTILE_TOKEN_FIELD]: 'token' }),
+  });
+
+const del = (path: string) =>
+  app.request(path, { method: 'DELETE', headers: { [TURNSTILE_TOKEN_FIELD]: 'token' } });
+```
+
+The three "refuses an unverified caller" tests need an app built with the suite's existing `refuse` verifier instead: `createApp({ repo, now: () => MONDAY_MORNING, verifyTurnstile: refuse })`, called the same way.
 
 - [ ] **Step 2: Run the suite to verify it fails**
 
@@ -586,6 +602,8 @@ describe('the write routes under a stored schedule', () => {
   });
 });
 ```
+
+The `app`, `post` and `del` helpers are the ones Task 4 added to this file; the registration tests here post a registration body through the same `post`.
 
 - [ ] **Step 2: Write the failing schema test** in `packages/shared/test/schemas.test.ts`
 
