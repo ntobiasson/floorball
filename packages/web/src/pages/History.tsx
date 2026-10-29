@@ -28,7 +28,7 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
   const [openId, setOpenId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    document.title = 'Peliaktiivisuus';
+    document.title = t.historyPage.title;
   }, []);
 
   const years = useMemo(() => historyYears(players), [players]);
@@ -43,9 +43,9 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
     return (
       <section className="card" aria-labelledby="history-title">
         <h1 id="history-title" className="history__title">
-          Peliaktiivisuus
+          {t.historyPage.title}
         </h1>
-        <p className="state">Ei vielä pelikertoja.</p>
+        <p className="state">{t.historyPage.nothingYet}</p>
       </section>
     );
   }
@@ -57,7 +57,7 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
     <>
       <section className="card" aria-labelledby="history-title">
         <h1 id="history-title" className="history__title">
-          Peliaktiivisuus
+          {t.historyPage.title}
         </h1>
         <p className="history__span">
           {/*
@@ -66,8 +66,8 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
             is underneath.
           */}
           {year === undefined
-            ? `Kaikki pelikerrat ${first === last ? first : `${first}–${last}`}`
-            : `Pelikerrat vuonna ${year}`}
+            ? t.historyPage.allGames(first === last ? `${first}` : `${first}–${last}`)
+            : t.historyPage.gamesInYear(year)}
         </p>
 
         {/*
@@ -76,14 +76,14 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
           newest year is where the scroller starts, which is where attention
           goes.
         */}
-        <div className="years" role="group" aria-label="Vuosi">
+        <div className="years" role="group" aria-label={t.historyPage.yearLabel}>
           <button
             className="years__chip"
             type="button"
             aria-pressed={year === undefined}
             onClick={() => setYear(undefined)}
           >
-            Kaikki
+            {t.historyPage.allYears}
           </button>
           {years.map((option) => (
             <button
@@ -101,14 +101,14 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
         <div className="search">
           <SearchGlyph />
           <label className="visually-hidden" htmlFor={searchId}>
-            Hae pelaajan nimellä
+            {t.historyPage.search}
           </label>
           <input
             className="search__input"
             id={searchId}
             type="search"
             value={query}
-            placeholder="Hae pelaajan nimellä"
+            placeholder={t.historyPage.search}
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
@@ -120,7 +120,7 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
             aria-pressed={sort === 'total'}
             onClick={() => setSort('total')}
           >
-            Eniten pelejä
+            {t.historyPage.mostGames}
           </button>
           <button
             className="sorts__button"
@@ -128,7 +128,7 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
             aria-pressed={sort === 'name'}
             onClick={() => setSort('name')}
           >
-            Nimi A–Ö
+            {t.historyPage.byName}
           </button>
           <span className="sorts__count">
             {shown.length} / {players.length}
@@ -137,11 +137,9 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
       </section>
 
       {shown.length === 0 ? (
-        <p className="state">
-          Ei osumia haulla “{query.trim()}”{year !== undefined && ` vuonna ${year}`}.
-        </p>
+        <p className="state">{t.historyPage.noMatches(query.trim(), year)}</p>
       ) : (
-        <ul className="players" aria-label="Pelaajat">
+        <ul className="players" aria-label={t.historyPage.playersLabel}>
           {shown.map((player) => {
             const open = openId === player.playerId;
             const count = countForYear(player, year);
@@ -166,7 +164,10 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
                 </button>
 
                 {open && (
-                  <ul className="player__years" aria-label={`${player.displayName} vuosittain`}>
+                  <ul
+                    className="player__years"
+                    aria-label={t.historyPage.byYearLabel(player.displayName)}
+                  >
                     {player.years.map((entry) => (
                       <li
                         className={`year${entry.year === year ? ' year--chosen' : ''}`}

@@ -69,7 +69,7 @@ export function Notices({
     meta.content = 'noindex, nofollow';
     document.head.appendChild(meta);
     const previousTitle = document.title;
-    document.title = 'Tiedotteet';
+    document.title = t.notices.heading;
     return () => {
       meta.remove();
       document.title = previousTitle;

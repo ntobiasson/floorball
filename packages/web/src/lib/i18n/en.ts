@@ -97,6 +97,38 @@ export const en: Messages = {
     addFailed: 'Could not add the notice.',
     removeFailed: 'Could not remove the notice.',
   },
+  historyPage: {
+    title: 'Playing history',
+    nothingYet: 'No games yet.',
+    yearLabel: 'Year',
+    allYears: 'All',
+    search: 'Search by player name',
+    mostGames: 'Most games',
+    byName: 'Name A–Z',
+    playersLabel: 'Players',
+    allGames: (span) => `All games ${span}`,
+    gamesInYear: (year) => `Games in ${year}`,
+    noMatches: (query, year) =>
+      year === undefined ? `No matches for “${query}”.` : `No matches for “${query}” in ${year}.`,
+    byYearLabel: (name) => `${name} by year`,
+  },
+  register: {
+    name: 'Name',
+    namePlaceholder: 'Search or type a name',
+    hint: 'Suggested from previous players · a new name is fine too',
+    asGoalkeeper: 'I am playing in goal',
+    suggestions: 'Suggestions',
+    submit: 'Sign up',
+    submitting: 'Signing up…',
+  },
+  check: {
+    failed: 'The check could not be loaded. Check your connection and try again.',
+    code: (code) => ` (error code ${code})`,
+    retry: 'Try the check again',
+  },
+  glyph: {
+    notAGameDay: 'Not a game day',
+  },
   language: {
     choose: 'Language',
     fi: 'Suomi',

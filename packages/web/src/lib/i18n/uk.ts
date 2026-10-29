@@ -111,6 +111,40 @@ export const uk: Messages = {
     addFailed: 'Не вдалося додати оголошення.',
     removeFailed: 'Не вдалося видалити оголошення.',
   },
+  historyPage: {
+    title: 'Історія ігор',
+    nothingYet: 'Ігор ще немає.',
+    yearLabel: 'Рік',
+    allYears: 'Усі',
+    search: 'Пошук за іменем гравця',
+    mostGames: 'Найбільше ігор',
+    byName: 'Імʼя А–Я',
+    playersLabel: 'Гравці',
+    allGames: (span) => `Усі ігри ${span}`,
+    gamesInYear: (year) => `Ігри у ${year} році`,
+    noMatches: (query, year) =>
+      year === undefined
+        ? `Нічого не знайдено за запитом «${query}».`
+        : `Нічого не знайдено за запитом «${query}» у ${year} році.`,
+    byYearLabel: (name) => `${name} за роками`,
+  },
+  register: {
+    name: 'Імʼя',
+    namePlaceholder: 'Знайдіть або введіть імʼя',
+    hint: 'Підказки з тих, хто вже грав · нове імʼя теж підходить',
+    asGoalkeeper: 'Реєструюся воротарем',
+    suggestions: 'Підказки',
+    submit: 'Зареєструватися',
+    submitting: 'Реєструємо…',
+  },
+  check: {
+    failed: 'Не вдалося завантажити перевірку. Перевірте зʼєднання і спробуйте ще раз.',
+    code: (code) => ` (код помилки ${code})`,
+    retry: 'Спробувати перевірку ще раз',
+  },
+  glyph: {
+    notAGameDay: 'Не ігровий день',
+  },
   language: {
     choose: 'Мова',
     fi: 'Suomi',

@@ -123,6 +123,42 @@ export const fi = {
     addFailed: 'Tiedotteen lisäys ei onnistunut.',
     removeFailed: 'Tiedotteen poisto ei onnistunut.',
   },
+  historyPage: {
+    title: 'Peliaktiivisuus',
+    nothingYet: 'Ei vielä pelikertoja.',
+    yearLabel: 'Vuosi',
+    allYears: 'Kaikki',
+    search: 'Hae pelaajan nimellä',
+    mostGames: 'Eniten pelejä',
+    byName: 'Nimi A–Ö',
+    playersLabel: 'Pelaajat',
+    /** `Kaikki pelikerrat 2001–2026`, or one year when that is all there is. */
+    allGames: (span: string): string => `Kaikki pelikerrat ${span}`,
+    gamesInYear: (year: string): string => `Pelikerrat vuonna ${year}`,
+    /** The year clause is optional and sits inside the sentence, not after it. */
+    noMatches: (query: string, year: string | undefined): string =>
+      year === undefined
+        ? `Ei osumia haulla “${query}”.`
+        : `Ei osumia haulla “${query}” vuonna ${year}.`,
+    byYearLabel: (name: string): string => `${name} vuosittain`,
+  },
+  register: {
+    name: 'Nimi',
+    namePlaceholder: 'Hae tai kirjoita nimi',
+    hint: 'Ehdotetaan aiemmin pelanneista · uusi nimi käy myös',
+    asGoalkeeper: 'Ilmoittaudun maalivahdiksi',
+    suggestions: 'Ehdotukset',
+    submit: 'Ilmoittaudu',
+    submitting: 'Ilmoittaudutaan…',
+  },
+  check: {
+    failed: 'Varmistusta ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen.',
+    code: (code: string): string => ` (virhekoodi ${code})`,
+    retry: 'Yritä varmistusta uudelleen',
+  },
+  glyph: {
+    notAGameDay: 'Ei pelipäivä',
+  },
   language: {
     /** The switcher's own label, read by a screen reader. */
     choose: 'Kieli',
