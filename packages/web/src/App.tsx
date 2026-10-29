@@ -9,6 +9,7 @@ import { Notices } from './pages/Notices.js';
 import { Settings } from './pages/Settings.js';
 import { Retro } from './pages/Retro.js';
 import { HISTORY_PATH, NOTICES_PATH, SETTINGS_PATH } from './lib/routes.js';
+import { LocaleProvider, useT } from './lib/i18n/index.js';
 import './retro.css';
 
 /**
@@ -45,7 +46,21 @@ function viewFromPath(pathname: string): View {
 
 const currentPath = (): string => (typeof window === 'undefined' ? '/' : window.location.pathname);
 
+/**
+ * The provider sits inside `App`, not around it in `main.tsx`, so that
+ * anything rendering `App` — every test in this package does — gets the
+ * language machinery without having to remember to wrap it.
+ */
 export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
+  return (
+    <LocaleProvider>
+      <AppBody api={api} />
+    </LocaleProvider>
+  );
+}
+
+function AppBody({ api }: { api: Api }): React.ReactElement {
+  const t = useT();
   const [view, setView] = useState<View>(() => viewFromPath(currentPath()));
   const [today, setToday] = useState<TodayResponse | undefined>(undefined);
   const [directory, setDirectory] = useState<PlayerSummary[]>([]);
@@ -78,7 +93,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
         setToday(todayResult);
         setDirectory(directoryResult.players);
       } catch (cause) {
-        setFatal(cause instanceof Error ? cause.message : 'Palvelua ei saatu yhteyttä.');
+        setFatal(cause instanceof Error ? cause.message : t.shell.noService);
       }
     })();
   }, [api]);
@@ -97,7 +112,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
         if (!cancelled) setHistory(result.players);
       } catch (cause) {
         if (!cancelled) {
-          setHistoryError(cause instanceof Error ? cause.message : 'Historiaa ei saatu haettua.');
+          setHistoryError(cause instanceof Error ? cause.message : t.shell.noHistory);
         }
       }
     })();
@@ -180,7 +195,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
           // Both unlisted pages are reached by typing their address, so they
           // need a way back that does not depend on the browser's history.
           // A plain href, since neither shares state worth keeping with it.
-          <a className="masthead__home" href="/" aria-label="Takaisin ilmoittautumiseen">
+          <a className="masthead__home" href="/" aria-label={t.shell.backToRegistration}>
             <span className="masthead__mark">
               <BallMark />
             </span>
@@ -191,7 +206,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
           <button
             className="masthead__mark masthead__mark--tap"
             type="button"
-            aria-label="Peleille"
+            aria-label={t.shell.mark}
             onClick={tapMark}
           >
             <BallMark />
@@ -215,7 +230,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
               {historyError}
             </p>
           ) : history === undefined ? (
-            <p className="state">Haetaan…</p>
+            <p className="state">{t.shell.loading}</p>
           ) : (
             <History players={history} />
           )
@@ -224,7 +239,7 @@ export function App({ api = defaultApi }: { api?: Api }): React.ReactElement {
             {fatal}
           </p>
         ) : today === undefined ? (
-          <p className="state">Haetaan…</p>
+          <p className="state">{t.shell.loading}</p>
         ) : (
           <Today
             today={today}
