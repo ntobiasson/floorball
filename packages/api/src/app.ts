@@ -3,12 +3,15 @@ import { Hono, type Context } from 'hono';
 import {
   AnnouncementInputSchema,
   DEFAULT_SCHEDULE,
+  GameSlotInputSchema,
   GoalkeeperInputSchema,
   RegistrationInputSchema,
   TURNSTILE_ACTIONS,
   TURNSTILE_TOKEN_FIELD,
+  hasSameSlot,
   isGameDay,
   nextGameDay,
+  orderSlots,
   todayInHelsinki,
   weekdayOf,
   type TodayResponse,
@@ -20,6 +23,7 @@ import {
   CorruptedPlayerError,
   NotRegisteredError,
   PlayerRaceError,
+  SlotNotFoundError,
   type Repo,
 } from './repo.js';
 import { EmptyNameError } from '@sahlykanta/shared';
@@ -112,7 +116,10 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     if (!isGameDay(DEFAULT_SCHEDULE, date)) {
       const nextGameDate = nextGameDay(DEFAULT_SCHEDULE, date);
       return c.json(
-        { error: 'tänään ei ole pelipäivä', ...(nextGameDate === undefined ? {} : { nextGameDate }) },
+        {
+          error: 'tänään ei ole pelipäivä',
+          ...(nextGameDate === undefined ? {} : { nextGameDate }),
+        },
         409,
       );
     }
@@ -293,6 +300,58 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     } catch (error) {
       if (error instanceof AnnouncementNotFoundError) {
         return c.json({ error: 'tiedotetta ei löytynyt' }, 404);
+      }
+      throw error;
+    }
+  });
+
+  /**
+   * The playing schedule, edited from the same kind of unlisted page as the
+   * announcements above, under the same trust model: no account and no
+   * password anywhere in this application, a Turnstile token only proves the
+   * caller is a person, and it identifies nobody. Reading is open because the
+   * landing page's own schedule — once Task 5 wires it up — comes from here
+   * too, not just the management page.
+   */
+  app.get('/api/schedule', async (c) => {
+    const { slots, initialised } = await repo.listSlots();
+    return c.json({ slots: orderSlots(slots), initialised });
+  });
+
+  app.post('/api/schedule', async (c) => {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: 'virheellinen pyyntö' }, 400);
+    }
+
+    if (!(await verified(c, TURNSTILE_ACTIONS.settings, raw))) return refused(c);
+
+    const parsed = GameSlotInputSchema.safeParse(raw);
+    if (!parsed.success) return c.json({ error: 'pelivuoro on virheellinen' }, 400);
+
+    // Read before write: the partition holds a handful of rows, and a wrong
+    // duplicate is worse than the extra round trip.
+    const { slots: existing } = await repo.listSlots();
+    if (hasSameSlot(existing, parsed.data)) {
+      return c.json({ error: 'pelivuoro on jo listalla' }, 409);
+    }
+
+    const created = await repo.createSlot(parsed.data);
+    return c.json(created, 201);
+  });
+
+  app.delete('/api/schedule/:id', async (c) => {
+    // A DELETE carries no body, so its token arrives in a header instead.
+    if (!(await verified(c, TURNSTILE_ACTIONS.settings, undefined))) return refused(c);
+
+    try {
+      await repo.deleteSlot(c.req.param('id'));
+      return c.body(null, 204);
+    } catch (error) {
+      if (error instanceof SlotNotFoundError) {
+        return c.json({ error: 'pelivuoroa ei löytynyt' }, 404);
       }
       throw error;
     }
