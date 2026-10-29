@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { GameSlot } from '@sahlykanta/shared';
 import { App } from '../src/App.js';
@@ -7,10 +7,9 @@ import type { Api } from '../src/lib/api.js';
 import { SETTINGS_PATH } from '../src/lib/routes.js';
 import { TEST_TURNSTILE_TOKEN } from './setup.js';
 
-const SLOTS: GameSlot[] = [
-  { id: 's1', weekday: 1, startTime: '20:00', endTime: '21:30' },
-  { id: 's2', weekday: 6, startTime: '18:00' },
-];
+const MONDAY_SLOT: GameSlot = { id: 's1', weekday: 1, startTime: '20:00', endTime: '21:30' };
+const SATURDAY_SLOT: GameSlot = { id: 's2', weekday: 6, startTime: '18:00' };
+const SLOTS: GameSlot[] = [MONDAY_SLOT, SATURDAY_SLOT];
 
 function fakeApi(overrides: Partial<Api> = {}): Api {
   return {
@@ -39,10 +38,29 @@ beforeEach(() => {
 
 describe('the unlisted settings page', () => {
   test('lists the stored slots, Monday first, with their times', async () => {
-    openPage(fakeApi());
+    // Fed to the page in the opposite order from how `SLOTS` is declared
+    // above: the API, not this fixture's declaration order, guarantees
+    // Monday-first. Asserting the rendered order against this reversed input
+    // is what actually catches a page that re-sorts (even a sort that would
+    // coincidentally match the default fixture's order) instead of simply
+    // rendering what `load` handed it, in sequence.
+    openPage(
+      fakeApi({
+        schedule: vi
+          .fn()
+          .mockResolvedValue({ slots: [SATURDAY_SLOT, MONDAY_SLOT], initialised: true }),
+      }),
+    );
 
-    expect(await screen.findByText('Maanantai klo 20–21.30')).toBeInTheDocument();
-    expect(screen.getByText('Lauantai klo 18')).toBeInTheDocument();
+    await screen.findByText('Lauantai klo 18');
+    // Scoped to the list card: the weekday <select> in the form above also
+    // renders "Maanantai" and "Lauantai" as option text, which a page-wide
+    // query would pick up too.
+    const list = within(screen.getByRole('region', { name: 'Pelivuorot' }));
+    expect(list.getAllByText(/^(Maanantai|Lauantai)/).map((row) => row.textContent)).toEqual([
+      'Lauantai klo 18',
+      'Maanantai klo 20–21.30',
+    ]);
   });
 
   test('says the fallback is in use when no slot has been stored', async () => {
