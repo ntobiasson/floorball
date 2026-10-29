@@ -3,6 +3,7 @@ import type { PlayerDetail, PlayerSummary, TodayResponse } from '@sahlykanta/sha
 import { api as defaultApi, type Api } from './lib/api.js';
 import { BallMark } from './components/Graphics.js';
 import { Tabs, type Tab } from './components/Tabs.js';
+import { LanguageChooser } from './components/LanguageChooser.js';
 import { Today } from './pages/Today.js';
 import { History } from './pages/History.js';
 import { Notices } from './pages/Notices.js';
@@ -213,6 +214,10 @@ function AppBody({ api }: { api: Api }): React.ReactElement {
           </button>
         )}
         <span className="masthead__name">PELEILLE</span>
+        {/* Every page the app renders carries it, the two unlisted ones
+            included — they are not exempt from having to be readable. The
+            2002 page returns before this markup and so never shows it. */}
+        <LanguageChooser />
       </header>
 
       <main className="app__main">

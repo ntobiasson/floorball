@@ -8,9 +8,16 @@
     <title>Peleille</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Figtree carries no Cyrillic at all, so Ukrainian would otherwise fall
+      back to whatever the system supplies. Manrope is asked for beside it and
+      takes over wholesale under html[lang='uk'] — see theme.css. Google splits
+      each family by unicode-range, so a Finnish or English visitor never
+      downloads the Cyrillic bytes.
+    -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&family=Manrope:wght@400;500;700;800&display=swap"
     />
     <link
       rel="icon"

@@ -30,6 +30,22 @@
   --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
+/*
+ * Ukrainian gets Manrope throughout, not only for its Cyrillic.
+ *
+ * Letting per-glyph fallback handle it would be less work and fewer bytes,
+ * but this app writes a time or a count beside almost every word — "20:00 —
+ * субота" would then set the digits in one typeface and the letters in
+ * another, on the same line. Swapping the whole stack keeps a page looking
+ * like one thing.
+ *
+ * Manrope's cyrillic subset covers the letters Ukrainian needs and Russian
+ * does not: є, і and ї in U+0400-045F, and ґ in U+0490-0491.
+ */
+html[lang='uk'] {
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -112,6 +128,22 @@ body {
 .masthead__home:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/*
+ * The language switcher, pushed to the far end of the masthead so it never
+ * sits under the mark — that mark is the seven-tap way into 2002, and a
+ * control overlapping it would make the easter egg a hazard instead.
+ */
+.masthead__language {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 12px;
 }
 
 .masthead__name {
