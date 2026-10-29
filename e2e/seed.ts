@@ -167,6 +167,18 @@ async function main(): Promise<void> {
     validFrom: '2026-10-01',
   });
 
+  /**
+   * The schedule, written rather than left on the fallback: once any slot is
+   * written the table is "initialised" and `DEFAULT_SCHEDULE` no longer
+   * applies to it, so the fallback's Mon/Wed/Sat has to be replaced here,
+   * now carrying times, or every existing spec that expects a game on
+   * Monday 19.10.2026 loses its game day the moment the schedule settings
+   * feature ships.
+   */
+  await repo.createSlot({ weekday: 1, startTime: '20:00', endTime: '21:30' }); // Monday
+  await repo.createSlot({ weekday: 3, startTime: '20:00', endTime: '21:30' }); // Wednesday
+  await repo.createSlot({ weekday: 6, startTime: '18:00', endTime: '19:30' }); // Saturday
+
   console.log(
     `seeded ${tableName}: ${result.players} players, ${result.registrations} registrations`,
   );
