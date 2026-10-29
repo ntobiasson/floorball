@@ -119,7 +119,7 @@ export function Settings({
     meta.content = 'noindex, nofollow';
     document.head.appendChild(meta);
     const previousTitle = document.title;
-    document.title = 'Asetukset';
+    document.title = t.settings.title;
     return () => {
       meta.remove();
       document.title = previousTitle;
@@ -135,7 +135,7 @@ export function Settings({
       try {
         await refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Pelivuorojen haku ei onnistunut.');
+        setError(cause instanceof Error ? cause.message : t.settings.loadFailed);
         // `schedule` is deliberately left undefined here, not set to some
         // stand-in value: a network blip is not a fact about the schedule,
         // and the only claims the list card can make from `{ slots: [] }` —
@@ -164,7 +164,7 @@ export function Settings({
       setEndTime('');
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Pelivuoron lisäys ei onnistunut.');
+      setError(cause instanceof Error ? cause.message : t.settings.addFailed);
     } finally {
       setAttempt((previous) => previous + 1);
       setBusy(false);
@@ -180,7 +180,7 @@ export function Settings({
       setConfirming(undefined);
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Pelivuoron poisto ei onnistunut.');
+      setError(cause instanceof Error ? cause.message : t.settings.removeFailed);
     } finally {
       // Spent either way, and the next removal needs its own.
       setAttempt((previous) => previous + 1);
@@ -192,7 +192,7 @@ export function Settings({
     <>
       <section className="card" aria-labelledby="settings-title">
         <h1 id="settings-title" style={{ margin: 0, fontSize: '21px', fontWeight: 800 }}>
-          Pelivuoro
+          {t.settings.formHeading}
         </h1>
         <form
           onSubmit={(event) => {
@@ -201,7 +201,7 @@ export function Settings({
           }}
         >
           <label htmlFor={weekdayId}>
-            Viikonpäivä
+            {t.settings.weekday}
             <select
               className="field__select"
               id={weekdayId}
@@ -218,7 +218,7 @@ export function Settings({
 
           <div className="field__row">
             <label htmlFor={startId}>
-              Alkaa
+              {t.settings.startsAt}
               <select
                 className="field__time"
                 id={startId}
@@ -233,7 +233,7 @@ export function Settings({
               </select>
             </label>
             <label htmlFor={endId}>
-              Päättyy
+              {t.settings.endsAt}
               <select
                 className="field__time"
                 id={endId}
@@ -255,17 +255,17 @@ export function Settings({
             aria-busy={busy}
             disabled={busy || startTime === '' || endTime === '' || token === undefined}
           >
-            Lisää pelivuoro
+            {t.settings.add}
           </button>
           {/* The page's one promise, and the reason it carries no dates: a
               saved slot takes effect immediately, with no window to wait for. */}
-          <p className="field__hint">Muutos on voimassa heti, ja näkyy heti etusivulla.</p>
+          <p className="field__hint">{t.settings.liveAtOnce}</p>
         </form>
 
         {failure !== undefined ? (
           <TurnstileFailure code={failure.code} onRetry={retryVerification} />
         ) : (
-          token === undefined && <p className="field__hint">Odotetaan varmistusta…</p>
+          token === undefined && <p className="field__hint">{t.settings.waitingForCheck}</p>
         )}
 
         {error !== undefined && (
@@ -277,7 +277,7 @@ export function Settings({
 
       <section className="card" aria-labelledby="settings-list-title">
         <h2 className="section__label" id="settings-list-title">
-          Pelivuorot
+          {t.settings.listHeading}
         </h2>
 
         {schedule === undefined ? (
@@ -285,8 +285,8 @@ export function Settings({
         ) : schedule.slots.length === 0 ? (
           <p className="field__hint">
             {schedule.initialised
-              ? 'Yhtään pelivuoroa ei ole — tällä hetkellä ei pelata.'
-              : `Pelivuoroja ei ole vielä asetettu. Käytössä oletuksena: ${fallbackDays(locale)} — ensimmäinen tallennettu pelivuoro korvaa ne.`}
+              ? t.settings.noneAtAll
+              : t.settings.neverSet(fallbackDays(locale))}
           </p>
         ) : (
           schedule.slots.map((slot) => {
@@ -306,36 +306,36 @@ export function Settings({
                   // Its own line, so the slot stays readable while the
                   // question is being asked.
                   <div className="notice-row__actions">
-                    <span className="notice-row__question">Poistetaanko?</span>
+                    <span className="notice-row__question">{t.settings.removeQuestion}</span>
                     <button
                       className="notice-row__confirm"
                       type="button"
-                      aria-label={`Vahvista: poista pelivuoro ${label}`}
+                      aria-label={t.settings.confirmRemove(label)}
                       disabled={busy || token === undefined}
                       onClick={() => void drop(slot.id)}
                     >
-                      Kyllä
+                      {t.settings.yes}
                     </button>
                     <button
                       className="notice-row__cancel"
                       type="button"
-                      aria-label={`Peruuta: pelivuoro ${label} jää`}
+                      aria-label={t.settings.cancelRemove(label)}
                       onClick={() => setConfirming(undefined)}
                     >
-                      Peru
+                      {t.settings.cancel}
                     </button>
                   </div>
                 ) : (
                   <button
                     className="notice-row__drop"
                     type="button"
-                    aria-label={`Poista pelivuoro ${label}`}
+                    aria-label={t.settings.removeNamed(label)}
                     onClick={() => {
                       setError(undefined);
                       setConfirming(slot.id);
                     }}
                   >
-                    Poista
+                    {t.settings.remove}
                   </button>
                 )}
               </div>

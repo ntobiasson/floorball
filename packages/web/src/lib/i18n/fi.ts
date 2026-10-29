@@ -69,6 +69,60 @@ export const fi = {
     removeFailed: (name: string) => `${name} poistaminen ei onnistunut.`,
     registerFailed: 'Ilmoittautuminen ei onnistunut.',
   },
+  settings: {
+    title: 'Asetukset',
+    formHeading: 'Pelivuoro',
+    weekday: 'Viikonpäivä',
+    startsAt: 'Alkaa',
+    endsAt: 'Päättyy',
+    add: 'Lisää pelivuoro',
+    liveAtOnce: 'Muutos on voimassa heti, ja näkyy heti etusivulla.',
+    waitingForCheck: 'Odotetaan varmistusta…',
+    listHeading: 'Pelivuorot',
+    noneAtAll: 'Yhtään pelivuoroa ei ole — tällä hetkellä ei pelata.',
+    /** The list of days arrives already joined; only the sentence is here. */
+    neverSet: (days: string): string =>
+      `Pelivuoroja ei ole vielä asetettu. Käytössä oletuksena: ${days} — ensimmäinen tallennettu pelivuoro korvaa ne.`,
+    removeQuestion: 'Poistetaanko?',
+    yes: 'Kyllä',
+    cancel: 'Peru',
+    remove: 'Poista',
+    confirmRemove: (slot: string): string => `Vahvista: poista pelivuoro ${slot}`,
+    cancelRemove: (slot: string): string => `Peruuta: pelivuoro ${slot} jää`,
+    removeNamed: (slot: string): string => `Poista pelivuoro ${slot}`,
+    loadFailed: 'Pelivuorojen haku ei onnistunut.',
+    addFailed: 'Pelivuoron lisäys ei onnistunut.',
+    removeFailed: 'Pelivuoron poisto ei onnistunut.',
+  },
+  notices: {
+    heading: 'Tiedotteet',
+    formHeading: 'Tiedote',
+    placeholder: 'Esim. Kenttä varattu 21.10. klo 18–19.',
+    shownFromLabel: 'Näytetään alkaen',
+    shownUntilLabel: 'Näytetään asti',
+    add: 'Lisää tiedote',
+    listHeading: 'Kaikki tiedotteet',
+    loading: 'Haetaan…',
+    none: 'Ei tiedotteita.',
+    /**
+     * Three sentences, not one template: Finnish puts `alkaen` in front of
+     * the date and `asti` after it, so the particle changes sides between
+     * the branches and no single shape covers both.
+     */
+    shownBetween: (from: string, to: string): string => `Näytetään ${from} – ${to}`,
+    shownFrom: (from: string): string => `Näytetään alkaen ${from}`,
+    shownUntil: (to: string): string => `Näytetään ${to} asti`,
+    removeQuestion: 'Poistetaanko?',
+    yes: 'Kyllä',
+    cancel: 'Peru',
+    remove: 'Poista',
+    confirmRemove: (body: string): string => `Vahvista: poista tiedote ${body}`,
+    cancelRemove: (body: string): string => `Peruuta: tiedote ${body} jää`,
+    removeNamed: (body: string): string => `Poista tiedote ${body}`,
+    loadFailed: 'Tiedotteiden haku ei onnistunut.',
+    addFailed: 'Tiedotteen lisäys ei onnistunut.',
+    removeFailed: 'Tiedotteen poisto ei onnistunut.',
+  },
   language: {
     /** The switcher's own label, read by a screen reader. */
     choose: 'Kieli',

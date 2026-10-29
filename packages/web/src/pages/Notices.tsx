@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { TURNSTILE_ACTIONS, type Announcement, type AnnouncementInput } from '@sahlykanta/shared';
 import { formatDate } from '../lib/format.js';
-import { useLocale } from '../lib/i18n/index.js';
+import { useLocale, useT } from '../lib/i18n/index.js';
 import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
 
 /**
@@ -33,6 +33,7 @@ export function Notices({
   remove: (id: string, turnstileToken: string) => Promise<void>;
 }): React.ReactElement {
   const { locale } = useLocale();
+  const t = useT();
   const fromId = useId();
   const toId = useId();
 
@@ -84,7 +85,7 @@ export function Notices({
       try {
         await refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Tiedotteiden haku ei onnistunut.');
+        setError(cause instanceof Error ? cause.message : t.notices.loadFailed);
         setAnnouncements([]);
       }
     })();
@@ -110,7 +111,7 @@ export function Notices({
       setValidTo('');
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Tiedotteen lisäys ei onnistunut.');
+      setError(cause instanceof Error ? cause.message : t.notices.addFailed);
     } finally {
       setAttempt((previous) => previous + 1);
       setBusy(false);
@@ -126,7 +127,7 @@ export function Notices({
       setConfirming(undefined);
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Tiedotteen poisto ei onnistunut.');
+      setError(cause instanceof Error ? cause.message : t.notices.removeFailed);
     } finally {
       // Spent either way, and the next removal needs its own.
       setAttempt((previous) => previous + 1);
@@ -138,17 +139,17 @@ export function Notices({
     const { validFrom: from, validTo: to } = announcement;
     if (from === undefined && to === undefined) return undefined;
     if (from !== undefined && to !== undefined) {
-      return `Näytetään ${formatDate(locale, from)} – ${formatDate(locale, to)}`;
+      return t.notices.shownBetween(formatDate(locale, from), formatDate(locale, to));
     }
-    if (from !== undefined) return `Näytetään alkaen ${formatDate(locale, from)}`;
-    return `Näytetään ${formatDate(locale, to as string)} asti`;
+    if (from !== undefined) return t.notices.shownFrom(formatDate(locale, from));
+    return t.notices.shownUntil(formatDate(locale, to as string));
   };
 
   return (
     <>
       <section className="card" aria-labelledby="notices-title">
         <h1 id="notices-title" style={{ margin: 0, fontSize: '21px', fontWeight: 800 }}>
-          Tiedote
+          {t.notices.formHeading}
         </h1>
         <form
           onSubmit={(event) => {
@@ -163,13 +164,13 @@ export function Notices({
             aria-labelledby="notices-title"
             value={body}
             maxLength={500}
-            placeholder="Esim. Kenttä varattu 21.10. klo 18–19."
+            placeholder={t.notices.placeholder}
             onChange={(event) => setBody(event.target.value)}
           />
 
           <div className="field__row">
             <label htmlFor={fromId}>
-              Näytetään alkaen
+              {t.notices.shownFromLabel}
               <input
                 className="field__date"
                 id={fromId}
@@ -179,7 +180,7 @@ export function Notices({
               />
             </label>
             <label htmlFor={toId}>
-              Näytetään asti
+              {t.notices.shownUntilLabel}
               <input
                 className="field__date"
                 id={toId}
@@ -196,7 +197,7 @@ export function Notices({
             aria-busy={busy}
             disabled={busy || body.trim().length === 0 || token === undefined}
           >
-            Lisää tiedote
+            {t.notices.add}
           </button>
         </form>
 
@@ -215,13 +216,13 @@ export function Notices({
 
       <section className="card" aria-labelledby="notices-list-title">
         <h2 className="section__label" id="notices-list-title">
-          Kaikki tiedotteet
+          {t.notices.listHeading}
         </h2>
 
         {announcements === undefined ? (
-          <p className="field__hint">Haetaan…</p>
+          <p className="field__hint">{t.notices.loading}</p>
         ) : announcements.length === 0 ? (
-          <p className="field__hint">Ei tiedotteita.</p>
+          <p className="field__hint">{t.notices.none}</p>
         ) : (
           announcements.map((announcement) => {
             const shown = window_(announcement);
@@ -245,36 +246,36 @@ export function Notices({
                   <div className="notice-row__actions">
                     {/* The button that opened this also said "Poista", so
                         confirming looked like nothing had happened. */}
-                    <span className="notice-row__question">Poistetaanko?</span>
+                    <span className="notice-row__question">{t.notices.removeQuestion}</span>
                     <button
                       className="notice-row__confirm"
                       type="button"
-                      aria-label={`Vahvista: poista tiedote ${announcement.body}`}
+                      aria-label={t.notices.confirmRemove(announcement.body)}
                       disabled={busy || token === undefined}
                       onClick={() => void drop(announcement.id)}
                     >
-                      Kyllä
+                      {t.notices.yes}
                     </button>
                     <button
                       className="notice-row__cancel"
                       type="button"
-                      aria-label={`Peruuta: tiedote ${announcement.body} jää`}
+                      aria-label={t.notices.cancelRemove(announcement.body)}
                       onClick={() => setConfirming(undefined)}
                     >
-                      Peru
+                      {t.notices.cancel}
                     </button>
                   </div>
                 ) : (
                   <button
                     className="notice-row__drop"
                     type="button"
-                    aria-label={`Poista tiedote ${announcement.body}`}
+                    aria-label={t.notices.removeNamed(announcement.body)}
                     onClick={() => {
                       setError(undefined);
                       setConfirming(announcement.id);
                     }}
                   >
-                    Poista
+                    {t.notices.remove}
                   </button>
                 )}
               </div>
