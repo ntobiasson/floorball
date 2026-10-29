@@ -37,6 +37,32 @@ export const uk: Messages = {
   time: {
     at: (range) => `о ${range}`,
   },
+  today: {
+    pill: 'Ігровий день',
+    closedTitle: 'Сьогодні не граємо',
+    nextGameDay: 'Наступний ігровий день',
+    opensOnTheMorning: 'Реєстрація відкривається вранці в день гри',
+    slotsHeading: 'Ігрові години',
+    noSlotsSet: 'Ігрові години не встановлені',
+    registered: (count) => {
+      const form = new Intl.PluralRules('uk').select(count);
+      return form === 'one' ? 'зареєстрований' : 'зареєстровані';
+    },
+    nobodyYet: 'Ще ніхто не зареєструвався.',
+    listLabel: 'Зареєстровані',
+    remove: 'Видалити',
+    removing: 'Видаляємо…',
+    cancel: 'Скасувати',
+    done: 'Готово',
+    goalkeeperBox: 'Воротар (ВР)',
+    goalkeeperMark: 'Воротар',
+    confirmRemove: (name) => `Підтвердити: видалити ${name}`,
+    cancelRemove: (name) => `Скасувати: ${name} залишається у списку`,
+    removeNamed: (name) => `Видалити ${name}`,
+    markFailed: (name) => `Не вдалося позначити ${name}.`,
+    removeFailed: (name) => `Не вдалося видалити ${name}.`,
+    registerFailed: 'Не вдалося зареєструватися.',
+  },
   language: {
     choose: 'Мова',
     fi: 'Suomi',

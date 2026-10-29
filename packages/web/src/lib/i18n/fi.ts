@@ -35,6 +35,40 @@ export const fi = {
      */
     at: (range: string) => `klo ${range}`,
   },
+  today: {
+    pill: 'Pelipäivä',
+    closedTitle: 'Tänään ei pelata',
+    nextGameDay: 'Seuraava pelipäivä',
+    opensOnTheMorning: 'Ilmoittautuminen avautuu pelipäivän aamuna',
+    slotsHeading: 'Pelivuorot',
+    noSlotsSet: 'Pelivuoroja ei ole asetettu',
+    /**
+     * `7 ilmoittautunutta` — the partitive again, from two on.
+     *
+     * The `: string` is load-bearing. Without it TypeScript infers the
+     * return as the union of these two Finnish words, `Messages` demands
+     * exactly them, and no other language can satisfy the contract. Any
+     * message here whose branches are all plain literals needs it; one built
+     * from a template string widens on its own.
+     */
+    registered: (count: number): string => (count === 1 ? 'ilmoittautunut' : 'ilmoittautunutta'),
+    nobodyYet: 'Kukaan ei ole vielä ilmoittautunut.',
+    listLabel: 'Ilmoittautuneet',
+    remove: 'Poista',
+    removing: 'Poistetaan…',
+    cancel: 'Peru',
+    done: 'Valmis',
+    goalkeeperBox: 'Maalivahti (MV)',
+    goalkeeperMark: 'Maalivahti',
+    /** The verb leads in Finnish and trails the name in English; hence three
+        separate sentences rather than one template with a hole in it. */
+    confirmRemove: (name: string) => `Vahvista: poista ${name}`,
+    cancelRemove: (name: string) => `Peruuta: ${name} jää listalle`,
+    removeNamed: (name: string) => `Poista ${name}`,
+    markFailed: (name: string) => `${name} merkitseminen ei onnistunut.`,
+    removeFailed: (name: string) => `${name} poistaminen ei onnistunut.`,
+    registerFailed: 'Ilmoittautuminen ei onnistunut.',
+  },
   language: {
     /** The switcher's own label, read by a screen reader. */
     choose: 'Kieli',
