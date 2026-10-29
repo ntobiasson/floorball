@@ -46,22 +46,28 @@ describe('the unlisted settings page', () => {
 
     for (const label of ['Alkaa', 'Päättyy']) {
       const field = screen.getByLabelText(label);
-      // Three rows of a scrolling list rather than a dropdown: short enough
-      // to sit in the form, long enough to show where you are in the day.
-      expect(field).toHaveAttribute('size', '3');
+      // A dropdown, not an always-open list: `size` would pin it open at a
+      // fixed number of rows, and seventeen values scroll perfectly well
+      // inside the menu the browser opens.
+      expect(field).not.toHaveAttribute('size');
 
-      const values = within(field)
+      const options = within(field)
         .getAllByRole('option')
-        .map((option) => (option as HTMLOptionElement).value)
-        .filter((value) => value !== '');
+        .filter((option) => (option as HTMLOptionElement).value !== '');
+      const values = options.map((option) => (option as HTMLOptionElement).value);
 
-      // 12.00 to 20.00 inclusive, every half hour. An `<input type="time">`
+      // 12:00 to 20:00 inclusive, every half hour. An `<input type="time">`
       // with `step` cannot promise this: the native picker honours the step
       // unevenly, and a typed time ignores it altogether.
       expect(values[0]).toBe('12:00');
       expect(values.at(-1)).toBe('20:00');
       expect(values).toHaveLength(17);
       expect(values.filter((value) => !/^(1[2-9]|20):(00|30)$/.test(value))).toEqual([]);
+
+      // Clock time in the picker — "20:00", not the "klo 20" the pages read
+      // in prose. A column of times is easier to scan when every row is the
+      // same shape.
+      expect(options.map((option) => option.textContent)).toEqual(values);
     }
   });
 

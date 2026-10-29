@@ -5,7 +5,7 @@ import {
   type GameSlot,
   type GameSlotInput,
 } from '@sahlykanta/shared';
-import { finnishTime, slotTime, weekdayName } from '../lib/finnish.js';
+import { slotTime, weekdayName } from '../lib/finnish.js';
 import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
 
 /**
@@ -43,9 +43,6 @@ const FALLBACK_DAYS = DEFAULT_SCHEDULE.map((slot) => weekdayName(slot.weekday)).
 const FIRST_HOUR = 12;
 const LAST_HOUR = 20;
 
-/** How many rows of the list are on screen at once. */
-const VISIBLE_TIMES = 3;
-
 /**
  * Every half hour the hall is open, and the only starts and ends the form
  * offers.
@@ -56,8 +53,10 @@ const VISIBLE_TIMES = 3;
  * unevenly between browsers, and a time typed into the field ignores it
  * completely.
  *
- * Seventeen values is short enough to scroll and too long to drop down over
- * the form, which is why these render as list boxes rather than menus.
+ * Seventeen of them: short enough that the browser's own dropdown scrolls
+ * comfortably, and labelled as clock times — "20:00" rather than the
+ * "klo 20" the pages read in prose, because a column of times is easier to
+ * scan when every row is the same shape.
  */
 const HALF_HOURS: readonly string[] = Array.from(
   { length: (LAST_HOUR - FIRST_HOUR) * 2 + 1 },
@@ -218,13 +217,12 @@ export function Settings({
               <select
                 className="field__time"
                 id={startId}
-                size={VISIBLE_TIMES}
                 value={startTime}
                 onChange={(event) => setStartTime(event.target.value)}
               >
                 {HALF_HOURS.map((time) => (
                   <option key={time} value={time}>
-                    {finnishTime(time)}
+                    {time}
                   </option>
                 ))}
               </select>
@@ -234,7 +232,6 @@ export function Settings({
               <select
                 className="field__time"
                 id={endId}
-                size={VISIBLE_TIMES}
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
               >
@@ -245,7 +242,7 @@ export function Settings({
                 <option value="">—</option>
                 {HALF_HOURS.map((time) => (
                   <option key={time} value={time}>
-                    {finnishTime(time)}
+                    {time}
                   </option>
                 ))}
               </select>
