@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
   announcementSk,
   auditPk,
@@ -7,6 +7,7 @@ import {
   namePk,
   playerPk,
   playerSk,
+  slotSk,
   yearSk,
 } from '../src/table.js';
 
@@ -34,6 +35,10 @@ describe('key builders', () => {
 
   test('an announcement sorts by validity then id', () => {
     expect(announcementSk('2026-10-19', 'a1')).toBe('2026-10-19#a1');
+  });
+
+  it('builds a slot sort key from its id', () => {
+    expect(slotSk('abc')).toBe('SLOT#abc');
   });
 });
 
