@@ -190,6 +190,10 @@ export function Settings({
                 className="field__time"
                 id={startId}
                 type="time"
+                /* Seconds, so half an hour. A slot here has never started at
+                   20:07, and the browser's own picker is the cheapest place
+                   to say so — it drops the minute wheel to :00 and :30. */
+                step={1800}
                 value={startTime}
                 onChange={(event) => setStartTime(event.target.value)}
               />
@@ -200,6 +204,7 @@ export function Settings({
                 className="field__time"
                 id={endId}
                 type="time"
+                step={1800}
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
               />

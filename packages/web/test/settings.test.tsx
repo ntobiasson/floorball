@@ -37,6 +37,18 @@ beforeEach(() => {
 });
 
 describe('the unlisted settings page', () => {
+  test('offers the start and the end in half hours', async () => {
+    openPage(fakeApi());
+
+    // A string name is a full match, so this is the form card's heading and
+    // not the "Pelivuorot" list card below it.
+    await screen.findByRole('heading', { name: 'Pelivuoro' });
+    // A games slot starts on the hour or the half hour; the browser's own
+    // picker is what enforces it, and `step` in seconds is how it is told.
+    expect(screen.getByLabelText('Alkaa')).toHaveAttribute('step', '1800');
+    expect(screen.getByLabelText('Päättyy')).toHaveAttribute('step', '1800');
+  });
+
   test('lists the stored slots, Monday first, with their times', async () => {
     // Fed to the page in the opposite order from how `SLOTS` is declared
     // above: the API, not this fixture's declaration order, guarantees
