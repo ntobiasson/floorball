@@ -28,6 +28,40 @@ const SETTINGS = '/asetukset';
  */
 const pelivuorot = (page: Page) => page.getByRole('region', { name: 'Pelivuorot' });
 
+/**
+ * Set by whichever test just added a slot through the form, read and
+ * cleared by the `afterEach` below. A hook that always runs, rather than a
+ * tidy-up step at the end of each test body, is what keeps a leak out of
+ * the serial run even when the test fails partway through: a tidy-up step
+ * placed after the assertions is exactly the code a failing assertion skips,
+ * and the assertion most likely to fail — the one checking the regression
+ * this spec exists to catch — would otherwise be the one most likely to
+ * leave its slot behind for every spec that runs after it.
+ */
+let createdLabel: string | undefined;
+
+test.afterEach(async ({ page }) => {
+  if (createdLabel === undefined) return;
+  const label = createdLabel;
+  createdLabel = undefined;
+  await page.goto(SETTINGS);
+  const remove = page.getByRole('button', { name: `Poista pelivuoro ${label}` });
+  // A no-op when the test already removed its own slot as part of what it
+  // was testing — but that has to be told apart from the list simply not
+  // having loaded yet: the schedule is fetched after mount, so counting the
+  // button right after `goto` resolves races the fetch and reads 0 for
+  // "not there yet" as readily as for "already removed". Waiting for it is
+  // what tells the two apart.
+  try {
+    await remove.waitFor({ state: 'visible', timeout: 5_000 });
+  } catch {
+    return;
+  }
+  await remove.click();
+  await page.getByRole('button', { name: new RegExp(`Vahvista.*${label}`) }).click();
+  await expect(pelivuorot(page).getByText(label)).toBeHidden();
+});
+
 test('nothing on the app links to the settings page', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'maanantai' })).toBeVisible();
@@ -80,6 +114,9 @@ test('a slot added on the page is live on the front page at once', async ({ page
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
   const label = 'Maanantai klo 7.15–8.45';
+  // Recorded before the assertions below, so `afterEach` still has it to
+  // remove if one of them fails.
+  createdLabel = label;
   await expect(pelivuorot(page).getByText(label)).toBeVisible();
 
   await page.goto('/');
@@ -88,12 +125,6 @@ test('a slot added on the page is live on the front page at once', async ({ page
   const todayLine = page.locator('.today__date');
   await expect(todayLine).toContainText('klo 7.15–8.45');
   await expect(todayLine).toContainText('klo 20–21.30');
-
-  // Tidy up, so the specs after this one see the schedule they expect.
-  await page.goto(SETTINGS);
-  await page.getByRole('button', { name: `Poista pelivuoro ${label}` }).click();
-  await page.getByRole('button', { name: new RegExp(`Vahvista.*${label}`) }).click();
-  await expect(pelivuorot(page).getByText(label)).toBeHidden();
 });
 
 test('a slot removed on the page is gone from the front page', async ({ page }) => {
@@ -103,11 +134,16 @@ test('a slot removed on the page is gone from the front page', async ({ page }) 
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
   const label = 'Maanantai klo 6–7';
+  // Recorded before the assertions below, so `afterEach` still has it to
+  // remove if one of them fails.
+  createdLabel = label;
   await expect(pelivuorot(page).getByText(label)).toBeVisible();
 
   await page.goto('/');
   await expect(page.locator('.today__date')).toContainText('klo 6–7');
 
+  // The removal itself is the thing under test here, not cleanup — it is
+  // what the final assertion below depends on.
   await page.goto(SETTINGS);
   await page.getByRole('button', { name: `Poista pelivuoro ${label}` }).click();
   await page.getByRole('button', { name: new RegExp(`Vahvista.*${label}`) }).click();
@@ -124,6 +160,9 @@ test('removing a slot asks first', async ({ page }) => {
   await page.getByRole('button', { name: 'Lisää pelivuoro' }).click();
 
   const label = 'Maanantai klo 5–5.30';
+  // Recorded before the assertions below, so `afterEach` removes this slot
+  // either way — cancelling here is not supposed to be permanent.
+  createdLabel = label;
   await expect(pelivuorot(page).getByText(label)).toBeVisible();
 
   await page.getByRole('button', { name: `Poista pelivuoro ${label}` }).click();
@@ -132,9 +171,4 @@ test('removing a slot asks first', async ({ page }) => {
   await expect(pelivuorot(page).getByText(label)).toBeVisible();
   await page.getByRole('button', { name: new RegExp(`Peruuta.*${label}`) }).click();
   await expect(pelivuorot(page).getByText(label)).toBeVisible();
-
-  // Tidy up, so the specs after this one see the schedule they expect.
-  await page.getByRole('button', { name: `Poista pelivuoro ${label}` }).click();
-  await page.getByRole('button', { name: new RegExp(`Vahvista.*${label}`) }).click();
-  await expect(pelivuorot(page).getByText(label)).toBeHidden();
 });
