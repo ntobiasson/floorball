@@ -5,7 +5,9 @@ import {
   type GameSlot,
   type GameSlotInput,
 } from '@sahlykanta/shared';
-import { slotTime, weekdayName } from '../lib/finnish.js';
+import { slotTime, weekdayName } from '../lib/format.js';
+import { useLocale, useT } from '../lib/i18n/index.js';
+import type { Locale } from '../lib/i18n/locale.js';
 import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
 
 /**
@@ -28,8 +30,8 @@ import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
  * and that is the only thing that changed here.
  */
 
-const WEEKDAY_LABEL = (weekday: number): string => {
-  const name = weekdayName(weekday);
+const weekdayLabel = (locale: Locale, weekday: number): string => {
+  const name = weekdayName(locale, weekday);
   return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
@@ -37,7 +39,8 @@ const WEEKDAY_LABEL = (weekday: number): string => {
 const WEEK_NUMBERS = [1, 2, 3, 4, 5, 6, 0];
 
 /** `maanantai, keskiviikko, lauantai` — the fallback rule, named in order. */
-const FALLBACK_DAYS = DEFAULT_SCHEDULE.map((slot) => weekdayName(slot.weekday)).join(', ');
+const fallbackDays = (locale: Locale): string =>
+  DEFAULT_SCHEDULE.map((slot) => weekdayName(locale, slot.weekday)).join(', ');
 
 /** The hall's hours: games run between noon and eight, never outside them. */
 const FIRST_HOUR = 12;
@@ -76,6 +79,8 @@ export function Settings({
   add: (input: GameSlotInput, turnstileToken: string) => Promise<GameSlot>;
   remove: (id: string, turnstileToken: string) => Promise<void>;
 }): React.ReactElement {
+  const { locale } = useLocale();
+  const t = useT();
   const weekdayId = useId();
   const startId = useId();
   const endId = useId();
@@ -205,7 +210,7 @@ export function Settings({
             >
               {WEEK_NUMBERS.map((number) => (
                 <option key={number} value={number}>
-                  {WEEKDAY_LABEL(number)}
+                  {weekdayLabel(locale, number)}
                 </option>
               ))}
             </select>
@@ -281,11 +286,13 @@ export function Settings({
           <p className="field__hint">
             {schedule.initialised
               ? 'Yhtään pelivuoroa ei ole — tällä hetkellä ei pelata.'
-              : `Pelivuoroja ei ole vielä asetettu. Käytössä oletuksena: ${FALLBACK_DAYS} — ensimmäinen tallennettu pelivuoro korvaa ne.`}
+              : `Pelivuoroja ei ole vielä asetettu. Käytössä oletuksena: ${fallbackDays(locale)} — ensimmäinen tallennettu pelivuoro korvaa ne.`}
           </p>
         ) : (
           schedule.slots.map((slot) => {
-            const label = `${WEEKDAY_LABEL(slot.weekday)} ${slotTime(slot) ?? ''}`.trim();
+            const range = slotTime(locale, slot);
+            const label =
+              `${weekdayLabel(locale, slot.weekday)} ${range === undefined ? '' : t.time.at(range)}`.trim();
             return (
               <div
                 className={

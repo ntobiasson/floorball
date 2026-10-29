@@ -1,5 +1,6 @@
 import type { PlayerDetail } from '@sahlykanta/shared';
 import { filterPlayers } from './search.js';
+import type { Locale } from './i18n/locale.js';
 
 /**
  * The history page's filtering and ranking, run in the browser over the whole
@@ -13,7 +14,24 @@ import { filterPlayers } from './search.js';
 
 export type SortKey = 'total' | 'name';
 
-const collator = new Intl.Collator('fi', { sensitivity: 'base' });
+/**
+ * One collator per language, built once: ordering ~500 names on every render
+ * is the one place in this app where constructing an `Intl` object in a loop
+ * would show.
+ *
+ * Finnish is the default because it is the app's, and because the archive it
+ * sorts is Finnish names either way — the language only decides where the
+ * letters with dots go.
+ */
+const collators = new Map<string, Intl.Collator>();
+
+function collatorFor(locale: Locale): Intl.Collator {
+  const existing = collators.get(locale);
+  if (existing !== undefined) return existing;
+  const made = new Intl.Collator(locale, { sensitivity: 'base' });
+  collators.set(locale, made);
+  return made;
+}
 
 /** Every year anybody played, newest first: what the year chips offer. */
 export function historyYears(players: PlayerDetail[]): string[] {
@@ -38,8 +56,14 @@ export function rankHistory(
   // `year?: string | undefined` rather than `year?: string`, so that under
   // exactOptionalPropertyTypes a caller may both omit it and pass undefined
   // for "Kaikki".
-  { query, sort, year }: { query: string; sort: SortKey; year?: string | undefined },
+  {
+    query,
+    sort,
+    year,
+    locale = 'fi',
+  }: { query: string; sort: SortKey; year?: string | undefined; locale?: Locale },
 ): PlayerDetail[] {
+  const collator = collatorFor(locale);
   const matching = filterPlayers(players, query).filter(
     // A chosen year is a view of that year, so somebody who did not play it
     // is not in the list at all — a row of zeroes would say nothing.

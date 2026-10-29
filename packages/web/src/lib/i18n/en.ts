@@ -20,6 +20,12 @@ export const en: Messages = {
     noService: 'Could not reach the service.',
     noHistory: 'Could not load the history.',
   },
+  history: {
+    games: (count) => (count === 1 ? '1 game' : `${count} games`),
+  },
+  time: {
+    at: (range) => `at ${range}`,
+  },
   language: {
     choose: 'Language',
     fi: 'Suomi',

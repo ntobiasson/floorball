@@ -6,7 +6,7 @@ import {
   type PlayerSummary,
   type TodayResponse,
 } from '@sahlykanta/shared';
-import { finnishDate, slotTime } from '../lib/finnish.js';
+import { formatDate, slotTime } from '../lib/format.js';
 import { filterPlayers } from '../lib/search.js';
 import { Turnstile } from '../components/Turnstile.js';
 import { RetroHistory } from './RetroHistory.js';
@@ -82,9 +82,16 @@ export function Retro({
     .map((r) => (r.isGoalkeeper === true ? `${r.displayName} (MV)` : r.displayName))
     .join(',');
 
-  /** 2002 had no en dash problem worth solving — `slotTime` is reused as-is. */
+  /**
+   * Finnish, and the word spelled out here rather than taken from a
+   * catalogue: this page is a reproduction of a 2002 Finnish application
+   * and does not follow the language the rest of the app is speaking.
+   */
   const todayTimes = slotsOn(today.schedule, today.date)
-    .map((slot) => slotTime(slot))
+    .map((slot) => {
+      const range = slotTime('fi', slot);
+      return range === undefined ? undefined : `klo ${range}`;
+    })
     .filter((time): time is string => time !== undefined);
 
   /**
@@ -151,7 +158,7 @@ export function Retro({
                   <br />
                   <div className={today.isGameDay ? 'gameToday' : 'gameNotToday'}>
                     Tänään&nbsp;
-                    <span className="xspTextComputedField">{finnishDate(today.date)}</span>
+                    <span className="xspTextComputedField">{formatDate('fi', today.date)}</span>
                     &nbsp;{today.isGameDay ? 'on pelipäivä' : 'ei ole pelipäivää'}
                     {today.isGameDay && todayTimes.length > 0 && (
                       <>

@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { TURNSTILE_ACTIONS, type Announcement, type AnnouncementInput } from '@sahlykanta/shared';
-import { finnishDate } from '../lib/finnish.js';
+import { formatDate } from '../lib/format.js';
+import { useLocale } from '../lib/i18n/index.js';
 import { Turnstile, TurnstileFailure } from '../components/Turnstile.js';
 
 /**
@@ -31,6 +32,7 @@ export function Notices({
   add: (input: AnnouncementInput, turnstileToken: string) => Promise<Announcement>;
   remove: (id: string, turnstileToken: string) => Promise<void>;
 }): React.ReactElement {
+  const { locale } = useLocale();
   const fromId = useId();
   const toId = useId();
 
@@ -136,10 +138,10 @@ export function Notices({
     const { validFrom: from, validTo: to } = announcement;
     if (from === undefined && to === undefined) return undefined;
     if (from !== undefined && to !== undefined) {
-      return `Näytetään ${finnishDate(from)} – ${finnishDate(to)}`;
+      return `Näytetään ${formatDate(locale, from)} – ${formatDate(locale, to)}`;
     }
-    if (from !== undefined) return `Näytetään alkaen ${finnishDate(from)}`;
-    return `Näytetään ${finnishDate(to as string)} asti`;
+    if (from !== undefined) return `Näytetään alkaen ${formatDate(locale, from)}`;
+    return `Näytetään ${formatDate(locale, to as string)} asti`;
   };
 
   return (

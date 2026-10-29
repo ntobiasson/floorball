@@ -3,10 +3,12 @@ import {
   slotsOn,
   weekdayOf,
   TURNSTILE_ACTIONS,
+  type GameSlot,
   type PlayerSummary,
   type TodayResponse,
 } from '@sahlykanta/shared';
-import { finnishDate, finnishDateWithWeekday, slotTime, weekdayName } from '../lib/finnish.js';
+import { formatDate, formatDateWithWeekday, slotTime, weekdayName } from '../lib/format.js';
+import { useLocale, useT } from '../lib/i18n/index.js';
 import { ClosedGlyph } from '../components/Graphics.js';
 import { Notices } from '../components/Notices.js';
 import { RegisterForm } from '../components/RegisterForm.js';
@@ -30,6 +32,13 @@ export function Today({
   /** Marks or unmarks somebody already on tonight's list. */
   onSetGoalkeeper: (playerId: string, isGoalkeeper: boolean) => Promise<void>;
 }): React.ReactElement {
+  const { locale } = useLocale();
+  const t = useT();
+  /** A slot's time with the language's own word in front of it. */
+  const timeOf = (slot: GameSlot): string | undefined => {
+    const range = slotTime(locale, slot);
+    return range === undefined ? undefined : t.time.at(range);
+  };
   const [error, setError] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState<string | undefined>(undefined);
   /**
@@ -74,7 +83,7 @@ export function Today({
       today.nextGameDate === undefined
         ? []
         : slotsOn(today.schedule, today.nextGameDate)
-            .map((slot) => slotTime(slot))
+            .map((slot) => timeOf(slot))
             .filter((time): time is string => time !== undefined);
 
     return (
@@ -84,7 +93,9 @@ export function Today({
             <ClosedGlyph />
           </span>
           <h1 className="closed__title">Tänään ei pelata</h1>
-          <p className="closed__today">{finnishDateWithWeekday(today.date, today.weekday)}</p>
+          <p className="closed__today">
+            {formatDateWithWeekday(locale, today.date, today.weekday)}
+          </p>
           <hr className="closed__rule" />
           {/* An empty schedule has no next playing day at all, so the
               heading and the hint beneath it would otherwise sit over
@@ -95,7 +106,7 @@ export function Today({
                 Seuraava pelipäivä
               </h2>
               <p className="closed__next">
-                {finnishDateWithWeekday(today.nextGameDate, weekdayOf(today.nextGameDate))}
+                {formatDateWithWeekday(locale, today.nextGameDate, weekdayOf(today.nextGameDate))}
               </p>
               {/* Its own line rather than trailing the date, and outside
                   .closed__next: that rule capitalises what it holds, which
@@ -135,10 +146,10 @@ export function Today({
             // row here instead.
             <div className="weekslots">
               {today.schedule.map((slot) => {
-                const time = slotTime(slot);
+                const time = timeOf(slot);
                 return (
                   <div className="weekslots__row" key={slot.id}>
-                    <span>{weekdayName(slot.weekday)}</span>
+                    <span>{weekdayName(locale, slot.weekday)}</span>
                     {time !== undefined && <span>{` ${time}`}</span>}
                   </div>
                 );
@@ -157,7 +168,7 @@ export function Today({
   // Two slots on the same evening join on one line rather than stacking;
   // a slot that carries no time is left out rather than inventing one.
   const todayTimes = slotsOn(today.schedule, today.date)
-    .map((slot) => slotTime(slot))
+    .map((slot) => timeOf(slot))
     .filter((time): time is string => time !== undefined);
 
   const setGoalkeeper = async (
@@ -201,10 +212,10 @@ export function Today({
       <section className="card" aria-labelledby="today-title">
         <span className="pill">Pelipäivä</span>
         <h1 className="today__weekday" id="today-title">
-          {weekdayName(today.weekday)}
+          {weekdayName(locale, today.weekday)}
         </h1>
         <p className="today__date">
-          {finnishDate(today.date)}
+          {formatDate(locale, today.date)}
           {todayTimes.length > 0 && (
             <span className="today__time">{` ${todayTimes.join(', ')}`}</span>
           )}

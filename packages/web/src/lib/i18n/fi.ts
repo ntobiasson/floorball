@@ -24,6 +24,17 @@ export const fi = {
     noService: 'Palvelua ei saatu yhteyttä.',
     noHistory: 'Historiaa ei saatu haettua.',
   },
+  history: {
+    /** `1 peli` / `12 peliä` — the partitive, which Finnish takes from two on. */
+    games: (count: number) => (count === 1 ? '1 peli' : `${count} peliä`),
+  },
+  time: {
+    /**
+     * Finnish puts the word before the clock: `klo 20–21.30`. It is a word,
+     * not a format, which is why it lives here and not in format.ts.
+     */
+    at: (range: string) => `klo ${range}`,
+  },
   language: {
     /** The switcher's own label, read by a screen reader. */
     choose: 'Kieli',

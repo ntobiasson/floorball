@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import type { PlayerDetail } from '@sahlykanta/shared';
 import { countForYear, historyYears, rankHistory, type SortKey } from '../lib/history.js';
 import { SearchGlyph } from '../components/Graphics.js';
-import { pluralGames } from '../lib/finnish.js';
+import { useLocale, useT } from '../lib/i18n/index.js';
 
 /**
  * Peliaktiivisuus: twenty-five years of registrations, filtered by name and by
@@ -18,6 +18,8 @@ import { pluralGames } from '../lib/finnish.js';
  * lib/history.ts for why.
  */
 export function History({ players }: { players: PlayerDetail[] }): React.ReactElement {
+  const t = useT();
+  const { locale } = useLocale();
   const searchId = useId();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('total');
@@ -31,8 +33,10 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
 
   const years = useMemo(() => historyYears(players), [players]);
   const shown = useMemo(
-    () => rankHistory(players, { query, sort, year }),
-    [players, query, sort, year],
+    () => rankHistory(players, { query, sort, year, locale }),
+    // `locale` belongs here: it decides the collation, so A–Ö reorders when
+    // the language does.
+    [players, query, sort, year, locale],
   );
 
   if (players.length === 0) {
@@ -151,7 +155,7 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
                   className="player__toggle"
                   type="button"
                   aria-expanded={open}
-                  aria-label={`${player.displayName}, ${pluralGames(count)}`}
+                  aria-label={`${player.displayName}, ${t.history.games(count)}`}
                   onClick={() => setOpenId(open ? undefined : player.playerId)}
                 >
                   <span className="player__name">{player.displayName}</span>
@@ -167,7 +171,7 @@ export function History({ players }: { players: PlayerDetail[] }): React.ReactEl
                       <li
                         className={`year${entry.year === year ? ' year--chosen' : ''}`}
                         key={entry.year}
-                        aria-label={`${entry.year}: ${pluralGames(entry.count)}`}
+                        aria-label={`${entry.year}: ${t.history.games(entry.count)}`}
                       >
                         <span className="year__label" aria-hidden="true">
                           {entry.year}

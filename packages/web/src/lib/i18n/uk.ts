@@ -23,6 +23,20 @@ export const uk: Messages = {
     noService: 'Не вдалося зʼєднатися із сервісом.',
     noHistory: 'Не вдалося завантажити історію.',
   },
+  history: {
+    /**
+     * Ukrainian counts in three: одна гра, дві ігри, п'ять ігор. `Intl` knows
+     * the rule, so this only has to supply the words.
+     */
+    games: (count) => {
+      const form = new Intl.PluralRules('uk').select(count);
+      const noun = form === 'one' ? 'гра' : form === 'few' ? 'ігри' : 'ігор';
+      return `${count} ${noun}`;
+    },
+  },
+  time: {
+    at: (range) => `о ${range}`,
+  },
   language: {
     choose: 'Мова',
     fi: 'Suomi',
