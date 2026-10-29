@@ -103,7 +103,7 @@ The schedule becomes a value the calendar functions are asked about, rather than
 **Files:**
 - Create: `packages/shared/src/schedule.ts`
 - Modify: `packages/shared/src/index.ts` (export it), `packages/shared/src/dates.ts` (remove `GAME_WEEKDAYS`, `isGameDay`, `nextGameDay`), `packages/api/src/app.ts:77,87,110,111,143,181`, `packages/web/src/pages/Today.tsx:9,92`
-- Test: `packages/shared/test/schedule.test.ts` (new), `packages/shared/test/dates.test.ts` (remove the `isGameDay` and `nextGameDay` blocks, lines 27–110)
+- Test: `packages/shared/test/schedule.test.ts` (new), `packages/shared/test/dates.test.ts` (remove the `isGameDay` describe block, lines 27–43, and the `nextGameDay` describe block, lines 88–109 — leaving the `todayInHelsinki` and `addDays` blocks between and after them untouched)
 
 **Interfaces:**
 - Consumes: `addDays`, `weekdayOf` (Task 1 / `dates.ts`)
