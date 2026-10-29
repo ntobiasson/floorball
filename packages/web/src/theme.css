@@ -749,6 +749,17 @@ body {
   text-transform: capitalize;
 }
 
+/*
+ * The time, under the date it belongs to. It keeps the date's weight — this
+ * card has no louder line to compete with — but deliberately not its
+ * `capitalize`, which renders "klo" as "Klo".
+ */
+.closed__next-time {
+  margin: 2px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
 .weekstrip {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

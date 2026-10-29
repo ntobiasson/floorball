@@ -375,7 +375,7 @@ describe('a day that is not a game day', () => {
 
     expect(await screen.findByRole('heading', { name: 'Tänään ei pelata' })).toBeInTheDocument();
     expect(screen.getByText('tiistai 20.10.2026')).toBeInTheDocument();
-    expect(screen.getByText('21.10.2026')).toBeInTheDocument();
+    expect(screen.getByText('keskiviikko 21.10.2026')).toBeInTheDocument();
   });
 
   test('offers no registration form at all', async () => {
@@ -398,11 +398,17 @@ describe('a day that is not a game day', () => {
     }
   });
 
-  test('shows the next playing day’s time beside its date', async () => {
+  test('names the next playing day’s weekday, and puts its time on its own line', async () => {
     render(<App api={fakeApi(TUESDAY_NEXT_WITH_TIME)} />);
 
     await screen.findByRole('heading', { name: 'Tänään ei pelata' });
-    expect(screen.getByText('21.10.2026 klo 19')).toBeInTheDocument();
+    // Matching the date exactly is half the assertion: an element holding
+    // "keskiviikko 21.10.2026 klo 19" would not match it, so this fails if
+    // the time is ever put back on the date's own line. The sibling check is
+    // the other half — the time sits directly under it, in an element of its
+    // own, which is what keeps CSS's `capitalize` off Finnish's "klo".
+    const date = screen.getByText('keskiviikko 21.10.2026');
+    expect(date.nextElementSibling).toHaveTextContent('klo 19');
   });
 
   test('draws the week strip from the schedule, not from Monday-Wednesday-Saturday', async () => {

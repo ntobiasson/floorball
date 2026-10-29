@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   slotsOn,
+  weekdayOf,
   TURNSTILE_ACTIONS,
   type PlayerSummary,
   type TodayResponse,
@@ -94,9 +95,12 @@ export function Today({
                 Seuraava pelipäivä
               </h2>
               <p className="closed__next">
-                {finnishDate(today.nextGameDate)}
-                {nextTimes.length > 0 && ` ${nextTimes.join(', ')}`}
+                {finnishDateWithWeekday(today.nextGameDate, weekdayOf(today.nextGameDate))}
               </p>
+              {/* Its own line rather than trailing the date, and outside
+                  .closed__next: that rule capitalises what it holds, which
+                  would turn Finnish's lower-case "klo" into "Klo". */}
+              {nextTimes.length > 0 && <p className="closed__next-time">{nextTimes.join(', ')}</p>}
               <p className="field__hint" style={{ textAlign: 'center' }}>
                 Ilmoittautuminen avautuu pelipäivän aamuna
               </p>
