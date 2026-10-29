@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, afterEach } from 'vitest';
-import { isGameDay, nextGameDay, todayInHelsinki, weekdayOf } from '../src/dates.js';
+import { addDays, InvalidDateError, isGameDay, nextGameDay, todayInHelsinki, weekdayOf } from '../src/dates.js';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -105,5 +105,32 @@ describe('nextGameDay', () => {
   test('crosses a month boundary', () => {
     // 2026-10-31 is a Saturday; the next game day is Monday 2026-11-02.
     expect(nextGameDay('2026-10-31')).toBe('2026-11-02');
+  });
+});
+
+describe('addDays', () => {
+  test('steps forward a day', () => {
+    expect(addDays('2026-10-19', 1)).toBe('2026-10-20');
+  });
+
+  test('crosses a month boundary', () => {
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+  });
+
+  test('crosses the end of a year', () => {
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+  });
+
+  test('is unmoved by the autumn clock change', () => {
+    // Finland turns the clocks back in the small hours of 25.10.2026.
+    expect(addDays('2026-10-24', 2)).toBe('2026-10-26');
+  });
+
+  test('steps backwards', () => {
+    expect(addDays('2026-01-01', -1)).toBe('2025-12-31');
+  });
+
+  test('rejects a date that is not ISO', () => {
+    expect(() => addDays('19.10.2026', 1)).toThrow(InvalidDateError);
   });
 });

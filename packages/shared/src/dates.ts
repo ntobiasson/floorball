@@ -77,3 +77,11 @@ export function yearOf(iso: string): string {
   assertIsoDate(iso);
   return iso.slice(0, 4);
 }
+
+/** Step whole days forward or backward without timezone nudging the date boundary. */
+export function addDays(iso: string, days: number): string {
+  assertIsoDate(iso);
+  const date = toUtcNoon(iso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
