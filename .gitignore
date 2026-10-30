@@ -22,3 +22,6 @@ packages/api/.bundle-test/
 
 # Brainstorming scratch (mockups, not product code)
 .superpowers/
+
+# Agent worktrees (each one is its own checkout)
+.claude/worktrees/
