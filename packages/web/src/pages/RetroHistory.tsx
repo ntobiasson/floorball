@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlayerDetail } from '@sahlykanta/shared';
-import { finnishDate } from '../lib/finnish.js';
+import { formatDate } from '../lib/format.js';
 
 /**
  * Peliaktiivisuus, the XPages view panel the whole archive was scraped out
@@ -242,7 +242,7 @@ function Rows({
                     <td className="xspColumnViewStart"></td>
                     <td className="xspColumnViewMiddle"></td>
                     <td className="xspColumnViewMiddle">
-                      <span className="xspTextViewColumn">{finnishDate(date)}</span>
+                      <span className="xspTextViewColumn">{formatDate('fi', date)}</span>
                     </td>
                     <td className="xspColumnViewEnd">
                       {/* One game: the leaf of the view, and what every count

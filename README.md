@@ -9,6 +9,11 @@ server.
   Wednesday and Saturday**, but that is just the default before anyone has
   saved a schedule, not a rule of the application. Any other day shows a "not
   a game day" screen.
+- **Finnish, English and Ukrainian.** The app picks the language from the
+  browser and falls back to Finnish; a switcher in the header overrides that,
+  and the choice is remembered. Announcements are not translated — they are
+  whatever language somebody typed. The 2002 easter egg stays Finnish on
+  purpose: it reproduces an application that only ever had one language.
 - **No accounts.** Anyone can register anyone, by picking a previous player or
   typing a new name, and anyone can remove a name.
 - **The 25-year history** is at `/peliaktiivisuus`, the second of the two

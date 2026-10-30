@@ -1,3 +1,5 @@
+import { useT } from '../lib/i18n/index.js';
+
 /**
  * Every image in this application lives in this file, as inline SVG: the ball
  * mark, a magnifier and a closed-door glyph. Imagery option 1 from the layout review — no
@@ -36,8 +38,9 @@ export function SearchGlyph(): React.ReactElement {
 }
 
 export function ClosedGlyph(): React.ReactElement {
+  const t = useT();
   return (
-    <svg width="26" height="26" viewBox="0 0 26 26" role="img" aria-label="Ei pelipäivä">
+    <svg width="26" height="26" viewBox="0 0 26 26" role="img" aria-label={t.glyph.notAGameDay}>
       <rect
         x="3.5"
         y="5.5"

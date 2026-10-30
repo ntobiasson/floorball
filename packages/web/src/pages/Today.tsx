@@ -3,10 +3,12 @@ import {
   slotsOn,
   weekdayOf,
   TURNSTILE_ACTIONS,
+  type GameSlot,
   type PlayerSummary,
   type TodayResponse,
 } from '@sahlykanta/shared';
-import { finnishDate, finnishDateWithWeekday, slotTime, weekdayName } from '../lib/finnish.js';
+import { formatDate, formatDateWithWeekday, slotTime, weekdayName } from '../lib/format.js';
+import { useLocale, useT } from '../lib/i18n/index.js';
 import { ClosedGlyph } from '../components/Graphics.js';
 import { Notices } from '../components/Notices.js';
 import { RegisterForm } from '../components/RegisterForm.js';
@@ -30,6 +32,13 @@ export function Today({
   /** Marks or unmarks somebody already on tonight's list. */
   onSetGoalkeeper: (playerId: string, isGoalkeeper: boolean) => Promise<void>;
 }): React.ReactElement {
+  const { locale } = useLocale();
+  const t = useT();
+  /** A slot's time with the language's own word in front of it. */
+  const timeOf = (slot: GameSlot): string | undefined => {
+    const range = slotTime(locale, slot);
+    return range === undefined ? undefined : t.time.at(range);
+  };
   const [error, setError] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState<string | undefined>(undefined);
   /**
@@ -74,7 +83,7 @@ export function Today({
       today.nextGameDate === undefined
         ? []
         : slotsOn(today.schedule, today.nextGameDate)
-            .map((slot) => slotTime(slot))
+            .map((slot) => timeOf(slot))
             .filter((time): time is string => time !== undefined);
 
     return (
@@ -83,8 +92,10 @@ export function Today({
           <span className="closed__mark">
             <ClosedGlyph />
           </span>
-          <h1 className="closed__title">Tänään ei pelata</h1>
-          <p className="closed__today">{finnishDateWithWeekday(today.date, today.weekday)}</p>
+          <h1 className="closed__title">{t.today.closedTitle}</h1>
+          <p className="closed__today">
+            {formatDateWithWeekday(locale, today.date, today.weekday)}
+          </p>
           <hr className="closed__rule" />
           {/* An empty schedule has no next playing day at all, so the
               heading and the hint beneath it would otherwise sit over
@@ -92,17 +103,17 @@ export function Today({
           {today.nextGameDate !== undefined && (
             <>
               <h2 className="section__label" style={{ marginTop: '18px' }}>
-                Seuraava pelipäivä
+                {t.today.nextGameDay}
               </h2>
               <p className="closed__next">
-                {finnishDateWithWeekday(today.nextGameDate, weekdayOf(today.nextGameDate))}
+                {formatDateWithWeekday(locale, today.nextGameDate, weekdayOf(today.nextGameDate))}
               </p>
               {/* Its own line rather than trailing the date, and outside
                   .closed__next: that rule capitalises what it holds, which
                   would turn Finnish's lower-case "klo" into "Klo". */}
               {nextTimes.length > 0 && <p className="closed__next-time">{nextTimes.join(', ')}</p>}
               <p className="field__hint" style={{ textAlign: 'center' }}>
-                Ilmoittautuminen avautuu pelipäivän aamuna
+                {t.today.opensOnTheMorning}
               </p>
             </>
           )}
@@ -110,7 +121,7 @@ export function Today({
 
         <section className="card" aria-labelledby="gamedays-title">
           <h2 className="section__label" id="gamedays-title">
-            Pelivuorot
+            {t.today.slotsHeading}
           </h2>
           <div className="weekstrip">
             {WEEK_LABELS.map((label, index) => {
@@ -128,17 +139,17 @@ export function Today({
           </div>
           {today.schedule.length === 0 ? (
             <p className="field__hint" style={{ textAlign: 'center' }}>
-              Pelivuoroja ei ole asetettu
+              {t.today.noSlotsSet}
             </p>
           ) : (
             // Seven columns cannot hold a time, so each slot gets its own
             // row here instead.
             <div className="weekslots">
               {today.schedule.map((slot) => {
-                const time = slotTime(slot);
+                const time = timeOf(slot);
                 return (
                   <div className="weekslots__row" key={slot.id}>
-                    <span>{weekdayName(slot.weekday)}</span>
+                    <span>{weekdayName(locale, slot.weekday)}</span>
                     {time !== undefined && <span>{` ${time}`}</span>}
                   </div>
                 );
@@ -157,7 +168,7 @@ export function Today({
   // Two slots on the same evening join on one line rather than stacking;
   // a slot that carries no time is left out rather than inventing one.
   const todayTimes = slotsOn(today.schedule, today.date)
-    .map((slot) => slotTime(slot))
+    .map((slot) => timeOf(slot))
     .filter((time): time is string => time !== undefined);
 
   const setGoalkeeper = async (
@@ -173,9 +184,7 @@ export function Today({
       // rather than a tick inside a panel covering it.
       setEditing(undefined);
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : `${displayName} merkitseminen ei onnistunut.`,
-      );
+      setError(cause instanceof Error ? cause.message : t.today.markFailed(displayName));
     } finally {
       setSaving(undefined);
     }
@@ -188,9 +197,7 @@ export function Today({
       await onUnregister(playerId);
       setConfirming(undefined);
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : `${displayName} poistaminen ei onnistunut.`,
-      );
+      setError(cause instanceof Error ? cause.message : t.today.removeFailed(displayName));
     } finally {
       setRemoving(undefined);
     }
@@ -199,12 +206,12 @@ export function Today({
   return (
     <>
       <section className="card" aria-labelledby="today-title">
-        <span className="pill">Pelipäivä</span>
+        <span className="pill">{t.today.pill}</span>
         <h1 className="today__weekday" id="today-title">
-          {weekdayName(today.weekday)}
+          {weekdayName(locale, today.weekday)}
         </h1>
         <p className="today__date">
-          {finnishDate(today.date)}
+          {formatDate(locale, today.date)}
           {todayTimes.length > 0 && (
             <span className="today__time">{` ${todayTimes.join(', ')}`}</span>
           )}
@@ -213,14 +220,14 @@ export function Today({
         <p className="today__count">
           <span className="today__count-number">{today.registrations.length}</span>
           <span className="today__count-label">
-            {today.registrations.length === 1 ? 'ilmoittautunut' : 'ilmoittautunutta'}
+            {t.today.registered(today.registrations.length)}
           </span>
         </p>
 
         {today.registrations.length === 0 ? (
-          <p className="field__hint">Kukaan ei ole vielä ilmoittautunut.</p>
+          <p className="field__hint">{t.today.nobodyYet}</p>
         ) : (
-          <ul className="chips" aria-label="Ilmoittautuneet">
+          <ul className="chips" aria-label={t.today.listLabel}>
             {today.registrations.map((registration) => {
               const keeper = registration.isGoalkeeper === true;
               // The goalkeeper colour rides along in every state, so the chip
@@ -234,19 +241,19 @@ export function Today({
                     <button
                       className="chip__confirm"
                       type="button"
-                      aria-label={`Vahvista: poista ${registration.displayName}`}
+                      aria-label={t.today.confirmRemove(registration.displayName)}
                       disabled={removing === registration.playerId}
                       onClick={() => void remove(registration.playerId, registration.displayName)}
                     >
-                      {removing === registration.playerId ? 'Poistetaan…' : 'Poista'}
+                      {removing === registration.playerId ? t.today.removing : t.today.remove}
                     </button>
                     <button
                       className="chip__cancel"
                       type="button"
-                      aria-label={`Peruuta: ${registration.displayName} jää listalle`}
+                      aria-label={t.today.cancelRemove(registration.displayName)}
                       onClick={() => setConfirming(undefined)}
                     >
-                      Peru
+                      {t.today.cancel}
                     </button>
                   </li>
                 );
@@ -269,14 +276,14 @@ export function Today({
                           )
                         }
                       />
-                      Maalivahti (MV)
+                      {t.today.goalkeeperBox}
                     </label>
                     <button
                       className="chip__done"
                       type="button"
                       onClick={() => setEditing(undefined)}
                     >
-                      Valmis
+                      {t.today.done}
                     </button>
                   </li>
                 );
@@ -299,14 +306,14 @@ export function Today({
                     {registration.displayName}
                   </button>
                   {keeper && (
-                    <span className="chip__mv" title="Maalivahti">
+                    <span className="chip__mv" title={t.today.goalkeeperMark}>
                       MV
                     </span>
                   )}
                   <button
                     className="chip__remove"
                     type="button"
-                    aria-label={`Poista ${registration.displayName}`}
+                    aria-label={t.today.removeNamed(registration.displayName)}
                     onClick={() => {
                       setError(undefined);
                       setEditing(undefined);
@@ -339,7 +346,7 @@ export function Today({
           try {
             await onRegister(name, token, isGoalkeeper);
           } catch (cause) {
-            setError(cause instanceof Error ? cause.message : 'Ilmoittautuminen ei onnistunut.');
+            setError(cause instanceof Error ? cause.message : t.today.registerFailed);
           }
         }}
       />

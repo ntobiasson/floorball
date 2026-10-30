@@ -1,4 +1,5 @@
 import { HISTORY_PATH } from '../lib/routes.js';
+import { useT } from '../lib/i18n/index.js';
 
 /**
  * The bottom tab bar: the day's list and the history.
@@ -15,6 +16,8 @@ export function Tabs({
   active: Tab;
   onNavigate: (tab: Tab) => void;
 }): React.ReactElement {
+  const t = useT();
+
   const link = (tab: Tab, label: string, href: string) => (
     <a
       className="tabs__link"
@@ -32,9 +35,9 @@ export function Tabs({
   );
 
   return (
-    <nav className="tabs" aria-label="Sivut">
-      {link('today', 'Tänään', '/')}
-      {link('history', 'Historia', HISTORY_PATH)}
+    <nav className="tabs" aria-label={t.tabs.pages}>
+      {link('today', t.tabs.today, '/')}
+      {link('history', t.tabs.history, HISTORY_PATH)}
     </nav>
   );
 }

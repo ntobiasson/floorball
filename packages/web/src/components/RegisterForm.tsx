@@ -3,6 +3,7 @@ import type { PlayerSummary } from '@sahlykanta/shared';
 import { MAX_NAME_LENGTH } from '@sahlykanta/shared';
 import { filterPlayers } from '../lib/search.js';
 import { TurnstileFailure } from './Turnstile.js';
+import { useT } from '../lib/i18n/index.js';
 
 const MAX_SUGGESTIONS = 6;
 
@@ -37,6 +38,7 @@ export function RegisterForm({
   /** Builds the widget again, for when the check has failed. */
   onRetryVerification: () => void;
 }): React.ReactElement {
+  const t = useT();
   const inputId = useId();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -91,7 +93,7 @@ export function RegisterForm({
       }}
     >
       <label className="field__label" htmlFor={inputId}>
-        Nimi
+        {t.register.name}
       </label>
       <input
         className="field__input"
@@ -100,10 +102,10 @@ export function RegisterForm({
         value={name}
         maxLength={MAX_NAME_LENGTH}
         autoComplete="off"
-        placeholder="Hae tai kirjoita nimi"
+        placeholder={t.register.namePlaceholder}
         onChange={(event) => setName(event.target.value)}
       />
-      <p className="field__hint">Ehdotetaan aiemmin pelanneista · uusi nimi käy myös</p>
+      <p className="field__hint">{t.register.hint}</p>
 
       {/* Above the suggestions, because tapping one of them registers that
           name immediately: below them, the box would sit past the point of
@@ -114,11 +116,11 @@ export function RegisterForm({
           checked={goalkeeper}
           onChange={(event) => setGoalkeeper(event.target.checked)}
         />
-        Ilmoittaudun maalivahdiksi
+        {t.register.asGoalkeeper}
       </label>
 
       {suggestions.length > 0 && (
-        <ul className="suggestions" aria-label="Ehdotukset">
+        <ul className="suggestions" aria-label={t.register.suggestions}>
           {suggestions.map((player) => (
             <li key={player.playerId}>
               <button
@@ -145,7 +147,7 @@ export function RegisterForm({
         aria-busy={busy}
         disabled={busy || name.trim().length === 0 || turnstileToken === undefined}
       >
-        {busy ? 'Ilmoittaudutaan…' : 'Ilmoittaudu'}
+        {busy ? t.register.submitting : t.register.submit}
       </button>
 
       {/* Stays beside the button rather than beside the widget at the foot of

@@ -253,8 +253,11 @@ describe('PATCH /api/registrations/:playerId/goalkeeper', () => {
 
     expect(res.status).toBe(404);
     // The route's own refusal, not Hono's catch-all: without this the test
-    // passes just as well when the route does not exist at all.
-    expect(await jsonBody<{ error: string }>(res)).toEqual({
+    // passes just as well when the route does not exist at all. Both halves
+    // are named — the code a translated page reads, and the Finnish any
+    // other caller gets.
+    expect(await jsonBody<{ code: string; error: string }>(res)).toEqual({
+      code: 'not-registered',
       error: 'nimeä ei löytynyt tämän päivän listalta',
     });
   });
@@ -842,5 +845,51 @@ describe('the write routes under a stored schedule', () => {
     const res = await post('/api/registrations', { name: 'Testi', gameDate: '2026-10-19' });
     expect(res.status).toBe(409);
     expect(await jsonBody<object>(res)).not.toHaveProperty('nextGameDate');
+  });
+});
+
+/**
+ * Every refusal carries a code as well as its Finnish sentence.
+ *
+ * The sentence stays: it is what a caller that is not this app's browser
+ * gets, and the last resort for a client meeting a code it does not know.
+ * The code is what a page speaking English or Ukrainian reads, because it
+ * cannot put Finnish prose in front of somebody and call it an error.
+ */
+describe('error codes', () => {
+  it.each([
+    [
+      'already-registered',
+      409,
+      () => post('/api/registrations', { name: 'Matti', gameDate: '2026-10-19' }),
+    ],
+    ['player-not-found', 404, () => app.request('/api/players/ei-ole')],
+    ['announcement-not-found', 404, () => del('/api/announcements/ei-ole')],
+    ['slot-not-found', 404, () => del('/api/schedule/ei-ole')],
+    ['not-found', 404, () => app.request('/api/ei-tallaista-reittia')],
+  ])('answers %s', async (code, status, call) => {
+    if (code === 'already-registered') {
+      await post('/api/registrations', { name: 'Matti', gameDate: '2026-10-19' });
+    }
+
+    const res = await call();
+    expect(res.status).toBe(status);
+
+    const body = await jsonBody<{ code: string; error: string }>(res);
+    expect(body.code).toBe(code);
+    // The Finnish is still there beside it.
+    expect(body.error).toMatch(/\S/);
+  });
+
+  it('codes a refused bot check, on every gated route alike', async () => {
+    const refused = createApp({ repo, now: () => MONDAY_MORNING, verifyTurnstile: refuse });
+    const res = await refused.request('/api/registrations', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Matti', gameDate: '2026-10-19' }),
+    });
+
+    expect(res.status).toBe(403);
+    expect((await jsonBody<{ code: string }>(res)).code).toBe('verification-failed');
   });
 });
