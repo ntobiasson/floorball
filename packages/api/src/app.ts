@@ -70,7 +70,13 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     verifyTurnstile({ token: tokenFrom(c, body), action, remoteIp: clientIpOf(c) });
 
   const refused = (c: Context) =>
-    c.json({ error: 'varmistus ei onnistunut — päivitä sivu ja yritä uudelleen' }, 403);
+    c.json(
+      {
+        code: 'verification-failed',
+        error: 'varmistus ei onnistunut — päivitä sivu ja yritä uudelleen',
+      },
+      403,
+    );
 
   /**
    * The one source of truth for "which day is it". Never taken from the
@@ -114,14 +120,14 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     try {
       raw = await c.req.json();
     } catch {
-      return c.json({ error: 'virheellinen pyyntö' }, 400);
+      return c.json({ code: 'invalid-request', error: 'virheellinen pyyntö' }, 400);
     }
 
     if (!(await verified(c, TURNSTILE_ACTIONS.register, raw))) return refused(c);
 
     const parsed = RegistrationInputSchema.safeParse(raw);
     if (!parsed.success) {
-      return c.json({ error: 'nimi tai päivä on virheellinen' }, 400);
+      return c.json({ code: 'invalid-registration', error: 'nimi tai päivä on virheellinen' }, 400);
     }
 
     const date = today();
@@ -130,6 +136,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       const nextGameDate = nextGameDay(slots, date);
       return c.json(
         {
+          code: 'not-a-game-day',
           error: 'tänään ei ole pelipäivä',
           ...(nextGameDate === undefined ? {} : { nextGameDate }),
         },
@@ -138,7 +145,10 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     }
     if (parsed.data.gameDate !== date) {
       // Not 400: the request is well formed, it is just aimed at another day.
-      return c.json({ error: 'ilmoittautuminen on auki vain tälle päivälle', date }, 409);
+      return c.json(
+        { code: 'wrong-day', error: 'ilmoittautuminen on auki vain tälle päivälle', date },
+        409,
+      );
     }
 
     try {
@@ -155,10 +165,10 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       return c.json(result, 201);
     } catch (error) {
       if (error instanceof AlreadyRegisteredError) {
-        return c.json({ error: 'nimi on jo listalla' }, 409);
+        return c.json({ code: 'already-registered', error: 'nimi on jo listalla' }, 409);
       }
       if (error instanceof EmptyNameError) {
-        return c.json({ error: 'nimi puuttuu' }, 400);
+        return c.json({ code: 'name-missing', error: 'nimi puuttuu' }, 400);
       }
       throw error;
     }
@@ -167,7 +177,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
   app.delete('/api/registrations/:playerId', async (c) => {
     const date = today();
     if (!isGameDay(await schedule(), date)) {
-      return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
+      return c.json({ code: 'not-a-game-day', error: 'tänään ei ole pelipäivä' }, 409);
     }
 
     try {
@@ -179,7 +189,10 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       return c.body(null, 204);
     } catch (error) {
       if (error instanceof NotRegisteredError) {
-        return c.json({ error: 'nimeä ei löytynyt tämän päivän listalta' }, 404);
+        return c.json(
+          { code: 'not-registered', error: 'nimeä ei löytynyt tämän päivän listalta' },
+          404,
+        );
       }
       throw error;
     }
@@ -197,15 +210,16 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     try {
       raw = await c.req.json();
     } catch {
-      return c.json({ error: 'virheellinen pyyntö' }, 400);
+      return c.json({ code: 'invalid-request', error: 'virheellinen pyyntö' }, 400);
     }
 
     const parsed = GoalkeeperInputSchema.safeParse(raw);
-    if (!parsed.success) return c.json({ error: 'virheellinen pyyntö' }, 400);
+    if (!parsed.success)
+      return c.json({ code: 'invalid-request', error: 'virheellinen pyyntö' }, 400);
 
     const date = today();
     if (!isGameDay(await schedule(), date)) {
-      return c.json({ error: 'tänään ei ole pelipäivä' }, 409);
+      return c.json({ code: 'not-a-game-day', error: 'tänään ei ole pelipäivä' }, 409);
     }
 
     try {
@@ -217,7 +231,10 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       return c.body(null, 204);
     } catch (error) {
       if (error instanceof NotRegisteredError) {
-        return c.json({ error: 'nimeä ei löytynyt tämän päivän listalta' }, 404);
+        return c.json(
+          { code: 'not-registered', error: 'nimeä ei löytynyt tämän päivän listalta' },
+          404,
+        );
       }
       throw error;
     }
@@ -244,7 +261,8 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
 
   app.get('/api/players/:playerId', async (c) => {
     const player = await repo.getPlayer(c.req.param('playerId'));
-    if (player === null) return c.json({ error: 'pelaajaa ei löytynyt' }, 404);
+    if (player === null)
+      return c.json({ code: 'player-not-found', error: 'pelaajaa ei löytynyt' }, 404);
     return c.json(player);
   });
 
@@ -261,7 +279,8 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
   app.get('/api/players/:playerId/dates', async (c) => {
     const playerId = c.req.param('playerId');
     const player = await repo.getPlayer(playerId);
-    if (player === null) return c.json({ error: 'pelaajaa ei löytynyt' }, 404);
+    if (player === null)
+      return c.json({ code: 'player-not-found', error: 'pelaajaa ei löytynyt' }, 404);
 
     const dates = await repo.listPlayerDates(playerId);
     c.header('cache-control', `public, max-age=${HISTORY_CACHE_SECONDS}`);
@@ -291,13 +310,14 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     try {
       raw = await c.req.json();
     } catch {
-      return c.json({ error: 'virheellinen pyyntö' }, 400);
+      return c.json({ code: 'invalid-request', error: 'virheellinen pyyntö' }, 400);
     }
 
     if (!(await verified(c, TURNSTILE_ACTIONS.announce, raw))) return refused(c);
 
     const parsed = AnnouncementInputSchema.safeParse(raw);
-    if (!parsed.success) return c.json({ error: 'tiedote on virheellinen' }, 400);
+    if (!parsed.success)
+      return c.json({ code: 'invalid-announcement', error: 'tiedote on virheellinen' }, 400);
 
     const created = await repo.createAnnouncement(parsed.data);
     return c.json(created, 201);
@@ -312,7 +332,7 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       return c.body(null, 204);
     } catch (error) {
       if (error instanceof AnnouncementNotFoundError) {
-        return c.json({ error: 'tiedotetta ei löytynyt' }, 404);
+        return c.json({ code: 'announcement-not-found', error: 'tiedotetta ei löytynyt' }, 404);
       }
       throw error;
     }
@@ -336,19 +356,20 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     try {
       raw = await c.req.json();
     } catch {
-      return c.json({ error: 'virheellinen pyyntö' }, 400);
+      return c.json({ code: 'invalid-request', error: 'virheellinen pyyntö' }, 400);
     }
 
     if (!(await verified(c, TURNSTILE_ACTIONS.settings, raw))) return refused(c);
 
     const parsed = GameSlotInputSchema.safeParse(raw);
-    if (!parsed.success) return c.json({ error: 'pelivuoro on virheellinen' }, 400);
+    if (!parsed.success)
+      return c.json({ code: 'invalid-slot', error: 'pelivuoro on virheellinen' }, 400);
 
     // Read before write: the partition holds a handful of rows, and a wrong
     // duplicate is worse than the extra round trip.
     const { slots: existing } = await repo.listSlots();
     if (hasSameSlot(existing, parsed.data)) {
-      return c.json({ error: 'pelivuoro on jo listalla' }, 409);
+      return c.json({ code: 'slot-already-listed', error: 'pelivuoro on jo listalla' }, 409);
     }
 
     const created = await repo.createSlot(parsed.data);
@@ -364,13 +385,14 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
       return c.body(null, 204);
     } catch (error) {
       if (error instanceof SlotNotFoundError) {
-        return c.json({ error: 'pelivuoroa ei löytynyt' }, 404);
+        return c.json({ code: 'slot-not-found', error: 'pelivuoroa ei löytynyt' }, 404);
       }
       throw error;
     }
   });
 
-  app.notFound((c) => c.json({ error: 'not found' }, 404));
+  // Finnish like every other message here; it was English by oversight.
+  app.notFound((c) => c.json({ code: 'not-found', error: 'sivua ei löytynyt' }, 404));
 
   /**
    * Every error leaves as JSON, because the SPA parses every response body as
@@ -381,14 +403,20 @@ export function createApp({ repo, now = () => new Date(), verifyTurnstile }: App
     if (error instanceof PlayerRaceError) {
       // Transient: two people submitted the same new name at the same instant.
       c.header('retry-after', '1');
-      return c.json({ error: 'yritä uudelleen' }, 503);
+      return c.json({ code: 'try-again', error: 'yritä uudelleen' }, 503);
     }
     if (error instanceof CorruptedPlayerError) {
       console.error(error.message);
-      return c.json({ error: 'pelaajan tiedot ovat epäkunnossa — ota yhteyttä ylläpitoon' }, 500);
+      return c.json(
+        {
+          code: 'corrupted-player',
+          error: 'pelaajan tiedot ovat epäkunnossa — ota yhteyttä ylläpitoon',
+        },
+        500,
+      );
     }
     console.error(error);
-    return c.json({ error: 'palvelussa tapahtui virhe' }, 500);
+    return c.json({ code: 'server-error', error: 'palvelussa tapahtui virhe' }, 500);
   });
 
   return app;

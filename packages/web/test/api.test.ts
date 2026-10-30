@@ -295,3 +295,32 @@ describe('the history call', () => {
     await expect(api.history()).rejects.toThrow('historiaa ei saatu');
   });
 });
+
+describe('the error a refused call throws', () => {
+  test('carries the code alongside the server’s own sentence', async () => {
+    respondWith(JSON.stringify({ code: 'already-registered', error: 'nimi on jo listalla' }), {
+      status: 409,
+      headers: { 'content-type': 'application/json' },
+    });
+
+    // Both halves reach the caller: the code for a page that has to say this
+    // in English or Ukrainian, the sentence for when it meets a code it does
+    // not know.
+    await expect(api.register('Matti', '2026-10-19', 'a-token')).rejects.toMatchObject({
+      status: 409,
+      code: 'already-registered',
+      message: 'nimi on jo listalla',
+    });
+  });
+
+  test('has no code when the server sent none', async () => {
+    // A proxy error page, a CDN, a captive portal: something answered that
+    // was not this API, and there is nothing to look up.
+    respondWith('<html>502</html>', { status: 502 });
+
+    await expect(api.register('Matti', '2026-10-19', 'a-token')).rejects.toMatchObject({
+      status: 502,
+      code: undefined,
+    });
+  });
+});

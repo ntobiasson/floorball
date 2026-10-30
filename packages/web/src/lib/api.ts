@@ -21,11 +21,19 @@ import {
 
 export class ApiError extends Error {
   readonly status: number;
+  /**
+   * What went wrong, as something a translated page can read. The `message`
+   * beside it is the server's Finnish, kept as the last resort for a code
+   * this client does not know — and for anything that failed before the API
+   * could answer at all, which carries no code.
+   */
+  readonly code: string | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -61,11 +69,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    const message =
-      typeof body === 'object' && body !== null && 'error' in body
-        ? String((body as { error: unknown }).error)
-        : 'Jotain meni vikaan. Yritä uudelleen.';
-    throw new ApiError(response.status, message);
+    const named =
+      typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+    const message = 'error' in named ? String(named.error) : 'Jotain meni vikaan. Yritä uudelleen.';
+    const code = typeof named.code === 'string' ? named.code : undefined;
+    throw new ApiError(response.status, message, code);
   }
 
   return body as T;

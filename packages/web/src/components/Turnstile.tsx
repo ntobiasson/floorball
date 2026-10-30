@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { TurnstileAction } from '@sahlykanta/shared';
 import { TURNSTILE_SITEKEY, loadTurnstile } from '../lib/turnstile.js';
+import { useT } from '../lib/i18n/index.js';
 
 /**
  * The bot check that sits in front of a write. It identifies nobody — there
@@ -135,14 +136,15 @@ export function TurnstileFailure({
   code: string | undefined;
   onRetry: () => void;
 }): React.ReactElement {
+  const t = useT();
   return (
     <>
       <p className="field__error" role="alert">
-        Varmistusta ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen.
-        {code !== undefined && ` (virhekoodi ${code})`}
+        {t.check.failed}
+        {code !== undefined && t.check.code(code)}
       </p>
       <button className="button button--quiet" type="button" onClick={onRetry}>
-        Yritä varmistusta uudelleen
+        {t.check.retry}
       </button>
     </>
   );

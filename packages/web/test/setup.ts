@@ -17,6 +17,27 @@ import type { TurnstileApi, TurnstileRenderOptions } from '../src/lib/turnstile.
  */
 export const TEST_TURNSTILE_TOKEN = 'test-turnstile-token';
 
+/**
+ * Finnish, unless a test says otherwise.
+ *
+ * jsdom reports `en-US`, so without this the app would detect English and
+ * every assertion on Finnish copy in this suite — several hundred of them —
+ * would fail at once, saying nothing more useful than that the language
+ * changed. Finnish is also what a visitor without a stored choice and
+ * without a recognised browser language gets, so this is the app's own
+ * default rather than a convenience for the tests.
+ *
+ * A test that wants another language overrides `navigator.languages` or
+ * stores a choice itself; this runs first and puts it back afterwards.
+ */
+beforeEach(() => {
+  window.localStorage.clear();
+  Object.defineProperty(window.navigator, 'languages', {
+    value: ['fi-FI'],
+    configurable: true,
+  });
+});
+
 beforeEach(() => {
   let widgets = 0;
 

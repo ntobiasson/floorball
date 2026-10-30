@@ -1,4 +1,15 @@
 <!doctype html>
+<!--
+  `lang` is Finnish here and changed at runtime once the app knows which
+  language it is speaking. Finnish is the right thing to serve: it is what
+  this page is, and a crawler reads this shell rather than anything React
+  renders over it.
+
+  The title and the description stay Finnish for the same reason, and the
+  title would anyway — "Peleille" is the thing's name, not a word to
+  translate. Varying the description per visitor would change nothing for
+  the only readers it has.
+-->
 <html lang="fi">
   <head>
     <meta charset="utf-8" />
@@ -8,9 +19,16 @@
     <title>Peleille</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Figtree carries no Cyrillic at all, so Ukrainian would otherwise fall
+      back to whatever the system supplies. Manrope is asked for beside it and
+      takes over wholesale under html[lang='uk'] — see theme.css. Google splits
+      each family by unicode-range, so a Finnish or English visitor never
+      downloads the Cyrillic bytes.
+    -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&family=Manrope:wght@400;500;700;800&display=swap"
     />
     <link
       rel="icon"

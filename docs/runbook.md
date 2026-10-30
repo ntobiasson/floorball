@@ -265,6 +265,49 @@ proves a person is there, not which person. If _that_ stops being acceptable
 realistic options are still a shared secret on the write surfaces, or
 CloudFront with a signed cookie. Neither is in place.
 
+## Languages
+
+The app speaks Finnish, English and Ukrainian. It reads the browser's
+languages on load, takes the first one it has, and falls back to Finnish for
+anything else — Swedish included. A `<select>` in the header overrides that,
+and the choice is kept in `localStorage` under `peleille.locale`. Clearing
+site data forgets it and the browser decides again.
+
+To see another language without changing browser settings, set the key from
+the console and reload:
+
+```js
+localStorage.setItem('peleille.locale', 'uk');
+```
+
+Nothing is per-language on the server. There are no translated URLs: the
+addresses stay Finnish in every language, `/tiedotteet` and `/asetukset`
+included, because they are meant to be speakable over the phone. The HTML
+shell is served as Finnish and its `lang` is corrected in the browser once
+the app knows better, so a crawler sees the Finnish page — which is what
+this page is.
+
+**What is not translated, and will not be.** Announcement bodies are free
+text somebody typed, with no language recorded; a translated interface does
+not touch them, so an announcement a teammate cannot read stays unreadable.
+Writing it in two languages is the only fix, and that is a matter for
+whoever posts it. Player names are names. The retro page at seven taps on
+the mark is a reproduction of the 2002 Domino application and has exactly
+one language, permanently — two of its images have Finnish rendered into the
+pixels anyway.
+
+**Changing or adding wording.** Everything the app says lives in
+`packages/web/src/lib/i18n/`: `fi.ts` is the Finnish copy and also the
+contract, and `en.ts` and `uk.ts` are checked against it at build time. A key
+missing from one of them fails `npm run typecheck` rather than showing
+`undefined` to somebody. Dates, times and the ordering of names come from
+`Intl` via `packages/web/src/lib/format.ts`, so no weekday names or month
+orders are written down anywhere.
+
+The Ukrainian was drafted rather than written by a speaker. It is worth
+having one read `uk.ts` — corrections belong in that file alone and need no
+other change.
+
 ## Importing the history out of Domino
 
 Do this **before the Domino server is switched off**. There is no other copy of
